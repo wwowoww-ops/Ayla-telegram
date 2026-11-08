@@ -2,7 +2,7 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║          AYLA MARRIAGE CORE          ║
- * ║                 v2.2                 ║
+ * ║                 v2.3                 ║
  * ╚══════════════════════════════════════╝
  *
  * - تسجيل الجنس
@@ -15,6 +15,7 @@
  * - Atomic financial transactions
  * - Serialized marriage operations
  * - Safe in-memory balance updates
+ * - Automatic player record creation
  * - Admin test marriage
  */
 
@@ -227,6 +228,41 @@ async function saveNow() {
 }
 
 // ==================================================
+// PLAYER RECORDS
+// ==================================================
+
+function ensurePlayerRecord(user) {
+    if (!user || !user.id) {
+        throw new Error("بيانات اللاعب غير صالحة.");
+    }
+
+    const key = id(user.id);
+
+    const ensured = ui.ensure(user);
+    let player = store.get(key);
+
+    if (!player && ensured) {
+        player = ensured;
+        store.set(key, player);
+    }
+
+    if (!player) {
+        throw new Error("تعذر إنشاء بيانات اللاعب.");
+    }
+
+    const balance = Number(player.coins || 0);
+
+    if (!Number.isSafeInteger(balance) || balance < 0) {
+        throw new Error("رصيد اللاعب غير صالح.");
+    }
+
+    return {
+        ...player,
+        coins: balance
+    };
+}
+
+// ==================================================
 // FINANCIAL TRANSACTIONS
 // ==================================================
 
@@ -327,7 +363,7 @@ function getPlayer(user) {
         throw new Error("الحساب غير صالح.");
     }
 
-    return ui.ensure(user);
+    return ensurePlayerRecord(user);
 }
 
 function getBalance(user) {
@@ -393,7 +429,10 @@ function createRequest(husband, wife, dowry, chatId) {
         throw new Error("يجب أن يكون المهر مبلغًا صحيحًا أكبر من صفر.");
     }
 
-    if (getBalance(husband) < dowry) {
+    const husbandData = ensurePlayerRecord(husband);
+    ensurePlayerRecord(wife);
+
+    if (husbandData.coins < dowry) {
         throw new Error("رصيدك لا يكفي لدفع هذا المهر.");
     }
 
@@ -624,17 +663,17 @@ async function forceTestMarriage(husband, wife, dowry = 500, chatId) {
             throw new Error("أحد الحسابين متزوج بالفعل، لم يتم خصم أي مبلغ.");
         }
 
-        // تأكد من وجود بيانات حساب البوت.
-        ui.ensure(wife);
-
-        const husbandData = getStoredPlayer(husbandId);
-        const wifeData = getStoredPlayer(wifeId);
+        const husbandData = ensurePlayerRecord(husband);
+        const wifeData = ensurePlayerRecord(wife);
 
         if (husbandData.coins < dowry) {
             throw new Error("رصيدك لا يكفي للمهر.");
         }
 
-        if (wifeData.coins + dowry > Number.MAX_SAFE_INTEGER) {
+        if (
+            wifeData.coins + dowry >
+            Number.MAX_SAFE_INTEGER
+        ) {
             throw new Error("رصيد حساب البوت سيتجاوز الحد المسموح.");
         }
 
