@@ -2,7 +2,7 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║             AYLA SERVICES            ║
- * ║                 v2.2                 ║
+ * ║                 v2.3                 ║
  * ╚══════════════════════════════════════╝
  */
 
@@ -15,6 +15,8 @@ const {
     digits
 } = require("../lib/util");
 
+const fs = require("fs");
+const path = require("path");
 const { InputFile } = require("grammy");
 const sharp = require("sharp");
 const stats = require("../lib/groupStats");
@@ -40,17 +42,27 @@ function stylize(text) {
 const HEADER = service =>
     `❀ ━━ 𝗔𝗬𝗟𝗔 〢 ${stylize(service)} ━━ ❀`;
 
-const FOOTER = "❀ نتمنى لك يومًا جميلًا ❀";
+const FOOTER = "❀ ━━━━━━━━━━━━━ ❀";
 
 const sessions = new Map();
 
 // ==================================================
-// SAKURA AVATAR FRAME
+// SAKURA AVATAR FRAME — ORIGINAL AYLA FRAME
 // ==================================================
+
+const FRAME_PATH = path.join(
+    __dirname,
+    "../assets/ayla-frame.png"
+);
 
 async function getFramedAvatar(ctx, target, bot) {
     try {
         if (target.is_bot) return null;
+
+        if (!fs.existsSync(FRAME_PATH)) {
+            console.error("[AYLA AVATAR] Frame file not found");
+            return null;
+        }
 
         const photos = await ctx.api.getUserProfilePhotos(
             target.id,
@@ -70,92 +82,39 @@ async function getFramedAvatar(ctx, target, bot) {
             `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`
         );
 
-        if (!response.ok) return null;
+        if (!response.ok) {
+            throw new Error("Failed to download profile photo");
+        }
 
         const original = Buffer.from(
             await response.arrayBuffer()
         );
 
-        const frame = Buffer.from(`
-            <svg width="512" height="512"
-                 viewBox="0 0 512 512"
-                 xmlns="http://www.w3.org/2000/svg">
+        // تجهيز الإطار الأصلي مع الحفاظ على شفافيته
+        const frame = await sharp(FRAME_PATH)
+            .resize(1024, 1024, {
+                fit: "fill"
+            })
+            .png()
+            .toBuffer();
 
-                <rect x="7" y="7" width="498" height="498"
-                      rx="100"
-                      fill="none"
-                      stroke="#ff91bd"
-                      stroke-width="12"/>
-
-                <rect x="20" y="20" width="472" height="472"
-                      rx="88"
-                      fill="none"
-                      stroke="#ffffff"
-                      stroke-width="3"/>
-
-                <g fill="#ff9fc8"
-                   stroke="#ffffff"
-                   stroke-width="2">
-
-                    <g transform="translate(55 55)">
-                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
-                        <ellipse cx="15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 15 0)"/>
-                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
-                        <ellipse cx="-15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 -15 0)"/>
-                        <circle r="7" fill="#ffe8a8"/>
-                    </g>
-
-                    <g transform="translate(457 55)">
-                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
-                        <ellipse cx="15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 15 0)"/>
-                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
-                        <ellipse cx="-15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 -15 0)"/>
-                        <circle r="7" fill="#ffe8a8"/>
-                    </g>
-
-                    <g transform="translate(55 457)">
-                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
-                        <ellipse cx="15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 15 0)"/>
-                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
-                        <ellipse cx="-15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 -15 0)"/>
-                        <circle r="7" fill="#ffe8a8"/>
-                    </g>
-
-                    <g transform="translate(457 457)">
-                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
-                        <ellipse cx="15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 15 0)"/>
-                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
-                        <ellipse cx="-15" cy="0" rx="10" ry="15"
-                                 transform="rotate(90 -15 0)"/>
-                        <circle r="7" fill="#ffe8a8"/>
-                    </g>
-                </g>
-
-                <g fill="#ffb6d2">
-                    <circle cx="120" cy="25" r="4"/>
-                    <circle cx="390" cy="25" r="4"/>
-                    <circle cx="25" cy="250" r="4"/>
-                    <circle cx="487" cy="250" r="4"/>
-                    <circle cx="120" cy="487" r="4"/>
-                    <circle cx="390" cy="487" r="4"/>
-                </g>
-            </svg>
-        `);
-
-        return await sharp(original)
-            .resize(512, 512, {
+        // تجهيز صورة المستخدم
+        const avatar = await sharp(original)
+            .rotate()
+            .resize(1024, 1024, {
                 fit: "cover",
                 position: "centre"
             })
+            .png()
+            .toBuffer();
+
+        // وضع الصورة خلف الإطار الأصلي
+        return await sharp(avatar)
             .composite([
-                { input: frame, blend: "over" }
+                {
+                    input: frame,
+                    blend: "over"
+                }
             ])
             .png()
             .toBuffer();
