@@ -2,11 +2,11 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA MENU               ║
- * ║                 v2.1                 ║
+ * ║                 v2.2                 ║
  * ╚══════════════════════════════════════╝
  */
 
-const { esc, nameOf, HTML, cmd } = require("../lib/util");
+const { cmd } = require("../lib/util");
 const { InlineKeyboard } = require("grammy");
 
 const PHOTO_URL = "https://files.catbox.moe/ccdo9v.jpg";
@@ -38,17 +38,33 @@ const CATEGORIES = {
     animals: {
         text:
             "🐲 <b>لعبة الحيوان</b>\n\n" +
+
+            "✿ <b>الحيوان</b>\n" +
             "• حيواني\n" +
             "• بيض\n" +
+            "• حضانة\n" +
+            "• سوق\n" +
+            "• متجر\n" +
             "• صيد\n" +
             "• عناصر\n" +
             "• ترتيب\n" +
+            "• المتصدرين\n" +
+            "• توب\n" +
+            "• الأغنياء\n" +
             "• جمع\n" +
+            "• أرباح\n" +
+            "• تسمية\n\n" +
+
+            "✿ <b>الاقتصاد</b>\n" +
             "• يومي\n" +
+            "• راتب\n" +
+            "• مكافأة\n" +
             "• رصيد\n" +
-            "• تسمية\n" +
-            "• تحويل\n" +
-            "• مبارزة"
+            "• تحويل\n\n" +
+
+            "✿ <b>المبارزة</b>\n" +
+            "• مبارزة\n" +
+            "• نزال"
     },
 
     games: {
@@ -67,12 +83,8 @@ const CATEGORIES = {
         text:
             "🛠️ <b>الخدمات</b>\n\n" +
             "• ايدي\n" +
+            "• المجموعة\n" +
             "• وقت\n" +
-            "• حساب\n" +
-            "• كلمة_سر\n" +
-            "• عكس\n" +
-            "• عد\n" +
-            "• منشن\n" +
             "• بادئة"
     }
 };
@@ -119,6 +131,7 @@ module.exports = function (bot) {
         sendMainMenu(ctx.api, ctx.chat.id)
     );
 
+    // Help commands
     cmd(
         bot,
         ["اوامر", "الاوامر", "أوامر", "الأوامر", "مساعدة", "قائمة"],
@@ -152,14 +165,6 @@ module.exports = function (bot) {
             return sendCategory(ctx.api, chatId, action);
         }
     });
-
-    // Mention
-    cmd(bot, ["منشن"], ctx =>
-        ctx.reply(
-            `مرحبًا <a href="tg://user?id=${ctx.from.id}">${esc(nameOf(ctx.from))}</a> 👋`,
-            HTML
-        )
-    );
 
     // Ping
     bot.command("ping", ctx =>
