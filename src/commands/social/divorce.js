@@ -1,14 +1,16 @@
 
 /**
  * ╔══════════════════════════════════════╗
- * ║            AYLA DIVORCE              ║
- * ║                 v1.0                 ║
+ * ║             AYLA DIVORCE             ║
+ * ║                 v1.1                 ║
  * ╚══════════════════════════════════════╝
  */
 
 const { InlineKeyboard } = require("grammy");
 const { cmd, esc } = require("../../lib/util");
 const M = require("../../core/marriage");
+
+const FOOTER = "\n\n❀ ━━━━━━━━━━━━━ ❀";
 
 module.exports = function (bot) {
 
@@ -30,16 +32,17 @@ module.exports = function (bot) {
 
         const keyboard = new InlineKeyboard()
             .text("⚖️ تأكيد الطلاق", `divorce:confirm:${ctx.from.id}`)
-            .text("↩ إلغاء", "divorce:cancel");
+            .text("↩ إلغاء", `divorce:cancel:${ctx.from.id}`);
 
         return ctx.reply(
             "❀ ━━ 𝗔𝗬𝗟𝗔 〢 𝗗𝗜𝗩𝗢𝗥𝗖𝗘 ━━ ❀\n\n" +
-            "⚖️ طلب إنهاء الزواج\n\n" +
+            "⚖️ تأكيد إنهاء الزواج\n\n" +
             `الشريكة: ${esc(marriage.wifeName)}\n` +
-            `المهر المسجل: ${marriage.dowry.toLocaleString("en-US")} VLT\n\n` +
-            "هل أنت متأكد من إنهاء الزواج؟\n" +
+            `المهر المسجل: ${Number(marriage.dowry).toLocaleString("en-US")} VLT\n\n` +
+            "سيؤدي التأكيد إلى إنهاء الزواج نهائيًا.\n" +
             "لن يتم استرداد المهر تلقائيًا.\n\n" +
-            "خذ وقتك في التفكير، فالقرار نهائي.",
+            "هل تريد المتابعة؟" +
+            FOOTER,
             { reply_markup: keyboard }
         );
     }, {
@@ -49,17 +52,34 @@ module.exports = function (bot) {
 
     bot.callbackQuery(/^divorce:/, async ctx => {
         const action = ctx.callbackQuery.data;
+        const userId = String(ctx.from.id);
 
-        if (action === "divorce:cancel") {
-            await ctx.answerCallbackQuery("تم إلغاء العملية.");
-            return ctx.editMessageText("↩ تم إلغاء طلب الطلاق.");
+        const cancel = /^divorce:cancel:(\d+)$/.exec(action);
+
+        if (cancel) {
+            if (userId !== cancel[1]) {
+                return ctx.answerCallbackQuery({
+                    text: "هذا التأكيد ليس مخصصًا لك.",
+                    show_alert: true
+                });
+            }
+
+            await ctx.answerCallbackQuery({
+                text: "تم إلغاء العملية."
+            });
+
+            return ctx.editMessageText(
+                "↩ تم إلغاء طلب الطلاق." + FOOTER
+            );
         }
 
-        const match = /^divorce:confirm:(\d+)$/.exec(action);
+        const confirm = /^divorce:confirm:(\d+)$/.exec(action);
 
-        if (!match) return ctx.answerCallbackQuery();
+        if (!confirm) {
+            return ctx.answerCallbackQuery();
+        }
 
-        if (String(ctx.from.id) !== match[1]) {
+        if (userId !== confirm[1]) {
             return ctx.answerCallbackQuery({
                 text: "هذا التأكيد ليس مخصصًا لك.",
                 show_alert: true
@@ -67,9 +87,11 @@ module.exports = function (bot) {
         }
 
         try {
-            await M.endMarriage(ctx.from.id, "divorce", 0);
+            await M.endMarriage(userId, "divorce", 0);
 
-            await ctx.answerCallbackQuery("تم تسجيل الطلاق.");
+            await ctx.answerCallbackQuery({
+                text: "تم تسجيل الطلاق."
+            });
 
             return ctx.editMessageText(
                 "❀ ━━ 𝗔𝗬𝗟𝗔 〢 𝗗𝗜𝗩𝗢𝗥𝗖𝗘 ━━ ❀\n\n" +
@@ -77,9 +99,10 @@ module.exports = function (bot) {
                 "انتهت هذه المرحلة، ونتمنى للطرفين التوفيق والاحترام.\n\n" +
                 "❀ ━━━━━━━━━━━━━ ❀"
             );
+
         } catch (error) {
             return ctx.answerCallbackQuery({
-                text: error.message,
+                text: error.message || "تعذر تنفيذ العملية.",
                 show_alert: true
             });
         }
