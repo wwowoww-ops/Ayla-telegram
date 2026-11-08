@@ -2,30 +2,34 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA STORE               ║
- * ║                 v2.0                 ║
+ * ║                 v2.1                 ║
  * ╚══════════════════════════════════════╝
  *
- * اللاعبين وإعدادات المجموعات:
- * - العمل في الذاكرة.
- * - الحفظ الدوري في PostgreSQL.
- * - الحفظ عند إغلاق البوت.
- * - لا توجد استعلامات مع كل رسالة.
+ * تخزين اقتصادي لـ PostgreSQL / Neon
+ * اللاعبون: كل 20 دقيقة عند وجود تغييرات.
+ * المجموعات: كل 5 دقائق عند وجود تغييرات.
+ * الإغلاق: محاولة حفظ كل البيانات المعلّقة.
  */
 
 const { Pool } = require("pg");
 
-const FLUSH_MS = Number(process.env.FLUSH_MINUTES || 20) * 60 * 1000;
+// ==================================================
+// SETTINGS
+// ==================================================
+
+const PLAYER_FLUSH_MS =
+    Number(process.env.FLUSH_MINUTES || 20) * 60 * 1000;
+
+const GROUP_FLUSH_MS = 5 * 60 * 1000;
+
+const BATCH_SIZE = 200;
 
 // ==================================================
-// PLAYERS
+// MEMORY
 // ==================================================
 
 const players = new Map();
 const dirty = new Set();
-
-// ==================================================
-// GROUP SETTINGS
-// ==================================================
 
 const groupSettings = new Map();
 const dirtyGroups = new Set();
@@ -35,7 +39,9 @@ const dirtyGroups = new Set();
 // ==================================================
 
 let pool = null;
-let timer = null;
+let playerTimer = null;
+let groupTimer = null;
+
 let flushing = Promise.resolve();
 
 function connect(rawUrl) {
@@ -55,9 +61,9 @@ function connect(rawUrl) {
         connectionTimeoutMillis: 30000
     });
 
-    pool.on("error", e =>
-        console.error("[DB] اتصال خامل انقطع:", e.message)
-    );
+    pool.on("error", e => {
+        console.error("[DB] اتصال خامل انقطع:", e.message);
+    });
 }
 
 async function retry(fn, tries = 3) {
@@ -67,8 +73,8 @@ async function retry(fn, tries = 3) {
         } catch (e) {
             if (i >= tries - 1) throw e;
 
-            await new Promise(r =>
-                setTimeout(r, 1500 * (i + 1))
+            await new Promise(resolve =>
+                setTimeout(resolve, 1500 * (i + 1))
             );
         }
     }
@@ -81,7 +87,6 @@ async function retry(fn, tries = 3) {
 async function init(url) {
     connect(url);
 
-    // جدول اللاعبين
     await retry(() => pool.query(`
         CREATE TABLE IF NOT EXISTS players (
             id BIGINT PRIMARY KEY,
@@ -90,7 +95,6 @@ async function init(url) {
         )
     `));
 
-    // جدول إعدادات المجموعات
     await retry(() => pool.query(`
         CREATE TABLE IF NOT EXISTS group_settings (
             id BIGINT PRIMARY KEY,
@@ -99,7 +103,7 @@ async function init(url) {
         )
     `));
 
-    // تحميل اللاعبين
+    // تحميل اللاعبين مرة واحدة
     const playerResult = await retry(() =>
         pool.query("SELECT id, data FROM players")
     );
@@ -107,16 +111,16 @@ async function init(url) {
     players.clear();
     dirty.clear();
 
-    for (const r of playerResult.rows) {
+    for (const row of playerResult.rows) {
         players.set(
-            String(r.id),
-            typeof r.data === "string"
-                ? JSON.parse(r.data)
-                : r.data
+            String(row.id),
+            typeof row.data === "string"
+                ? JSON.parse(row.data)
+                : row.data
         );
     }
 
-    // تحميل إعدادات المجموعات
+    // تحميل إعدادات المجموعات مرة واحدة
     const groupResult = await retry(() =>
         pool.query("SELECT id, data FROM group_settings")
     );
@@ -124,41 +128,46 @@ async function init(url) {
     groupSettings.clear();
     dirtyGroups.clear();
 
-    for (const r of groupResult.rows) {
+    for (const row of groupResult.rows) {
         groupSettings.set(
-            String(r.id),
-            typeof r.data === "string"
-                ? JSON.parse(r.data)
-                : r.data
+            String(row.id),
+            typeof row.data === "string"
+                ? JSON.parse(row.data)
+                : row.data
         );
     }
 
     console.log(
-        "✅ [DB] تم تحميل " +
-        players.size + " لاعب و " +
-        groupSettings.size + " مجموعة"
+        `✅ [DB] ${players.size} لاعب | ${groupSettings.size} مجموعة`
     );
 
-    // حفظ دوري واحد للنظامين
-    timer = setInterval(() => {
-        flush().catch(() => {});
-    }, FLUSH_MS);
+    // مؤقت اللاعبين: 20 دقيقة
+    playerTimer = setInterval(() => {
+        flushPlayers().catch(() => {});
+    }, PLAYER_FLUSH_MS);
 
-    if (timer.unref) timer.unref();
+    // مؤقت إعدادات المجموعات: 5 دقائق
+    groupTimer = setInterval(() => {
+        flushGroups().catch(() => {});
+    }, GROUP_FLUSH_MS);
+
+    if (playerTimer.unref) playerTimer.unref();
+    if (groupTimer.unref) groupTimer.unref();
 
     return players.size;
 }
 
 // ==================================================
-// PLAYER API
+// PLAYERS API
 // ==================================================
 
 const get = id =>
     players.get(String(id)) || null;
 
-const set = (id, p) => {
-    players.set(String(id), p);
-    dirty.add(String(id));
+const set = (id, data) => {
+    const key = String(id);
+    players.set(key, data);
+    dirty.add(key);
 };
 
 const touch = id =>
@@ -211,10 +220,10 @@ async function savePlayers() {
     let done = 0;
 
     try {
-        for (let i = 0; i < ids.length; i += 200) {
-            const part = ids.slice(i, i + 200);
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+            const part = ids.slice(i, i + BATCH_SIZE);
 
-            const objs = part.map(id =>
+            const data = part.map(id =>
                 JSON.stringify(players.get(id))
             );
 
@@ -226,7 +235,7 @@ async function savePlayers() {
                  DO UPDATE SET
                     data = EXCLUDED.data,
                     updated_at = now()`,
-                [part, objs]
+                [part, data]
             ));
 
             done += part.length;
@@ -237,17 +246,13 @@ async function savePlayers() {
     } catch (e) {
         ids.slice(done).forEach(id => dirty.add(id));
 
-        console.error(
-            "[DB] فشل حفظ اللاعبين:",
-            e.message
-        );
-
+        console.error("[DB] فشل حفظ اللاعبين:", e.message);
         throw e;
     }
 }
 
 // ==================================================
-// SAVE GROUP SETTINGS
+// SAVE GROUPS
 // ==================================================
 
 async function saveGroups() {
@@ -259,10 +264,10 @@ async function saveGroups() {
     let done = 0;
 
     try {
-        for (let i = 0; i < ids.length; i += 200) {
-            const part = ids.slice(i, i + 200);
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+            const part = ids.slice(i, i + BATCH_SIZE);
 
-            const objs = part.map(id =>
+            const data = part.map(id =>
                 JSON.stringify(groupSettings.get(id))
             );
 
@@ -274,7 +279,7 @@ async function saveGroups() {
                  DO UPDATE SET
                     data = EXCLUDED.data,
                     updated_at = now()`,
-                [part, objs]
+                [part, data]
             ));
 
             done += part.length;
@@ -283,41 +288,104 @@ async function saveGroups() {
         return done;
 
     } catch (e) {
-        ids.slice(done).forEach(id =>
-            dirtyGroups.add(id)
-        );
+        ids.slice(done).forEach(id => dirtyGroups.add(id));
 
-        console.error(
-            "[DB] فشل حفظ إعدادات المجموعات:",
-            e.message
-        );
-
+        console.error("[DB] فشل حفظ المجموعات:", e.message);
         throw e;
     }
 }
 
 // ==================================================
-// FLUSH
+// SERIALIZED FLUSH
 // ==================================================
 
-async function doFlush() {
-    const [playerCount, groupCount] = await Promise.all([
-        savePlayers(),
-        saveGroups()
-    ]);
-
-    return {
-        players: playerCount,
-        groups: groupCount
-    };
-}
-
-function flush() {
-    const run = flushing.then(doFlush);
+function queueFlush(fn) {
+    const run = flushing.then(fn);
 
     flushing = run.catch(() => {});
 
     return run;
+}
+
+const flushPlayers = () =>
+    queueFlush(savePlayers);
+
+const flushGroups = () =>
+    queueFlush(saveGroups);
+
+const flush = () =>
+    queueFlush(async () => {
+        const playerCount = await savePlayers();
+        const groupCount = await saveGroups();
+
+        return {
+            players: playerCount,
+            groups: groupCount
+        };
+    });
+
+// ==================================================
+// DATABASE INFORMATION
+// ==================================================
+
+async function databaseInfo() {
+    if (!pool) throw new Error("قاعدة البيانات غير متصلة");
+
+    const result = await retry(() => pool.query(`
+        SELECT
+            current_database() AS database_name,
+
+            pg_database_size(current_database())::bigint
+                AS database_bytes,
+
+            pg_size_pretty(
+                pg_database_size(current_database())
+            ) AS database_size,
+
+            (
+                SELECT count(*)
+                FROM pg_stat_activity
+                WHERE datname = current_database()
+            )::integer AS connections,
+
+            (
+                SELECT COALESCE(sum(n_live_tup), 0)
+                FROM pg_stat_user_tables
+            )::bigint AS estimated_rows,
+
+            (
+                SELECT COALESCE(sum(heap_blks_hit), 0)
+                FROM pg_statio_user_tables
+            )::bigint AS cache_hits,
+
+            (
+                SELECT COALESCE(sum(heap_blks_read), 0)
+                FROM pg_statio_user_tables
+            )::bigint AS disk_reads,
+
+            (
+                SELECT COALESCE(sum(pg_total_relation_size(relid)), 0)
+                FROM pg_stat_user_tables
+            )::bigint AS tables_bytes
+    `));
+
+    const row = result.rows[0];
+
+    const hits = Number(row.cache_hits || 0);
+    const reads = Number(row.disk_reads || 0);
+    const total = hits + reads;
+
+    return {
+        name: row.database_name,
+        size: row.database_size,
+        bytes: Number(row.database_bytes || 0),
+        tablesBytes: Number(row.tables_bytes || 0),
+        connections: Number(row.connections || 0),
+        estimatedRows: Number(row.estimated_rows || 0),
+        cacheHitRate: total
+            ? ((hits / total) * 100).toFixed(1)
+            : null
+    };
 }
 
 // ==================================================
@@ -325,7 +393,8 @@ function flush() {
 // ==================================================
 
 async function shutdown() {
-    if (timer) clearInterval(timer);
+    if (playerTimer) clearInterval(playerTimer);
+    if (groupTimer) clearInterval(groupTimer);
 
     try {
         const result = await Promise.race([
@@ -339,16 +408,11 @@ async function shutdown() {
         ]);
 
         console.log(
-            "💾 [DB] حُفظ " +
-            result.players + " لاعب و " +
-            result.groups + " مجموعة"
+            `[DB] حفظ ${result.players} لاعب و${result.groups} مجموعة`
         );
 
     } catch (e) {
-        console.error(
-            "[DB] لم يكتمل الحفظ عند الإغلاق:",
-            e.message
-        );
+        console.error("[DB] تعذّر إكمال الحفظ:", e.message);
     }
 
     try {
@@ -357,14 +421,17 @@ async function shutdown() {
 }
 
 // ==================================================
-// STATS
+// LOCAL STATISTICS
 // ==================================================
 
 const stats = () => ({
     players: players.size,
-    dirty: dirty.size,
+    dirtyPlayers: dirty.size,
+
     groups: groupSettings.size,
-    dirtyGroups: dirtyGroups.size
+    dirtyGroups: dirtyGroups.size,
+
+    connected: !!pool
 });
 
 // ==================================================
@@ -388,6 +455,9 @@ module.exports = {
 
     // Database
     flush,
+    flushPlayers,
+    flushGroups,
+    databaseInfo,
     shutdown,
     stats
 };
