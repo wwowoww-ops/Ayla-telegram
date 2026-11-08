@@ -2,9 +2,15 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA UTILS               ║
- * ║                 v2.0                 ║
+ * ║                 v2.1                 ║
  * ╚══════════════════════════════════════╝
  */
+
+// ==================================================
+// IMPORTS
+// ==================================================
+
+const store = require("../core/store");
 
 // ==================================================
 // BASIC TOOLS
@@ -55,25 +61,30 @@ const norm = s => String(s).toLowerCase()
 // ==================================================
 
 const DEFAULT_PREFIX = "!";
-const groupPrefixes = new Map();
 
+// جلب بادئة المجموعة من نظام التخزين
 function getPrefix(chatId) {
     if (!chatId) return DEFAULT_PREFIX;
-    return groupPrefixes.has(String(chatId))
-        ? groupPrefixes.get(String(chatId))
-        : DEFAULT_PREFIX;
+
+    return store.getGroupPrefix(chatId);
 }
 
+// تغيير بادئة المجموعة وحفظها ضمن البيانات المعلّقة
 function setPrefix(chatId, prefix) {
-    if (!chatId) throw new Error("معرّف المجموعة غير موجود");
+    if (!chatId) {
+        throw new Error("معرّف المجموعة غير موجود");
+    }
 
     prefix = String(prefix ?? "").trim();
 
     if (prefix.length > 3 || /\s/.test(prefix)) {
-        throw new Error("البادئة يجب أن تكون من 1 إلى 3 رموز دون مسافات");
+        throw new Error(
+            "البادئة يجب أن تكون من 1 إلى 3 رموز دون مسافات"
+        );
     }
 
-    groupPrefixes.set(String(chatId), prefix);
+    store.setGroupPrefix(chatId, prefix);
+
     return prefix;
 }
 
@@ -88,15 +99,23 @@ function escapeRegex(s) {
 /**
  * cmd(bot, names, handler, options)
  *
- * الخاص: بدون بادئة.
- * المجموعات: بالبادئة الخاصة بها.
+ * الخاص:
+ * الأوامر تعمل دون بادئة.
+ *
+ * المجموعات:
+ * الأوامر تحتاج بادئة المجموعة.
  *
  * options.noPrefix:
- * يسمح للأمر بالعمل دون بادئة في المجموعات أيضًا.
+ * يسمح للأمر بالعمل دون بادئة في المجموعات.
+ *
+ * handler(ctx, args):
+ * ctx  = سياق الرسالة.
+ * args = النص الموجود بعد اسم الأمر.
  */
 
 function cmd(bot, names, handler, options = {}) {
     const alternatives = names.map(escapeRegex).join("|");
+
     const commandRegex = new RegExp(
         "^(?:" + alternatives + ")(?:\\s+([\\s\\S]*))?$",
         "i"
@@ -104,24 +123,31 @@ function cmd(bot, names, handler, options = {}) {
 
     bot.on("message:text", async (ctx, next) => {
         const text = ctx.message.text.trim();
+
         const chatType = ctx.chat.type;
         const isPrivate = chatType === "private";
 
-        let prefix = isPrivate ? "" : getPrefix(ctx.chat.id);
         let commandText = text;
 
         if (!isPrivate) {
+            const prefix = getPrefix(ctx.chat.id);
+
             if (options.noPrefix) {
-                // يسمح بالأمر دون بادئة أو مع بادئة المجموعة
+                // الأمر يعمل دون بادئة أو مع بادئة المجموعة
                 if (prefix && text.startsWith(prefix)) {
-                    commandText = text.slice(prefix.length).trim();
+                    commandText = text
+                        .slice(prefix.length)
+                        .trim();
                 }
             } else {
+                // الأوامر العادية تحتاج بادئة المجموعة
                 if (!prefix || !text.startsWith(prefix)) {
                     return next();
                 }
 
-                commandText = text.slice(prefix.length).trim();
+                commandText = text
+                    .slice(prefix.length)
+                    .trim();
             }
         }
 
@@ -130,9 +156,15 @@ function cmd(bot, names, handler, options = {}) {
         if (!match) return next();
 
         try {
-            await handler(ctx, (match[1] || "").trim());
+            await handler(
+                ctx,
+                (match[1] || "").trim()
+            );
         } catch (e) {
-            console.error("[CMD ERROR]", e && (e.stack || e.message));
+            console.error(
+                "[CMD ERROR]",
+                e && (e.stack || e.message)
+            );
 
             await ctx.reply(
                 "⚠️ حدث خطأ مؤقت، حاول بعد قليل."
@@ -171,6 +203,7 @@ module.exports = {
     cmd,
     hash,
 
+    // Prefix
     getPrefix,
     setPrefix,
     DEFAULT_PREFIX
