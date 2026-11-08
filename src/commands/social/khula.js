@@ -99,7 +99,7 @@ module.exports = function (bot) {
 
     }, {
         menu: "خلع",
-        category: "services"
+        category: "fun"
     });
 
     bot.callbackQuery(/^khula:/, async ctx => {
