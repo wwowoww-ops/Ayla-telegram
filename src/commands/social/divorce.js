@@ -47,7 +47,7 @@ module.exports = function (bot) {
         );
     }, {
         menu: "طلاق",
-        category: "services"
+        category: "fun"
     });
 
     bot.callbackQuery(/^divorce:/, async ctx => {
