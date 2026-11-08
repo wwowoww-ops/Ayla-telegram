@@ -1,7 +1,8 @@
+
 /**
  * ╔══════════════════════════════════════╗
  * ║          AYLA MARRIAGE CORE          ║
- * ║                 v2.1                 ║
+ * ║                 v2.2                 ║
  * ╚══════════════════════════════════════╝
  *
  * - تسجيل الجنس
@@ -14,6 +15,7 @@
  * - Atomic financial transactions
  * - Serialized marriage operations
  * - Safe in-memory balance updates
+ * - Admin test marriage
  */
 
 const crypto = require("crypto");
@@ -228,22 +230,6 @@ async function saveNow() {
 // FINANCIAL TRANSACTIONS
 // ==================================================
 
-/**
- * يحفظ أرصدة اللاعبين وسجل الزواج داخل معاملة واحدة.
- *
- * مهم:
- * - لا يستعمل store.query داخل transaction.
- * - لا يستبدل بيانات اللاعب كاملة في الذاكرة.
- * - يطبق فرق الرصيد فقط بعد نجاح COMMIT.
- *
- * كل update يحتاج:
- * {
- *   id,
- *   data,
- *   coinsDelta
- * }
- */
-
 async function commitFinancialChange(nextState, playerUpdates) {
     await store.transaction(async client => {
         for (const update of playerUpdates) {
@@ -263,8 +249,6 @@ async function commitFinancialChange(nextState, playerUpdates) {
         await writeState(client, nextState);
     });
 
-    // لا نصل إلى هنا إلا بعد نجاح المعاملة.
-
     for (const update of playerUpdates) {
         applyBalanceDelta(update);
     }
@@ -272,17 +256,12 @@ async function commitFinancialChange(nextState, playerUpdates) {
     replaceState(nextState);
 }
 
-/**
- * تحديث coins فقط داخل بيانات اللاعب الحالية.
- * بقية البيانات لا يتم استبدالها بنسخة قديمة.
- */
 function applyBalanceDelta(update) {
     const delta = Number(update.coinsDelta || 0);
 
     let current = store.get(update.id);
 
     if (!current) {
-        // احتياط إذا لم تكن بيانات اللاعب موجودة في الذاكرة.
         current = { ...update.data };
     } else {
         const currentBalance = Number(current.coins || 0);
@@ -294,14 +273,10 @@ function applyBalanceDelta(update) {
         ) {
             current.coins = nextBalance;
         } else {
-            // قاعدة البيانات حُفظت بالفعل؛ لا نترك الذاكرة
-            // في حالة غير صالحة.
             current.coins = Number(update.data.coins || 0);
         }
     }
 
-    // نمرر نفس بيانات اللاعب الحالية حتى يسجلها store
-    // دون إسقاط بقية خصائص الحساب.
     store.set(update.id, current);
 }
 
@@ -366,7 +341,7 @@ function getBalance(user) {
 }
 
 function getStoredPlayer(userId) {
-    const player = store.get(userId);
+    const player = store.get(id(userId));
 
     if (!player) {
         throw new Error("تعذر تحميل بيانات أحد الطرفين.");
@@ -615,6 +590,97 @@ async function rejectRequest(requestId, user) {
 }
 
 // ==================================================
+// ADMIN TEST MARRIAGE
+// ==================================================
+
+async function forceTestMarriage(husband, wife, dowry = 500, chatId) {
+    requireInit();
+
+    if (!husband || husband.is_bot || !wife || !wife.is_bot) {
+        throw new Error("هذه الدالة مخصصة لاختبار زواج المستخدم مع البوت.");
+    }
+
+    const husbandId = id(husband.id);
+    const wifeId = id(wife.id);
+
+    if (husbandId === wifeId) {
+        throw new Error("الحسابان متطابقان.");
+    }
+
+    if (getGender(husbandId) !== "male") {
+        throw new Error("يجب تسجيل حسابك كذكر.");
+    }
+
+    if (getGender(wifeId) !== "female") {
+        throw new Error("يجب تسجيل البوت كأنثى.");
+    }
+
+    if (!Number.isSafeInteger(dowry) || dowry <= 0) {
+        throw new Error("المهر غير صالح.");
+    }
+
+    return enqueue(async () => {
+        if (findMarriage(husbandId) || findMarriage(wifeId)) {
+            throw new Error("أحد الحسابين متزوج بالفعل، لم يتم خصم أي مبلغ.");
+        }
+
+        // تأكد من وجود بيانات حساب البوت.
+        ui.ensure(wife);
+
+        const husbandData = getStoredPlayer(husbandId);
+        const wifeData = getStoredPlayer(wifeId);
+
+        if (husbandData.coins < dowry) {
+            throw new Error("رصيدك لا يكفي للمهر.");
+        }
+
+        if (wifeData.coins + dowry > Number.MAX_SAFE_INTEGER) {
+            throw new Error("رصيد حساب البوت سيتجاوز الحد المسموح.");
+        }
+
+        husbandData.coins -= dowry;
+        wifeData.coins += dowry;
+
+        const next = snapshot();
+        const marriageId = "TEST-" + makeId();
+
+        const marriage = {
+            id: marriageId,
+            husband: husbandId,
+            wife: wifeId,
+            husbandName: husband.first_name || "العريس",
+            wifeName: wife.first_name || "AYLA",
+            dowry,
+            chatId: id(chatId || husbandId),
+            status: "married",
+            test: true,
+            createdAt: new Date().toISOString()
+        };
+
+        next.marriages[marriageId] = marriage;
+
+        await commitFinancialChange(next, [
+            {
+                id: husbandId,
+                data: husbandData,
+                coinsDelta: -dowry
+            },
+            {
+                id: wifeId,
+                data: wifeData,
+                coinsDelta: dowry
+            }
+        ]);
+
+        return {
+            marriage,
+            husbandBalance: store.get(husbandId)?.coins,
+            wifeBalance: store.get(wifeId)?.coins
+        };
+    });
+}
+
+// ==================================================
 // DIVORCE / KHULA
 // ==================================================
 
@@ -808,6 +874,7 @@ module.exports = {
     rejectRequest,
 
     endMarriage,
+    forceTestMarriage,
 
     marriageOf,
     requestsFor,
