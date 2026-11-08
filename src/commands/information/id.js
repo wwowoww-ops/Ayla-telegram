@@ -1,4 +1,3 @@
-
 const {
     esc,
     nameOf,
@@ -31,12 +30,12 @@ const HEADER = service =>
 const FOOTER = "❀ ━━━━━━━━━━━━━ ❀";
 
 // ==================================================
-// AYLA — USER ID
+// AYLA — ID / USER INFO
 // ==================================================
 
 module.exports = function (bot) {
 
-    cmd(bot, ["ايدي", "id", "معرفي"], async ctx => {
+    cmd(bot, ["ايدي", "id", "معرفي", "معلومات"], async ctx => {
 
         const target =
             ctx.message.reply_to_message?.from || ctx.from;
@@ -60,6 +59,7 @@ module.exports = function (bot) {
             `💬 معرف المحادثة: <code>${ctx.chat.id}</code>\n\n` +
             FOOTER;
 
+        // إرسال صورة الحساب الأصلية دون إطار
         try {
             const photos = await ctx.api.getUserProfilePhotos(
                 target.id,
@@ -79,6 +79,7 @@ module.exports = function (bot) {
             console.error("[AYLA ID PHOTO]", error.message);
         }
 
+        // إذا لم تتوفر صورة
         return ctx.reply(caption, HTML);
     });
 };
