@@ -2,11 +2,18 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║           AYLA DATABASE               ║
- * ║                 v1.0                 ║
+ * ║                 v1.1                 ║
  * ╚══════════════════════════════════════╝
+ *
+ * Database Panel
+ * Manual Save
+ * Database Information
+ * Storage Statistics
+ * JSON Backup
  */
 
-const { InlineKeyboard } = require("grammy");
+const { InlineKeyboard, InputFile } = require("grammy");
+
 const { cmd, HTML } = require("../../lib/util");
 const store = require("../../core/store");
 
@@ -14,31 +21,33 @@ const OWNER_ID = "7401027785";
 const CALLBACK = "ayla_db:";
 
 // ==================================================
-// FORMAT
+// HELPERS
 // ==================================================
 
 function formatBytes(bytes) {
     bytes = Number(bytes || 0);
 
     if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 ** 2)
+
+    if (bytes < 1024 ** 2) {
         return (bytes / 1024).toFixed(2) + " KB";
-    if (bytes < 1024 ** 3)
+    }
+
+    if (bytes < 1024 ** 3) {
         return (bytes / 1024 ** 2).toFixed(2) + " MB";
+    }
 
     return (bytes / 1024 ** 3).toFixed(2) + " GB";
 }
-
-// ==================================================
-// KEYBOARD
-// ==================================================
 
 function mainKeyboard() {
     return new InlineKeyboard()
         .text("حفظ الآن", CALLBACK + "save")
         .text("تحديث المعلومات", CALLBACK + "refresh")
         .row()
-        .text("إحصائيات التخزين", CALLBACK + "storage");
+        .text("إحصائيات التخزين", CALLBACK + "storage")
+        .row()
+        .text("إنشاء نسخة احتياطية", CALLBACK + "backup");
 }
 
 // ==================================================
@@ -46,10 +55,7 @@ function mainKeyboard() {
 // ==================================================
 
 async function panel() {
-    const [info] = await Promise.all([
-        store.databaseInfo()
-    ]);
-
+    const info = await store.databaseInfo();
     const stats = store.stats();
 
     return (
@@ -59,9 +65,12 @@ async function panel() {
         "◈ <b>معلومات القاعدة</b>\n" +
         "• الاسم: <code>" + info.name + "</code>\n" +
         "• الحجم: <b>" + info.size + "</b>\n" +
-        "• حجم الجداول: <b>" + formatBytes(info.tablesBytes) + "</b>\n" +
-        "• الاتصالات الحالية: <b>" + info.connections + "</b>\n" +
-        "• الصفوف المقدّرة: <b>" + info.estimatedRows + "</b>\n" +
+        "• حجم الجداول: <b>" +
+            formatBytes(info.tablesBytes) + "</b>\n" +
+        "• الاتصالات الحالية: <b>" +
+            info.connections + "</b>\n" +
+        "• الصفوف المقدّرة: <b>" +
+            info.estimatedRows + "</b>\n" +
         "• معدل إصابة الذاكرة: <b>" +
             (info.cacheHitRate === null
                 ? "غير متاح"
@@ -71,8 +80,10 @@ async function panel() {
         "◈ <b>بيانات AYLA</b>\n" +
         "• اللاعبون: <b>" + stats.players + "</b>\n" +
         "• المجموعات: <b>" + stats.groups + "</b>\n" +
-        "• تغييرات اللاعبين المعلّقة: <b>" + stats.dirtyPlayers + "</b>\n" +
-        "• تغييرات المجموعات المعلّقة: <b>" + stats.dirtyGroups + "</b>\n\n" +
+        "• تغييرات اللاعبين المعلّقة: <b>" +
+            stats.dirtyPlayers + "</b>\n" +
+        "• تغييرات المجموعات المعلّقة: <b>" +
+            stats.dirtyGroups + "</b>\n\n" +
 
         "━━━━━━━━━━━━━━━━━━\n" +
         "✿ اختر العملية من الأزرار."
@@ -80,7 +91,7 @@ async function panel() {
 }
 
 // ==================================================
-// STORAGE DETAILS
+// STORAGE PANEL
 // ==================================================
 
 function storagePanel() {
@@ -95,8 +106,10 @@ function storagePanel() {
         "• عدد المجموعات: <b>" + stats.groups + "</b>\n\n" +
 
         "◈ <b>البيانات غير المحفوظة</b>\n" +
-        "• تغييرات اللاعبين: <b>" + stats.dirtyPlayers + "</b>\n" +
-        "• تغييرات المجموعات: <b>" + stats.dirtyGroups + "</b>\n\n" +
+        "• تغييرات اللاعبين: <b>" +
+            stats.dirtyPlayers + "</b>\n" +
+        "• تغييرات المجموعات: <b>" +
+            stats.dirtyGroups + "</b>\n\n" +
 
         "◈ <b>نظام الحفظ</b>\n" +
         "• اللاعبون: كل 20 دقيقة.\n" +
@@ -108,7 +121,7 @@ function storagePanel() {
 }
 
 // ==================================================
-// EDIT MESSAGE
+// MESSAGE EDIT
 // ==================================================
 
 async function show(ctx, text, markup = mainKeyboard()) {
@@ -119,40 +132,80 @@ async function show(ctx, text, markup = mainKeyboard()) {
         });
     } catch (e) {
         if (!String(e.message).includes("message is not modified")) {
-            console.error("[DATABASE PANEL]", e.message);
+            console.error("[AYLA DB] Edit error:", e.message);
         }
     }
 }
 
 // ==================================================
-// COMMANDS
+// BACKUP
 // ==================================================
 
-module.exports = function (bot) {
+async function createBackup(ctx) {
+    const backup = store.exportData();
 
-    // الأمر الرئيسي: قاعدة
+    const json = JSON.stringify(backup, null, 2);
+
+    const buffer = Buffer.from(json, "utf8");
+
+    const date = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-");
+
+    const filename = `AYLA-backup-${date}.json`;
+
+    const caption =
+        "✿ <b>AYLA — BACKUP</b>\n" +
+        "━━━━━━━━━━━━━━━━━━\n\n" +
+        "✓ تم إنشاء النسخة الاحتياطية بنجاح.\n\n" +
+        "◈ <b>محتويات النسخة</b>\n" +
+        "• اللاعبون: <b>" + backup.players.length + "</b>\n" +
+        "• المجموعات: <b>" + backup.groups.length + "</b>\n\n" +
+        "◈ <b>معلومات النسخة</b>\n" +
+        "• الإصدار: <b>" + backup.version + "</b>\n" +
+        "• الحجم: <b>" + formatBytes(buffer.length) + "</b>\n" +
+        "• التاريخ: <code>" + backup.createdAt + "</code>\n\n" +
+        "━━━━━━━━━━━━━━━━━━\n" +
+        "احتفظ بهذا الملف لاستعادة بيانات AYLA لاحقًا.";
+
+    await ctx.replyWithDocument(
+        new InputFile(buffer, filename),
+        {
+            caption,
+            parse_mode: "HTML"
+        }
+    );
+}
+
+// ==================================================
+// COMMAND
+// ==================================================
+
+module.exports = function(bot) {
+
+    // فتح لوحة قاعدة البيانات
     cmd(bot, ["قاعدة"], async ctx => {
         if (String(ctx.from.id) !== OWNER_ID) return;
 
         try {
-            const text = await panel();
-
-            await ctx.reply(text, {
-                ...HTML,
-                reply_markup: mainKeyboard()
-            });
-
+            await ctx.reply(
+                await panel(),
+                {
+                    ...HTML,
+                    reply_markup: mainKeyboard()
+                }
+            );
         } catch (e) {
-            console.error("[DATABASE]", e.message);
+            console.error("[AYLA DB] Panel error:", e.message);
 
             await ctx.reply(
-                "⚠️ تعذّر جلب معلومات قاعدة البيانات."
+                "تعذّر جلب معلومات قاعدة البيانات."
             );
         }
     });
 
     // ==================================================
-    // BUTTON HANDLER
+    // CALLBACKS
     // ==================================================
 
     bot.callbackQuery(/^ayla_db:/, async ctx => {
@@ -169,6 +222,8 @@ module.exports = function (bot) {
         );
 
         try {
+
+            // تحديث المعلومات
             if (action === "refresh") {
                 await ctx.answerCallbackQuery({
                     text: "تم تحديث المعلومات."
@@ -177,6 +232,7 @@ module.exports = function (bot) {
                 return show(ctx, await panel());
             }
 
+            // إحصائيات التخزين
             if (action === "storage") {
                 await ctx.answerCallbackQuery();
 
@@ -190,6 +246,7 @@ module.exports = function (bot) {
                 );
             }
 
+            // الحفظ الفوري
             if (action === "save") {
                 await ctx.answerCallbackQuery({
                     text: "بدأ الحفظ الفوري..."
@@ -209,9 +266,22 @@ module.exports = function (bot) {
                     ctx,
                     updatedPanel +
                     "\n\n<b>✓ اكتمل الحفظ الفوري</b>\n" +
-                    "• اللاعبون المحفوظون: " + result.players + "\n" +
-                    "• المجموعات المحفوظة: " + result.groups
+                    "• اللاعبون المحفوظون: " +
+                    result.players + "\n" +
+                    "• المجموعات المحفوظة: " +
+                    result.groups
                 );
+            }
+
+            // إنشاء نسخة احتياطية
+            if (action === "backup") {
+                await ctx.answerCallbackQuery({
+                    text: "جارٍ إنشاء النسخة الاحتياطية..."
+                });
+
+                await createBackup(ctx);
+
+                return;
             }
 
             await ctx.answerCallbackQuery({
@@ -219,12 +289,22 @@ module.exports = function (bot) {
             });
 
         } catch (e) {
-            console.error("[DATABASE BUTTON]", e.message);
+            console.error(
+                "[AYLA DB] Callback error:",
+                e.message
+            );
+
+            try {
+                await ctx.answerCallbackQuery({
+                    text: "تعذّرت العملية.",
+                    show_alert: true
+                });
+            } catch (_) {}
 
             await show(
                 ctx,
                 "⚠️ <b>تعذّرت العملية</b>\n\n" +
-                "حدث خطأ أثناء الاتصال بقاعدة البيانات.\n" +
+                "حدث خطأ أثناء تنفيذ العملية.\n" +
                 "يمكنك المحاولة مجددًا."
             );
         }
