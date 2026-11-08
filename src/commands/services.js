@@ -1,8 +1,8 @@
 
 /**
  * ╔══════════════════════════════════════╗
- * ║             AYLA SERVICES                  ║
- * ║                v2.0                        ║
+ * ║             AYLA SERVICES            ║
+ * ║                 v2.1                 ║
  * ╚══════════════════════════════════════╝
  */
 
@@ -15,12 +15,22 @@ const {
     digits
 } = require("../lib/util");
 
+const stats = require("../lib/groupStats");
+
 // ==================================================
-// 🌸 إعدادات التصميم
+// DESIGN
 // ==================================================
 
-const HEADER = "ꕤ 𝐀𝐘𝐋𝐀 ꕤ";
+const HEADER = service =>
+    `❀ ━━ 𝗔𝗬𝗟𝗔 〢 "${service}" ━━ ❀`;
+
 const FOOTER = "❀ نتمنى لك يومًا جميلًا ❀";
+
+const sessions = new Map();
+
+// ==================================================
+// WORLD CLOCK
+// ==================================================
 
 const countryPages = [
     [
@@ -56,12 +66,6 @@ const countryPages = [
         { name: "أستراليا", flag: "🇦🇺", zone: "Australia/Sydney" }
     ]
 ];
-
-const sessions = new Map();
-
-// ==================================================
-// 🕒 الوقت
-// ==================================================
 
 function getTime(zone) {
     const now = new Date();
@@ -122,145 +126,376 @@ function clockKeyboard(page) {
 }
 
 // ==================================================
-// 🧮 آلة حاسبة آمنة
+// GROUP STATISTICS
 // ==================================================
 
-function calculate(input) {
-    const s = digits(input)
-        .replace(/[×xX]/g, "*")
-        .replace(/[÷:]/g, "/")
-        .replace(/٫/g, ".")
-        .replace(/[,،\s]/g, "");
+function statsKeyboard() {
+    return {
+        inline_keyboard: [
+            [
+                {
+                    text: "❀ إحصائيات اليوم",
+                    callback_data: "ayla_stats_daily"
+                },
+                {
+                    text: "✿ إحصائيات الأسبوع",
+                    callback_data: "ayla_stats_weekly"
+                }
+            ],
+            [{
+                text: "✿ إغلاق",
+                callback_data: "ayla_stats_close"
+            }]
+        ]
+    };
+}
 
-    if (!s || s.length > 80 || !/^[0-9+\-*/%^().]+$/.test(s))
-        throw new Error("العملية غير صالحة.");
+function formatTop(users) {
+    if (!users.length) return "لا توجد بيانات حتى الآن.";
 
-    let i = 0;
-    const peek = () => s[i];
+    return users.slice(0, 10).map((user, index) => {
+        const username = user.username
+            ? ` (@${esc(user.username)})`
+            : "";
 
-    function number() {
-        const m = s.slice(i).match(/^(?:\d+\.?\d*|\.\d+)/);
-        if (!m) throw new Error("رقم غير صالح.");
-        i += m[0].length;
-        return Number(m[0]);
-    }
+        return `${index + 1}. ${esc(user.name)}${username}\n   💬 ${user.messages} رسالة`;
+    }).join("\n\n");
+}
 
-    function primary() {
-        if (peek() === "(") {
-            i++;
-            const v = expression();
-            if (peek() !== ")") throw new Error("قوس ناقص.");
-            i++;
-            return v;
-        }
-        return number();
-    }
+function dailyText(chatId, title) {
+    const result = stats.getDaily(chatId);
 
-    function power() {
-        const b = primary();
-        if (peek() === "^") {
-            i++;
-            const e = unary();
-            if (Math.abs(e) > 1000) throw new Error("الأس كبير.");
-            return Math.pow(b, e);
-        }
-        return b;
-    }
+    return (
+        `${HEADER("DAILY STATISTICS")}\n\n` +
+        `🏷️ ${esc(title)}\n` +
+        `📅 التاريخ: <code>${result.date}</code>\n` +
+        `💬 رسائل اليوم: <b>${result.messages}</b>\n` +
+        `👥 الأعضاء النشطون: <b>${result.users.length}</b>\n\n` +
+        `✿ <b>الأكثر نشاطًا</b>\n\n` +
+        formatTop(result.users) +
+        `\n\n${FOOTER}`
+    );
+}
 
-    function unary() {
-        if (peek() === "-") {
-            i++;
-            return -unary();
-        }
-        if (peek() === "+") {
-            i++;
-            return unary();
-        }
-        return power();
-    }
+function weeklyText(chatId, title) {
+    const result = stats.getWeekly(chatId);
 
-    function term() {
-        let v = unary();
+    const days = result.days.map(day =>
+        `• <code>${day.date}</code> — ${day.messages} رسالة`
+    ).join("\n");
 
-        while (["*", "/", "%"].includes(peek())) {
-            const op = s[i++];
-            const r = unary();
-
-            if ((op === "/" || op === "%") && r === 0)
-                throw new Error("لا يمكن القسمة على صفر.");
-
-            v = op === "*" ? v * r :
-                op === "/" ? v / r : v % r;
-        }
-
-        return v;
-    }
-
-    function expression() {
-        let v = term();
-
-        while (peek() === "+" || peek() === "-") {
-            const op = s[i++];
-            const r = term();
-            v = op === "+" ? v + r : v - r;
-        }
-
-        return v;
-    }
-
-    const result = expression();
-
-    if (i !== s.length || !Number.isFinite(result))
-        throw new Error("الناتج غير صالح أو كبير جدًا.");
-
-    return Number(result.toPrecision(12));
+    return (
+        `${HEADER("WEEKLY STATISTICS")}\n\n` +
+        `🏷️ ${esc(title)}\n` +
+        `📊 إجمالي آخر 7 أيام: <b>${result.messages}</b>\n` +
+        `👥 الأعضاء النشطون: <b>${result.users.length}</b>\n\n` +
+        `✿ <b>نشاط الأيام</b>\n${days}\n\n` +
+        `✿ <b>الأكثر نشاطًا</b>\n\n` +
+        formatTop(result.users) +
+        `\n\n${FOOTER}`
+    );
 }
 
 // ==================================================
-// 🌸 تسجيل الخدمات
+// GROUP INFO
 // ==================================================
+
+function permissionText(permissions) {
+    if (!permissions) return "غير متاحة";
+
+    const items = [
+        ["can_send_messages", "إرسال الرسائل"],
+        ["can_send_audios", "إرسال الصوتيات"],
+        ["can_send_documents", "إرسال الملفات"],
+        ["can_send_photos", "إرسال الصور"],
+        ["can_send_videos", "إرسال الفيديوهات"],
+        ["can_send_polls", "إنشاء الاستطلاعات"],
+        ["can_add_web_page_previews", "معاينة الروابط"],
+        ["can_invite_users", "دعوة الأعضاء"],
+        ["can_pin_messages", "تثبيت الرسائل"],
+        ["can_change_info", "تغيير معلومات المجموعة"]
+    ];
+
+    return items.map(([key, label]) =>
+        `${permissions[key] ? "✅" : "❌"} ${label}`
+    ).join("\n");
+}
 
 module.exports = function (bot) {
 
-    // 🕒 فتح قائمة الوقت
+    // ==================================================
+    // WORLD CLOCK
+    // ==================================================
+
     cmd(bot, ["وقت", "الوقت"], async ctx => {
-        const page = 0;
         const msg = await ctx.reply(
-            `${HEADER}\n\n` +
-            `🌸 <b>WORLD CLOCK</b> 🌸\n\n` +
+            `${HEADER("WORLD CLOCK")}\n\n` +
             `اختر الدولة لمعرفة الوقت الحالي:\n\n` +
             FOOTER,
             {
                 ...HTML,
-                reply_markup: clockKeyboard(page)
+                reply_markup: clockKeyboard(0)
             }
         );
 
         sessions.set(`${ctx.chat.id}:${msg.message_id}`, {
+            type: "clock",
             userId: ctx.from.id
         });
     });
 
-    // أزرار الوقت
+    // ==================================================
+    // USER ID
+    // ==================================================
+
+    cmd(bot, ["ايدي", "id", "معرفي"], async ctx => {
+        const target = ctx.message.reply_to_message?.from || ctx.from;
+
+        const username = target.username
+            ? `@${esc(target.username)}`
+            : "غير متوفر";
+
+        const language = target.language_code
+            ? esc(target.language_code)
+            : "غير متوفر";
+
+        return ctx.reply(
+            `${HEADER("ID")}\n\n` +
+            `👤 الاسم: ${link(target.id, nameOf(target))}\n` +
+            `🆔 المعرف: <code>${target.id}</code>\n` +
+            `🔗 الحساب: ${username}\n` +
+            `🌐 اللغة: ${language}\n` +
+            `🤖 حساب آلي: ${target.is_bot ? "نعم" : "لا"}\n` +
+            `⭐ Telegram Premium: ${target.is_premium ? "نعم" : "غير معروف / لا"}\n` +
+            `💬 معرف المحادثة: <code>${ctx.chat.id}</code>\n\n` +
+            FOOTER,
+            HTML
+        );
+    });
+
+    // ==================================================
+    // USER INFO
+    // ==================================================
+
+    cmd(bot, ["معلومات"], async ctx => {
+        const target = ctx.message.reply_to_message?.from || ctx.from;
+
+        return ctx.reply(
+            `${HEADER("USER INFO")}\n\n` +
+            `👤 الاسم: ${esc(nameOf(target))}\n` +
+            `🆔 المعرف: <code>${target.id}</code>\n` +
+            `🔗 الحساب: ${target.username ? "@" + esc(target.username) : "غير متوفر"}\n` +
+            `🌐 اللغة: ${esc(target.language_code || "غير متوفر")}\n` +
+            `🤖 حساب آلي: ${target.is_bot ? "نعم" : "لا"}\n\n` +
+            FOOTER,
+            HTML
+        );
+    });
+
+    // ==================================================
+    // TEXT COUNTER
+    // ==================================================
+
+    cmd(bot, ["عد", "عدد"], async (ctx, args) => {
+        const text = args || ctx.message.reply_to_message?.text || "";
+
+        if (!text) {
+            return ctx.reply(
+                `${HEADER("TEXT COUNTER")}\n\n` +
+                `اكتب نصًا أو استخدم الأمر بالرد على رسالة.\n\n` +
+                FOOTER,
+                HTML
+            );
+        }
+
+        const words = text.trim()
+            ? text.trim().split(/\s+/).length
+            : 0;
+
+        return ctx.reply(
+            `${HEADER("TEXT COUNTER")}\n\n` +
+            `🔤 الحروف: <b>${Array.from(text).length}</b>\n` +
+            `📝 الكلمات: <b>${words}</b>\n\n` +
+            FOOTER,
+            HTML
+        );
+    });
+
+    // ==================================================
+    // GROUP
+    // ==================================================
+
+    cmd(bot, ["المجموعة"], async ctx => {
+        if (ctx.chat.type === "private") {
+            return ctx.reply("هذا الأمر يعمل داخل المجموعات فقط.");
+        }
+
+        const chat = await ctx.getChat();
+
+        let count = "غير متاح";
+        let admins = [];
+        let adminCount = "غير متاح";
+
+        try {
+            count = await ctx.api.getChatMemberCount(ctx.chat.id);
+        } catch (_) {}
+
+        try {
+            admins = await ctx.getChatAdministrators();
+            adminCount = admins.length;
+        } catch (_) {}
+
+        const adminList = admins.length
+            ? admins.slice(0, 15).map((item, i) => {
+                const user = item.user;
+                const role = item.status === "creator"
+                    ? "👑 مالك"
+                    : "🛡️ مشرف";
+
+                return `${i + 1}. ${link(user.id, nameOf(user))} — ${role}`;
+            }).join("\n")
+            : "تعذر جلب قائمة المشرفين.";
+
+        const permissions = permissionText(chat.permissions);
+
+        const total = stats.getTotal(ctx.chat.id);
+
+        const msg = await ctx.reply(
+            `${HEADER("GROUP INFO")}\n\n` +
+            `🏷️ الاسم: <b>${esc(chat.title || "غير معروف")}</b>\n` +
+            `🆔 المعرف: <code>${chat.id}</code>\n` +
+            `🔗 الرابط: ${chat.username ? "@" + esc(chat.username) : "مجموعة خاصة"}\n` +
+            `👥 الأعضاء: <b>${count}</b>\n` +
+            `🛡️ المشرفون: <b>${adminCount}</b>\n` +
+            `💬 الرسائل المسجلة: <b>${total}</b>\n` +
+            `⏳ وضع البطء: ${chat.slow_mode_delay ? chat.slow_mode_delay + " ثانية" : "معطل"}\n` +
+            `📌 محتوى محمي: ${chat.has_protected_content ? "نعم" : "لا"}\n\n` +
+            `✿ <b>المشرفون</b>\n${adminList}\n\n` +
+            `✿ <b>إعدادات المجموعة</b>\n${permissions}\n\n` +
+            `اختر نوع الإحصائيات:\n\n` +
+            FOOTER,
+            {
+                ...HTML,
+                reply_markup: statsKeyboard()
+            }
+        );
+
+        sessions.set(`${ctx.chat.id}:${msg.message_id}`, {
+            type: "stats",
+            userId: ctx.from.id,
+            chatId: ctx.chat.id,
+            title: chat.title || "المجموعة"
+        });
+    });
+
+    // ==================================================
+    // CALLBACKS
+    // ==================================================
+
     bot.on("callback_query:data", async ctx => {
         const data = ctx.callbackQuery.data;
 
-        if (!data.startsWith("ayla_clock_") &&
-            !data.startsWith("ayla_page_")) return;
+        if (
+            !data.startsWith("ayla_clock_") &&
+            !data.startsWith("ayla_page_") &&
+            !data.startsWith("ayla_stats_")
+        ) return;
 
-        const key = `${ctx.callbackQuery.message.chat.id}:${ctx.callbackQuery.message.message_id}`;
+        const message = ctx.callbackQuery.message;
+
+        if (!message) {
+            return ctx.answerCallbackQuery();
+        }
+
+        const key = `${message.chat.id}:${message.message_id}`;
         const session = sessions.get(key);
 
         if (!session || session.userId !== ctx.from.id) {
             return ctx.answerCallbackQuery({
-                text: "هذه القائمة ليست لك 🌸",
+                text: "هذه القائمة ليست لك.",
                 show_alert: true
             });
         }
 
-        if (data === "ayla_clock_close") {
+        // إغلاق القوائم
+        if (
+            data === "ayla_clock_close" ||
+            data === "ayla_stats_close"
+        ) {
             sessions.delete(key);
             await ctx.deleteMessage().catch(() => {});
+            return ctx.answerCallbackQuery();
+        }
+
+        // إحصائيات اليوم
+        if (data === "ayla_stats_daily" && session.type === "stats") {
+            await ctx.editMessageText(
+                dailyText(session.chatId, session.title),
+                {
+                    ...HTML,
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{
+                                text: "↩️ العودة",
+                                callback_data: "ayla_stats_back"
+                            }],
+                            [{
+                                text: "✿ إغلاق",
+                                callback_data: "ayla_stats_close"
+                            }]
+                        ]
+                    }
+                }
+            );
+
+            return ctx.answerCallbackQuery();
+        }
+
+        // إحصائيات الأسبوع
+        if (data === "ayla_stats_weekly" && session.type === "stats") {
+            await ctx.editMessageText(
+                weeklyText(session.chatId, session.title),
+                {
+                    ...HTML,
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{
+                                text: "↩️ العودة",
+                                callback_data: "ayla_stats_back"
+                            }],
+                            [{
+                                text: "✿ إغلاق",
+                                callback_data: "ayla_stats_close"
+                            }]
+                        ]
+                    }
+                }
+            );
+
+            return ctx.answerCallbackQuery();
+        }
+
+        // العودة إلى معلومات المجموعة
+        if (data === "ayla_stats_back" && session.type === "stats") {
+            const total = stats.getTotal(session.chatId);
+
+            await ctx.editMessageText(
+                `${HEADER("GROUP INFO")}\n\n` +
+                `🏷️ المجموعة: <b>${esc(session.title)}</b>\n` +
+                `💬 الرسائل المسجلة: <b>${total}</b>\n\n` +
+                `اختر نوع الإحصائيات:\n\n` +
+                FOOTER,
+                {
+                    ...HTML,
+                    reply_markup: statsKeyboard()
+                }
+            );
+
+            return ctx.answerCallbackQuery();
+        }
+
+        // صفحات الوقت
+        if (session.type !== "clock") {
             return ctx.answerCallbackQuery();
         }
 
@@ -272,9 +507,8 @@ module.exports = function (bot) {
             }
 
             await ctx.editMessageText(
-                `${HEADER}\n\n` +
-                `🌸 <b>WORLD CLOCK</b> 🌸\n\n` +
-                `اختر الدولة لمعرفة الوقت الحالي:\n\n` +
+                `${HEADER("WORLD CLOCK")}\n\n` +
+                `اختر الدولة لمعرفة الوقت الحالي:\n` +
                 `❀ الصفحة ${page + 1} من ${countryPages.length} ❀\n\n` +
                 FOOTER,
                 {
@@ -296,8 +530,7 @@ module.exports = function (bot) {
         const { time, date } = getTime(country.zone);
 
         await ctx.editMessageText(
-            `${HEADER}\n\n` +
-            `🌸 <b>WORLD CLOCK</b> 🌸\n\n` +
+            `${HEADER("WORLD CLOCK")}\n\n` +
             `${country.flag} <b>${country.name}</b>\n\n` +
             `🕒 الوقت: <b>${time}</b>\n` +
             `📅 التاريخ: ${date}\n\n` +
@@ -321,134 +554,4 @@ module.exports = function (bot) {
 
         return ctx.answerCallbackQuery();
     });
-
-    // 🆔 ايدي
-    cmd(bot, ["ايدي", "id", "معرفي"], async ctx => {
-        const target = ctx.message.reply_to_message?.from || ctx.from;
-
-        return ctx.reply(
-            `${HEADER}\n\n` +
-            `🌸 <b>USER ID</b>\n\n` +
-            `👤 ${link(target.id, nameOf(target))}\n` +
-            `🆔 <code>${target.id}</code>\n` +
-            (target.username ? `🔗 @${esc(target.username)}\n` : "") +
-            `💬 <code>${ctx.chat.id}</code>\n\n` +
-            FOOTER,
-            HTML
-        );
-    });
-
-    // 👤 معلومات المستخدم
-    cmd(bot, ["معلومات"], async ctx => {
-        const target = ctx.message.reply_to_message?.from || ctx.from;
-
-        return ctx.reply(
-            `${HEADER}\n\n` +
-            `🌸 <b>USER INFO</b>\n\n` +
-            `👤 الاسم: ${esc(nameOf(target))}\n` +
-            `🆔 المعرف: <code>${target.id}</code>\n` +
-            `🔗 الحساب: ${target.username ? "@" + esc(target.username) : "غير متوفر"}\n` +
-            `🤖 بوت: ${target.is_bot ? "نعم" : "لا"}\n\n` +
-            FOOTER,
-            HTML
-        );
-    });
-
-    // 🧮 الحساب
-    cmd(bot, ["حساب", "احسب"], async (ctx, args) => {
-        if (!args) {
-            return ctx.reply(
-                `${HEADER}\n\n` +
-                `🌸 <b>CALCULATOR</b>\n\n` +
-                `أرسل العملية الحسابية.\n` +
-                `مثال: <code>حساب 25*4+10</code>\n\n` +
-                FOOTER,
-                HTML
-            );
-        }
-
-        try {
-            const result = calculate(args);
-
-            return ctx.reply(
-                `${HEADER}\n\n` +
-                `🌸 <b>CALCULATOR</b>\n\n` +
-                `🧮 العملية: <code>${esc(args)}</code>\n` +
-                `♡ النتيجة: <b>${result.toLocaleString("en-US")}</b>\n\n` +
-                FOOTER,
-                HTML
-            );
-        } catch (e) {
-            return ctx.reply(`🌸 ${esc(e.message)}`);
-        }
-    });
-
-    // 🔤 عد النص
-    cmd(bot, ["عد", "عدد"], async (ctx, args) => {
-        const text = args || ctx.message.reply_to_message?.text || "";
-
-        if (!text) {
-            return ctx.reply(
-                `${HEADER}\n\n` +
-                `🌸 <b>TEXT COUNTER</b>\n\n` +
-                `اكتب نصًا أو استخدم الأمر بالرد على رسالة.\n\n` +
-                FOOTER,
-                HTML
-            );
-        }
-
-        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-
-        return ctx.reply(
-            `${HEADER}\n\n` +
-            `🌸 <b>TEXT COUNTER</b>\n\n` +
-            `🔤 الحروف: ${Array.from(text).length}\n` +
-            `📝 الكلمات: ${words}\n\n` +
-            FOOTER,
-            HTML
-        );
-    });
-
-    // 👥 معلومات المجموعة
-    cmd(bot, ["معلومات_المجموعة"], async ctx => {
-        if (ctx.chat.type === "private")
-            return ctx.reply("🌸 هذا الأمر يعمل داخل المجموعات فقط.");
-
-        const chat = await ctx.getChat();
-        const count = await ctx.getChatMembersCount();
-
-        return ctx.reply(
-            `${HEADER}\n\n` +
-            `🌸 <b>GROUP INFO</b>\n\n` +
-            `🏷️ الاسم: ${esc(chat.title || "غير معروف")}\n` +
-            `🆔 المعرف: <code>${chat.id}</code>\n` +
-            `👥 الأعضاء: ${count}\n\n` +
-            FOOTER,
-            HTML
-        );
-    });
-
-    // 👑 المشرفون
-    cmd(bot, ["ادمن", "الادمن", "المشرفين"], async ctx => {
-        if (ctx.chat.type === "private")
-            return ctx.reply("🌸 هذا الأمر يعمل داخل المجموعات فقط.");
-
-        const admins = await ctx.getChatAdministrators();
-
-        const list = admins.map((admin, i) => {
-            const user = admin.user;
-            const role = admin.status === "creator" ? "👑 مالك" : "🛡️ مشرف";
-
-            return `${i + 1}. ${esc(nameOf(user))} — ${role}`;
-        });
-
-        return ctx.reply(
-            `${HEADER}\n\n` +
-            `🌸 <b>GROUP ADMINS</b>\n\n` +
-            (list.join("\n") || "لا يوجد مشرفون.") +
-            `\n\n${FOOTER}`,
-            HTML
-        );
-    });
-
 };
