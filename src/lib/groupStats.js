@@ -1,0 +1,184 @@
+
+const fs = require("fs");
+const path = require("path");
+
+const DATA_DIR = path.join(__dirname, "..", "data");
+const FILE = path.join(DATA_DIR, "statistics.json");
+const TIME_ZONE = "Africa/Tunis";
+
+let data = { groups: {} };
+let saveTimer = null;
+
+function todayKey(date = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(date);
+
+    const get = type => parts.find(p => p.type === type).value;
+    return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function load() {
+    try {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+
+        if (fs.existsSync(FILE)) {
+            const saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
+            if (saved && saved.groups) data = saved;
+        }
+    } catch (error) {
+        console.error("[GROUP STATS] Load:", error.message);
+    }
+}
+
+function save() {
+    try {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+
+        const temp = FILE + ".tmp";
+        fs.writeFileSync(temp, JSON.stringify(data, null, 2), "utf8");
+        fs.renameSync(temp, FILE);
+    } catch (error) {
+        console.error("[GROUP STATS] Save:", error.message);
+    }
+}
+
+function scheduleSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+        save();
+    }, 1500);
+}
+
+function getGroup(chatId) {
+    const id = String(chatId);
+
+    if (!data.groups[id]) {
+        data.groups[id] = {
+            firstSeen: new Date().toISOString(),
+            totalMessages: 0,
+            days: {}
+        };
+    }
+
+    return data.groups[id];
+}
+
+function record(ctx) {
+    const message = ctx.message;
+    const chat = ctx.chat;
+    const user = ctx.from;
+
+    if (!message || !chat || !user || user.is_bot) return;
+    if (!["group", "supergroup"].includes(chat.type)) return;
+
+    const group = getGroup(chat.id);
+    const day = todayKey();
+
+    if (!group.days[day]) {
+        group.days[day] = {
+            messages: 0,
+            users: {}
+        };
+    }
+
+    const daily = group.days[day];
+    const id = String(user.id);
+
+    if (!daily.users[id]) {
+        daily.users[id] = {
+            name: "",
+            username: null,
+            messages: 0
+        };
+    }
+
+    daily.users[id].name =
+        [user.first_name, user.last_name]
+            .filter(Boolean).join(" ") || user.username || "مستخدم";
+
+    daily.users[id].username = user.username || null;
+    daily.users[id].messages++;
+
+    daily.messages++;
+    group.totalMessages++;
+
+    const keys = Object.keys(group.days).sort();
+
+    while (keys.length > 90) {
+        delete group.days[keys.shift()];
+    }
+
+    scheduleSave();
+}
+
+function getDaily(chatId) {
+    const group = data.groups[String(chatId)];
+    const date = todayKey();
+    const daily = group?.days?.[date];
+
+    return {
+        date,
+        messages: daily?.messages || 0,
+        users: Object.entries(daily?.users || {})
+            .map(([id, user]) => ({ id, ...user }))
+            .sort((a, b) => b.messages - a.messages)
+    };
+}
+
+function getWeekly(chatId) {
+    const group = data.groups[String(chatId)];
+    const days = [];
+    const users = {};
+
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+
+        const key = todayKey(date);
+        const daily = group?.days?.[key];
+
+        days.push({
+            date: key,
+            messages: daily?.messages || 0
+        });
+
+        for (const [id, user] of Object.entries(daily?.users || {})) {
+            if (!users[id]) {
+                users[id] = {
+                    id,
+                    name: user.name,
+                    username: user.username,
+                    messages: 0
+                };
+            }
+
+            users[id].messages += user.messages;
+        }
+    }
+
+    return {
+        messages: days.reduce((sum, day) => sum + day.messages, 0),
+        days,
+        users: Object.values(users)
+            .sort((a, b) => b.messages - a.messages)
+    };
+}
+
+function getTotal(chatId) {
+    return data.groups[String(chatId)]?.totalMessages || 0;
+}
+
+load();
+
+module.exports = {
+    record,
+    getDaily,
+    getWeekly,
+    getTotal
+};
