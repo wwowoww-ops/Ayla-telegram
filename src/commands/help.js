@@ -2,7 +2,7 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA MENU               ║
- * ║                 v2.2                 ║
+ * ║                 v2.3                 ║
  * ╚══════════════════════════════════════╝
  */
 
@@ -11,15 +11,24 @@ const { InlineKeyboard } = require("grammy");
 
 const PHOTO_URL = "https://files.catbox.moe/ccdo9v.jpg";
 
+const HEADER = section =>
+    `❀ ━━ 𝗔𝗬𝗟𝗔 〢 ${section} ━━ ❀`;
+
+const FOOTER = "❀ ━━━━━━━━━━━━━ ❀";
+
+const format = (section, content) =>
+    `${HEADER(section)}\n\n${content}\n\n${FOOTER}`;
+
 // ==================================================
 // MAIN MENU
 // ==================================================
 
-const MAIN_TEXT =
-    "🌸 <b>AYLA — MENU</b>\n\n" +
+const MAIN_TEXT = format(
+    "𝗠𝗘𝗡𝗨",
     "أهلًا بك في عالم آيلا!\n" +
     "اختر القسم الذي تريد استكشافه.\n\n" +
-    "✿ نتمنى لك وقتًا ممتعًا.";
+    "✿ نتمنى لك وقتًا ممتعًا."
+);
 
 function mainKeyboard() {
     return new InlineKeyboard()
@@ -36,9 +45,8 @@ function mainKeyboard() {
 
 const CATEGORIES = {
     animals: {
-        text:
-            "🐲 <b>لعبة الحيوان</b>\n\n" +
-
+        text: format(
+            "𝗔𝗡𝗜𝗠𝗔𝗟",
             "✿ <b>الحيوان</b>\n" +
             "• حيواني\n" +
             "• بيض\n" +
@@ -65,27 +73,31 @@ const CATEGORIES = {
             "✿ <b>المبارزة</b>\n" +
             "• مبارزة\n" +
             "• نزال"
+        )
     },
 
     games: {
-        text:
-            "🎮 <b>الألعاب</b>\n\n" +
+        text: format(
+            "𝗚𝗔𝗠𝗘𝗦",
             "✿ لا يوجد أوامر حاليًا."
+        )
     },
 
     fun: {
-        text:
-            "😂 <b>الترفيه</b>\n\n" +
+        text: format(
+            "𝗙𝗨𝗡",
             "✿ لا يوجد أوامر حاليًا."
+        )
     },
 
     services: {
-        text:
-            "🛠️ <b>الخدمات</b>\n\n" +
+        text: format(
+            "𝗦𝗘𝗥𝗩𝗜𝗖𝗘𝗦",
             "• ايدي\n" +
             "• المجموعة\n" +
             "• وقت\n" +
             "• بادئة"
+        )
     }
 };
 
