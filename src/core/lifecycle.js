@@ -1,11 +1,10 @@
-
 /**
  * ╔══════════════════════════════════════╗
  * ║             AYLA LIFECYCLE             ║
- * ║                 v2.3                 ║
+ * ║                 v2.4                 ║
  * ╚══════════════════════════════════════╝
  *
- * تشغيل البوت:
+ * التشغيل:
  * 1. انتظار النسخة السابقة.
  * 2. الاتصال بقاعدة البيانات.
  * 3. تحميل نظام الزواج.
@@ -13,10 +12,11 @@
  * 5. تشغيل البوت.
  *
  * الإغلاق:
- * 1. إيقاف استقبال التحديثات.
- * 2. حفظ بيانات الزواج.
- * 3. حفظ اللاعبين والمجموعات.
- * 4. إغلاق اتصال قاعدة البيانات.
+ * 1. منع تكرار عملية الإغلاق.
+ * 2. إيقاف استقبال التحديثات.
+ * 3. حفظ بيانات الزواج.
+ * 4. حفظ بيانات اللاعبين والمجموعات.
+ * 5. إغلاق قاعدة البيانات.
  */
 
 const store = require("./store");
@@ -25,30 +25,48 @@ const { loadAll } = require("./loader");
 
 function run(bot, dbUrl) {
     let closing = false;
+    let started = false;
 
-    async function shutdown(code) {
+    async function shutdown(code = 0) {
         if (closing) return;
+
         closing = true;
 
         console.log("[AYLA] جارٍ إيقاف البوت وحفظ البيانات...");
 
-        try {
-            await bot.stop();
-        } catch (e) {
-            // قد يكون البوت متوقفًا بالفعل
+        if (started) {
+            try {
+                await bot.stop();
+            } catch (e) {
+                console.error(
+                    "[AYLA] ملاحظة أثناء إيقاف البوت:",
+                    e.message
+                );
+            }
         }
 
         try {
             await marriage.saveNow();
             console.log("[AYLA] تم حفظ بيانات الزواج.");
         } catch (e) {
-            console.error("[AYLA] فشل حفظ الزواج:", e.message);
+            console.error(
+                "[AYLA] فشل حفظ الزواج:",
+                e.message
+            );
+
+            code = 1;
         }
 
         try {
             await store.shutdown();
+            console.log("[AYLA] تم إغلاق قاعدة البيانات.");
         } catch (e) {
-            console.error("[AYLA] فشل إغلاق قاعدة البيانات:", e.message);
+            console.error(
+                "[AYLA] فشل إغلاق قاعدة البيانات:",
+                e.message
+            );
+
+            code = 1;
         }
 
         process.exit(code);
@@ -57,23 +75,23 @@ function run(bot, dbUrl) {
     process.once("SIGTERM", () => shutdown(0));
     process.once("SIGINT", () => shutdown(0));
 
-    process.on("unhandledRejection", e => {
+    process.on("unhandledRejection", error => {
         console.error(
-            "[unhandled]",
-            e && (e.stack || e.message || e)
+            "[AYLA] unhandledRejection:",
+            error && (error.stack || error.message || error)
         );
     });
 
-    process.on("uncaughtException", e => {
+    process.on("uncaughtException", error => {
         console.error(
-            "[uncaught]",
-            e && (e.stack || e.message || e)
+            "[AYLA] uncaughtException:",
+            error && (error.stack || error.message || error)
         );
 
         shutdown(1);
     });
 
-    (async () => {
+    async function start() {
         const wait = Math.max(
             0,
             Number(process.env.STARTUP_WAIT_SECONDS || 15)
@@ -81,7 +99,7 @@ function run(bot, dbUrl) {
 
         if (wait > 0) {
             console.log(
-                "انتظار " + wait +
+                "[AYLA] انتظار " + wait +
                 " ثانية لتسليم النسخة السابقة..."
             );
 
@@ -89,6 +107,8 @@ function run(bot, dbUrl) {
                 setTimeout(resolve, wait * 1000)
             );
         }
+
+        if (closing) return;
 
         try {
             await store.init(dbUrl);
@@ -99,36 +119,40 @@ function run(bot, dbUrl) {
 
             console.log("[AYLA] تم تحميل نظام الزواج.");
 
-        } catch (e) {
-            console.error(
-                "[AYLA] تعذر تجهيز قاعدة البيانات:",
-                e && (e.stack || e.message)
-            );
+            if (closing) return;
 
-            process.exit(1);
-            return;
-        }
+            loadAll(bot);
 
-        loadAll(bot);
+            console.log("[AYLA] تم تحميل الأوامر والمستمعات.");
 
-        try {
+            if (closing) return;
+
             await bot.start({
                 drop_pending_updates: true,
+
                 onStart: me => {
+                    started = true;
+
                     console.log(
-                        "البوت يعمل: @" + me.username
+                        "[AYLA] البوت يعمل: @" + me.username
                     );
                 }
             });
-        } catch (e) {
+
+        } catch (error) {
             console.error(
                 "[AYLA] فشل تشغيل البوت:",
-                e && (e.stack || e.message)
+                error && (error.stack || error.message || error)
             );
 
             await shutdown(1);
         }
-    })();
+    }
+
+    start().catch(error => {
+        console.error("[AYLA] خطأ تشغيل غير متوقع:", error);
+        shutdown(1);
+    });
 }
 
 module.exports = { run };
