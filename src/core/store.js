@@ -2,12 +2,13 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA STORE               ║
- * ║                 v2.2                 ║
+ * ║                 v2.3                 ║
  * ╚══════════════════════════════════════╝
  *
  * تخزين اقتصادي لـ PostgreSQL / Neon
  * اللاعبون: كل 20 دقيقة عند وجود تغييرات.
  * المجموعات: كل 5 دقائق عند وجود تغييرات.
+ * الزواج: يُحفظ مباشرة عند إجراء تغيير.
  * النسخ الاحتياطي: تصدير واستيراد JSON.
  * الإغلاق: محاولة حفظ كل البيانات المعلّقة.
  */
@@ -80,6 +81,14 @@ async function retry(fn, tries = 3) {
     }
 }
 
+function query(sql, params = []) {
+    if (!pool) {
+        throw new Error("قاعدة البيانات غير متصلة.");
+    }
+
+    return retry(() => pool.query(sql, params));
+}
+
 // ==================================================
 // INITIALIZATION
 // ==================================================
@@ -141,12 +150,10 @@ async function init(url) {
         `✅ [DB] ${players.size} لاعب | ${groupSettings.size} مجموعة`
     );
 
-    // مؤقت اللاعبين: 20 دقيقة
     playerTimer = setInterval(() => {
         flushPlayers().catch(() => {});
     }, PLAYER_FLUSH_MS);
 
-    // مؤقت إعدادات المجموعات: 5 دقائق
     groupTimer = setInterval(() => {
         flushGroups().catch(() => {});
     }, GROUP_FLUSH_MS);
@@ -398,13 +405,10 @@ function importData(backup, options = {}) {
             }
 
             seen.add(entry[0]);
-
-            // التأكد من إمكانية تحويل البيانات إلى JSON
             JSON.stringify(entry[1]);
         }
     };
 
-    // التحقق من كامل النسخة قبل تعديل الذاكرة
     validEntries(backup.players, "اللاعبين");
     validEntries(backup.groups, "المجموعات");
 
@@ -572,14 +576,19 @@ module.exports = {
     getGroupPrefix,
     setGroupPrefix,
 
+    // Database
+    query,
+
     // Backup / Restore
     exportData,
     importData,
 
-    // Database
+    // Flush
     flush,
     flushPlayers,
     flushGroups,
+
+    // Information
     databaseInfo,
     shutdown,
     stats
