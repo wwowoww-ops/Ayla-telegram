@@ -1,5 +1,5 @@
 // أوامر الترفيه (بدون قاعدة بيانات)
-const { esc, nameOf, link, pick, HTML, cmd, hash } = require("../lib/util");
+const { esc, nameOf, link, pick, HTML, cmd, hash } = require("./lib/util");
 
 const JOKES = [
     "واحد قال لصاحبه: أنا أنام 8 ساعات يوميًا.\nقال له: وأنا أنام 16 ساعة.\nقال: والله؟ كيف؟\nقال: أنام وأنا في الشغل 😴",
