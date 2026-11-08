@@ -1,7 +1,8 @@
+
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA STORE              ║
- * ║                 v2.5                 ║
+ * ║                 v2.6                 ║
  * ╚══════════════════════════════════════╝
  *
  * PostgreSQL / Neon
@@ -12,6 +13,7 @@
  * الكتابة: طابور موحد لجميع عمليات قاعدة البيانات.
  * الزواج: دعم الحفظ الذري مع أرصدة اللاعبين.
  * النسخ الاحتياطي: JSON.
+ * الحذف: حذف اللاعب من قاعدة البيانات والذاكرة.
  * الإغلاق: انتظار انتهاء الحفظ المعلق.
  */
 
@@ -51,21 +53,9 @@ let writeQueue = Promise.resolve();
 // SERIALIZED DATABASE WRITES
 // ==================================================
 
-/**
- * جميع عمليات الكتابة تمر من هنا:
- * - transaction
- * - flushPlayers
- * - flushGroups
- * - query
- *
- * لا يمكن لعملية كتابة أن تتداخل مع أخرى.
- */
-
 function serializeWrite(callback) {
     const task = writeQueue.then(callback);
-
     writeQueue = task.catch(() => {});
-
     return task;
 }
 
@@ -120,12 +110,9 @@ async function retry(fn, tries = 3) {
     }
 }
 
-/**
- * الاستعلامات العادية تمر أيضًا عبر الطابور.
- *
- * داخل transaction يجب استخدام client.query()
- * الذي توفره دالة transaction، وليس store.query().
- */
+// ==================================================
+// QUERY
+// ==================================================
 
 function query(sql, params = []) {
     return serializeWrite(async () => {
@@ -141,16 +128,6 @@ function query(sql, params = []) {
 // TRANSACTIONS
 // ==================================================
 
-/**
- * تنفيذ معاملة PostgreSQL.
- *
- * لا تعاد المحاولة تلقائيًا لتجنب تكرار
- * العمليات المالية عند انقطاع الاتصال.
- *
- * المعاملة تنتظر انتهاء عمليات الحفظ السابقة،
- * وتمنع بدء عمليات حفظ أخرى حتى انتهائها.
- */
-
 function transaction(callback) {
     return serializeWrite(async () => {
         if (!pool) {
@@ -162,7 +139,6 @@ function transaction(callback) {
         }
 
         const client = await pool.connect();
-
         let started = false;
 
         try {
@@ -289,7 +265,6 @@ async function init(url) {
         } catch (_) {}
 
         pool = null;
-
         throw error;
     }
 }
@@ -317,6 +292,51 @@ function touch(id) {
 
 function all() {
     return [...players.values()];
+}
+
+// ==================================================
+// DELETE PLAYER
+// ==================================================
+
+/**
+ * حذف اللاعب من قاعدة البيانات والذاكرة.
+ *
+ * جميع العمليات تمر عبر طابور الكتابة الموحد،
+ * لمنع تعارض الحذف مع الحفظ الدوري.
+ */
+
+function deletePlayer(id) {
+    return serializeWrite(async () => {
+        if (!pool) {
+            throw new Error("قاعدة البيانات غير متصلة.");
+        }
+
+        const key = String(id);
+
+        if (!/^-?\d+$/.test(key)) {
+            throw new Error("معرف اللاعب غير صالح.");
+        }
+
+        // حذف اللاعب من قاعدة البيانات أولاً.
+        const result = await retry(() =>
+            pool.query(
+                "DELETE FROM players WHERE id = $1 RETURNING id",
+                [key]
+            )
+        );
+
+        // حذف اللاعب من الذاكرة.
+        const removedFromMemory = players.delete(key);
+
+        // إلغاء أي حفظ معلق لهذا اللاعب.
+        dirty.delete(key);
+
+        return {
+            id: key,
+            removedFromDatabase: result.rowCount > 0,
+            removedFromMemory
+        };
+    });
 }
 
 // ==================================================
@@ -362,7 +382,6 @@ async function savePlayers() {
     if (!pool || !dirty.size) return 0;
 
     const ids = [...dirty];
-
     dirty.clear();
 
     let done = 0;
@@ -371,10 +390,8 @@ async function savePlayers() {
         for (let i = 0; i < ids.length; i += BATCH_SIZE) {
             const part = ids.slice(i, i + BATCH_SIZE);
 
-            // إنشاء نسخة من البيانات قبل بدء الاستعلام.
             const data = part.map(id => {
                 const player = players.get(id);
-
                 return JSON.stringify(player || {});
             });
 
@@ -395,8 +412,6 @@ async function savePlayers() {
         return done;
 
     } catch (error) {
-        // إعادة جميع المعرفات إلى قائمة الحفظ.
-        // هذا أكثر أمانًا عند حدوث فشل غير مؤكد.
         for (const id of ids) {
             dirty.add(id);
         }
@@ -418,7 +433,6 @@ async function saveGroups() {
     if (!pool || !dirtyGroups.size) return 0;
 
     const ids = [...dirtyGroups];
-
     dirtyGroups.clear();
 
     let done = 0;
@@ -561,7 +575,6 @@ function importData(backup, options = {}) {
             }
 
             seen.add(entry[0]);
-
             JSON.stringify(entry[1]);
         }
     };
@@ -582,7 +595,6 @@ function importData(backup, options = {}) {
 
         players.set(id, data);
         dirty.add(id);
-
         playersImported++;
     }
 
@@ -594,7 +606,6 @@ function importData(backup, options = {}) {
 
         groupSettings.set(id, data);
         dirtyGroups.add(id);
-
         groupsImported++;
     }
 
@@ -693,7 +704,6 @@ async function shutdown() {
     if (!pool) return;
 
     try {
-        // انتظار انتهاء كل العمليات السابقة ثم الحفظ.
         const result = await flush();
 
         console.log(
@@ -708,9 +718,7 @@ async function shutdown() {
     }
 
     try {
-        // انتظار انتهاء طابور الكتابة قبل إغلاق الاتصال.
         await writeQueue;
-
         await pool.end();
 
         console.log("[DB] تم إغلاق الاتصال.");
@@ -754,6 +762,7 @@ module.exports = {
     set,
     touch,
     all,
+    deletePlayer,
 
     // Groups
     getGroup,
