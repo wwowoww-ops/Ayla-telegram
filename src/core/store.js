@@ -1,8 +1,7 @@
-
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA STORE              ║
- * ║                 v2.4                 ║
+ * ║                 v2.5                 ║
  * ╚══════════════════════════════════════╝
  *
  * PostgreSQL / Neon
@@ -10,9 +9,10 @@
  * اللاعبون: حفظ دوري عند وجود تغييرات.
  * المجموعات: حفظ دوري عند وجود تغييرات.
  * المعاملات: BEGIN / COMMIT / ROLLBACK.
+ * الكتابة: طابور موحد لجميع عمليات قاعدة البيانات.
  * الزواج: دعم الحفظ الذري مع أرصدة اللاعبين.
  * النسخ الاحتياطي: JSON.
- * الإغلاق: حفظ البيانات المعلقة.
+ * الإغلاق: انتظار انتهاء الحفظ المعلق.
  */
 
 const { Pool } = require("pg");
@@ -45,7 +45,33 @@ let pool = null;
 let playerTimer = null;
 let groupTimer = null;
 
-let flushing = Promise.resolve();
+let writeQueue = Promise.resolve();
+
+// ==================================================
+// SERIALIZED DATABASE WRITES
+// ==================================================
+
+/**
+ * جميع عمليات الكتابة تمر من هنا:
+ * - transaction
+ * - flushPlayers
+ * - flushGroups
+ * - query
+ *
+ * لا يمكن لعملية كتابة أن تتداخل مع أخرى.
+ */
+
+function serializeWrite(callback) {
+    const task = writeQueue.then(callback);
+
+    writeQueue = task.catch(() => {});
+
+    return task;
+}
+
+// ==================================================
+// CONNECTION
+// ==================================================
 
 function connect(rawUrl) {
     if (!rawUrl) {
@@ -62,14 +88,19 @@ function connect(rawUrl) {
 
     pool = new Pool({
         connectionString: url,
-        ssl: local ? false : { rejectUnauthorized: false },
+        ssl: local ? false : {
+            rejectUnauthorized: false
+        },
         max: 2,
         idleTimeoutMillis: 5000,
         connectionTimeoutMillis: 30000
     });
 
     pool.on("error", error => {
-        console.error("[DB] اتصال خامل انقطع:", error.message);
+        console.error(
+            "[DB] اتصال خامل انقطع:",
+            error.message
+        );
     });
 }
 
@@ -78,7 +109,9 @@ async function retry(fn, tries = 3) {
         try {
             return await fn();
         } catch (error) {
-            if (i >= tries - 1) throw error;
+            if (i >= tries - 1) {
+                throw error;
+            }
 
             await new Promise(resolve =>
                 setTimeout(resolve, 1500 * (i + 1))
@@ -87,12 +120,21 @@ async function retry(fn, tries = 3) {
     }
 }
 
-function query(sql, params = []) {
-    if (!pool) {
-        throw new Error("قاعدة البيانات غير متصلة.");
-    }
+/**
+ * الاستعلامات العادية تمر أيضًا عبر الطابور.
+ *
+ * داخل transaction يجب استخدام client.query()
+ * الذي توفره دالة transaction، وليس store.query().
+ */
 
-    return retry(() => pool.query(sql, params));
+function query(sql, params = []) {
+    return serializeWrite(async () => {
+        if (!pool) {
+            throw new Error("قاعدة البيانات غير متصلة.");
+        }
+
+        return retry(() => pool.query(sql, params));
+    });
 }
 
 // ==================================================
@@ -100,56 +142,58 @@ function query(sql, params = []) {
 // ==================================================
 
 /**
- * تنفيذ مجموعة عمليات داخل معاملة PostgreSQL واحدة.
+ * تنفيذ معاملة PostgreSQL.
  *
- * عند النجاح: COMMIT
- * عند الفشل: ROLLBACK
+ * لا تعاد المحاولة تلقائيًا لتجنب تكرار
+ * العمليات المالية عند انقطاع الاتصال.
  *
- * لا نعيد محاولة المعاملة تلقائيًا؛ لأن إعادة
- * معاملة فشلت أثناء الاتصال قد تكرر عملية مالية.
+ * المعاملة تنتظر انتهاء عمليات الحفظ السابقة،
+ * وتمنع بدء عمليات حفظ أخرى حتى انتهائها.
  */
 
-async function transaction(callback) {
-    if (!pool) {
-        throw new Error("قاعدة البيانات غير متصلة.");
-    }
-
-    if (typeof callback !== "function") {
-        throw new Error("يجب توفير دالة للمعاملة.");
-    }
-
-    const client = await pool.connect();
-
-    let started = false;
-
-    try {
-        await client.query("BEGIN");
-        started = true;
-
-        const result = await callback(client);
-
-        await client.query("COMMIT");
-        started = false;
-
-        return result;
-
-    } catch (error) {
-        if (started) {
-            try {
-                await client.query("ROLLBACK");
-            } catch (rollbackError) {
-                console.error(
-                    "[DB TRANSACTION ROLLBACK]",
-                    rollbackError.message
-                );
-            }
+function transaction(callback) {
+    return serializeWrite(async () => {
+        if (!pool) {
+            throw new Error("قاعدة البيانات غير متصلة.");
         }
 
-        throw error;
+        if (typeof callback !== "function") {
+            throw new Error("يجب توفير دالة للمعاملة.");
+        }
 
-    } finally {
-        client.release();
-    }
+        const client = await pool.connect();
+
+        let started = false;
+
+        try {
+            await client.query("BEGIN");
+            started = true;
+
+            const result = await callback(client);
+
+            await client.query("COMMIT");
+            started = false;
+
+            return result;
+
+        } catch (error) {
+            if (started) {
+                try {
+                    await client.query("ROLLBACK");
+                } catch (rollbackError) {
+                    console.error(
+                        "[DB ROLLBACK]",
+                        rollbackError.message
+                    );
+                }
+            }
+
+            throw error;
+
+        } finally {
+            client.release();
+        }
+    });
 }
 
 // ==================================================
@@ -218,13 +262,19 @@ async function init(url) {
 
         playerTimer = setInterval(() => {
             flushPlayers().catch(error => {
-                console.error("[DB PLAYER FLUSH]", error.message);
+                console.error(
+                    "[DB PLAYER FLUSH]",
+                    error.message
+                );
             });
         }, PLAYER_FLUSH_MS);
 
         groupTimer = setInterval(() => {
             flushGroups().catch(error => {
-                console.error("[DB GROUP FLUSH]", error.message);
+                console.error(
+                    "[DB GROUP FLUSH]",
+                    error.message
+                );
             });
         }, GROUP_FLUSH_MS);
 
@@ -239,6 +289,7 @@ async function init(url) {
         } catch (_) {}
 
         pool = null;
+
         throw error;
     }
 }
@@ -247,32 +298,36 @@ async function init(url) {
 // PLAYERS API
 // ==================================================
 
-const get = id =>
-    players.get(String(id)) || null;
+function get(id) {
+    return players.get(String(id)) || null;
+}
 
-const set = (id, data) => {
+function set(id, data) {
     const key = String(id);
 
     players.set(key, data);
     dirty.add(key);
 
     return data;
-};
+}
 
-const touch = id =>
+function touch(id) {
     dirty.add(String(id));
+}
 
-const all = () =>
-    [...players.values()];
+function all() {
+    return [...players.values()];
+}
 
 // ==================================================
 // GROUP SETTINGS API
 // ==================================================
 
-const getGroup = id =>
-    groupSettings.get(String(id)) || {};
+function getGroup(id) {
+    return groupSettings.get(String(id)) || {};
+}
 
-const setGroup = (id, settings) => {
+function setGroup(id, settings) {
     const key = String(id);
 
     groupSettings.set(key, {
@@ -283,18 +338,21 @@ const setGroup = (id, settings) => {
     dirtyGroups.add(key);
 
     return groupSettings.get(key);
-};
+}
 
-const getGroupPrefix = id => {
+function getGroupPrefix(id) {
     const settings = getGroup(id);
 
     return settings.prefix === undefined
         ? "!"
         : settings.prefix;
-};
+}
 
-const setGroupPrefix = (id, prefix) =>
-    setGroup(id, { prefix: String(prefix) });
+function setGroupPrefix(id, prefix) {
+    return setGroup(id, {
+        prefix: String(prefix)
+    });
+}
 
 // ==================================================
 // SAVE PLAYERS
@@ -304,6 +362,7 @@ async function savePlayers() {
     if (!pool || !dirty.size) return 0;
 
     const ids = [...dirty];
+
     dirty.clear();
 
     let done = 0;
@@ -312,14 +371,11 @@ async function savePlayers() {
         for (let i = 0; i < ids.length; i += BATCH_SIZE) {
             const part = ids.slice(i, i + BATCH_SIZE);
 
+            // إنشاء نسخة من البيانات قبل بدء الاستعلام.
             const data = part.map(id => {
                 const player = players.get(id);
 
-                if (!player) {
-                    return JSON.stringify({});
-                }
-
-                return JSON.stringify(player);
+                return JSON.stringify(player || {});
             });
 
             await retry(() => pool.query(
@@ -339,7 +395,11 @@ async function savePlayers() {
         return done;
 
     } catch (error) {
-        ids.slice(done).forEach(id => dirty.add(id));
+        // إعادة جميع المعرفات إلى قائمة الحفظ.
+        // هذا أكثر أمانًا عند حدوث فشل غير مؤكد.
+        for (const id of ids) {
+            dirty.add(id);
+        }
 
         console.error(
             "[DB] فشل حفظ اللاعبين:",
@@ -358,6 +418,7 @@ async function saveGroups() {
     if (!pool || !dirtyGroups.size) return 0;
 
     const ids = [...dirtyGroups];
+
     dirtyGroups.clear();
 
     let done = 0;
@@ -387,7 +448,9 @@ async function saveGroups() {
         return done;
 
     } catch (error) {
-        ids.slice(done).forEach(id => dirtyGroups.add(id));
+        for (const id of ids) {
+            dirtyGroups.add(id);
+        }
 
         console.error(
             "[DB] فشل حفظ المجموعات:",
@@ -402,22 +465,16 @@ async function saveGroups() {
 // SERIALIZED FLUSH
 // ==================================================
 
-function queueFlush(fn) {
-    const run = flushing.then(fn);
-
-    flushing = run.catch(() => {});
-
-    return run;
+function flushPlayers() {
+    return serializeWrite(savePlayers);
 }
 
-const flushPlayers = () =>
-    queueFlush(savePlayers);
+function flushGroups() {
+    return serializeWrite(saveGroups);
+}
 
-const flushGroups = () =>
-    queueFlush(saveGroups);
-
-const flush = () =>
-    queueFlush(async () => {
+function flush() {
+    return serializeWrite(async () => {
         const playerCount = await savePlayers();
         const groupCount = await saveGroups();
 
@@ -426,6 +483,7 @@ const flush = () =>
             groups: groupCount
         };
     });
+}
 
 // ==================================================
 // BACKUP / RESTORE
@@ -470,7 +528,9 @@ function importData(backup, options = {}) {
         !Array.isArray(backup.players) ||
         !Array.isArray(backup.groups)
     ) {
-        throw new Error("بيانات اللاعبين أو المجموعات غير موجودة.");
+        throw new Error(
+            "بيانات اللاعبين أو المجموعات غير موجودة."
+        );
     }
 
     const validId = id =>
@@ -501,6 +561,7 @@ function importData(backup, options = {}) {
             }
 
             seen.add(entry[0]);
+
             JSON.stringify(entry[1]);
         }
     };
@@ -521,6 +582,7 @@ function importData(backup, options = {}) {
 
         players.set(id, data);
         dirty.add(id);
+
         playersImported++;
     }
 
@@ -532,6 +594,7 @@ function importData(backup, options = {}) {
 
         groupSettings.set(id, data);
         dirtyGroups.add(id);
+
         groupsImported++;
     }
 
@@ -547,67 +610,69 @@ function importData(backup, options = {}) {
 // DATABASE INFORMATION
 // ==================================================
 
-async function databaseInfo() {
-    if (!pool) {
-        throw new Error("قاعدة البيانات غير متصلة.");
-    }
+function databaseInfo() {
+    return serializeWrite(async () => {
+        if (!pool) {
+            throw new Error("قاعدة البيانات غير متصلة.");
+        }
 
-    const result = await retry(() => pool.query(`
-        SELECT
-            current_database() AS database_name,
+        const result = await retry(() => pool.query(`
+            SELECT
+                current_database() AS database_name,
 
-            pg_database_size(current_database())::bigint
-                AS database_bytes,
+                pg_database_size(current_database())::bigint
+                    AS database_bytes,
 
-            pg_size_pretty(
-                pg_database_size(current_database())
-            ) AS database_size,
+                pg_size_pretty(
+                    pg_database_size(current_database())
+                ) AS database_size,
 
-            (
-                SELECT count(*)
-                FROM pg_stat_activity
-                WHERE datname = current_database()
-            )::integer AS connections,
+                (
+                    SELECT count(*)
+                    FROM pg_stat_activity
+                    WHERE datname = current_database()
+                )::integer AS connections,
 
-            (
-                SELECT COALESCE(sum(n_live_tup), 0)
-                FROM pg_stat_user_tables
-            )::bigint AS estimated_rows,
+                (
+                    SELECT COALESCE(sum(n_live_tup), 0)
+                    FROM pg_stat_user_tables
+                )::bigint AS estimated_rows,
 
-            (
-                SELECT COALESCE(sum(heap_blks_hit), 0)
-                FROM pg_statio_user_tables
-            )::bigint AS cache_hits,
+                (
+                    SELECT COALESCE(sum(heap_blks_hit), 0)
+                    FROM pg_statio_user_tables
+                )::bigint AS cache_hits,
 
-            (
-                SELECT COALESCE(sum(heap_blks_read), 0)
-                FROM pg_statio_user_tables
-            )::bigint AS disk_reads,
+                (
+                    SELECT COALESCE(sum(heap_blks_read), 0)
+                    FROM pg_statio_user_tables
+                )::bigint AS disk_reads,
 
-            (
-                SELECT COALESCE(sum(pg_total_relation_size(relid)), 0)
-                FROM pg_stat_user_tables
-            )::bigint AS tables_bytes
-    `));
+                (
+                    SELECT COALESCE(sum(pg_total_relation_size(relid)), 0)
+                    FROM pg_stat_user_tables
+                )::bigint AS tables_bytes
+        `));
 
-    const row = result.rows[0];
+        const row = result.rows[0];
 
-    const hits = Number(row.cache_hits || 0);
-    const reads = Number(row.disk_reads || 0);
-    const total = hits + reads;
+        const hits = Number(row.cache_hits || 0);
+        const reads = Number(row.disk_reads || 0);
+        const total = hits + reads;
 
-    return {
-        name: row.database_name,
-        size: row.database_size,
-        bytes: Number(row.database_bytes || 0),
-        tablesBytes: Number(row.tables_bytes || 0),
-        connections: Number(row.connections || 0),
-        estimatedRows: Number(row.estimated_rows || 0),
+        return {
+            name: row.database_name,
+            size: row.database_size,
+            bytes: Number(row.database_bytes || 0),
+            tablesBytes: Number(row.tables_bytes || 0),
+            connections: Number(row.connections || 0),
+            estimatedRows: Number(row.estimated_rows || 0),
 
-        cacheHitRate: total
-            ? ((hits / total) * 100).toFixed(1)
-            : null
-    };
+            cacheHitRate: total
+                ? ((hits / total) * 100).toFixed(1)
+                : null
+        };
+    });
 }
 
 // ==================================================
@@ -627,18 +692,9 @@ async function shutdown() {
 
     if (!pool) return;
 
-    let timeout;
-
     try {
-        const result = await Promise.race([
-            flush(),
-
-            new Promise((_, reject) => {
-                timeout = setTimeout(() => {
-                    reject(new Error("انتهت مهلة الحفظ."));
-                }, 8000);
-            })
-        ]);
+        // انتظار انتهاء كل العمليات السابقة ثم الحفظ.
+        const result = await flush();
 
         console.log(
             `[DB] حفظ ${result.players} لاعب و${result.groups} مجموعة`
@@ -649,31 +705,42 @@ async function shutdown() {
             "[DB] تعذّر إكمال الحفظ:",
             error.message
         );
-
-    } finally {
-        if (timeout) clearTimeout(timeout);
     }
 
     try {
-        await pool.end();
-    } catch (_) {}
+        // انتظار انتهاء طابور الكتابة قبل إغلاق الاتصال.
+        await writeQueue;
 
-    pool = null;
+        await pool.end();
+
+        console.log("[DB] تم إغلاق الاتصال.");
+
+    } catch (error) {
+        console.error(
+            "[DB] خطأ أثناء إغلاق الاتصال:",
+            error.message
+        );
+
+    } finally {
+        pool = null;
+    }
 }
 
 // ==================================================
 // LOCAL STATISTICS
 // ==================================================
 
-const stats = () => ({
-    players: players.size,
-    dirtyPlayers: dirty.size,
+function stats() {
+    return {
+        players: players.size,
+        dirtyPlayers: dirty.size,
 
-    groups: groupSettings.size,
-    dirtyGroups: dirtyGroups.size,
+        groups: groupSettings.size,
+        dirtyGroups: dirtyGroups.size,
 
-    connected: !!pool
-});
+        connected: !!pool
+    };
+}
 
 // ==================================================
 // EXPORTS
