@@ -321,7 +321,7 @@ module.exports = function (bot) {
         return showMenu(ctx);
     }, {
         menu: "زواج",
-        category: "services"
+        category: "fun"
     });
 
     // ==================================================
