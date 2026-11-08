@@ -1,15 +1,15 @@
 
 /**
  * ╔══════════════════════════════════════╗
- * ║          AYLA MARRIAGE CARD          ║
- * ║                 v1.0                 ║
+ * ║          AYLA MARRIAGE CARD           ║
+ * ║                 v1.1                 ║
  * ╚══════════════════════════════════════╝
  */
 
 const sharp = require("sharp");
 
 function xml(value) {
-    return String(value)
+    return String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -18,61 +18,143 @@ function xml(value) {
 }
 
 function date(value) {
-    return new Date(value).toLocaleDateString("en-GB");
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+        return "Unknown";
+    }
+
+    return d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC"
+    });
 }
 
 module.exports = async function makeMarriageCard(marriage) {
+    if (!marriage || !marriage.husbandName || !marriage.wifeName) {
+        throw new Error("بيانات بطاقة الزواج غير مكتملة.");
+    }
+
     const husband = xml(marriage.husbandName);
     const wife = xml(marriage.wifeName);
-    const dowry = Number(marriage.dowry).toLocaleString("en-US");
+
+    const dowryValue = Number(marriage.dowry);
+
+    if (!Number.isSafeInteger(dowryValue) || dowryValue < 0) {
+        throw new Error("قيمة المهر غير صالحة.");
+    }
+
+    const dowry = dowryValue.toLocaleString("en-US");
     const created = date(marriage.createdAt);
 
     const svg = `
-    <svg width="1000" height="600" xmlns="http://www.w3.org/2000/svg">
+    <svg width="1000" height="600"
+         xmlns="http://www.w3.org/2000/svg">
+
       <defs>
         <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#171321"/>
-          <stop offset="100%" stop-color="#302344"/>
+          <stop offset="0%" stop-color="#111019"/>
+          <stop offset="55%" stop-color="#21192f"/>
+          <stop offset="100%" stop-color="#38264e"/>
         </linearGradient>
+
         <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#8d6cc5"/>
-          <stop offset="100%" stop-color="#c2a7ee"/>
+          <stop offset="0%" stop-color="#7652a8"/>
+          <stop offset="50%" stop-color="#d6b8ff"/>
+          <stop offset="100%" stop-color="#7652a8"/>
         </linearGradient>
+
+        <radialGradient id="glow">
+          <stop offset="0%" stop-color="#9c72d2" stop-opacity=".22"/>
+          <stop offset="100%" stop-color="#9c72d2" stop-opacity="0"/>
+        </radialGradient>
       </defs>
 
       <rect width="1000" height="600" rx="34" fill="url(#bg)"/>
+
+      <circle cx="500" cy="290" r="360" fill="url(#glow)"/>
+
       <rect x="24" y="24" width="952" height="552"
-            rx="26" fill="none" stroke="url(#line)" stroke-width="3"/>
+            rx="26" fill="none"
+            stroke="url(#line)" stroke-width="3"/>
 
-      <text x="500" y="100" text-anchor="middle"
-            font-size="34" fill="#d8c7f5"
-            font-family="Arial">AYLA  /  MARRIAGE</text>
+      <rect x="38" y="38" width="924" height="524"
+            rx="20" fill="none"
+            stroke="#ffffff" stroke-opacity=".08"
+            stroke-width="1"/>
 
-      <line x1="250" y1="135" x2="750" y2="135"
-            stroke="#8d6cc5" stroke-width="2"/>
+      <text x="500" y="94"
+            text-anchor="middle"
+            font-size="34"
+            letter-spacing="5"
+            fill="#d8c7f5"
+            font-family="Arial, sans-serif">
+        AYLA
+      </text>
 
-      <text x="500" y="225" text-anchor="middle"
-            font-size="68" fill="#ffffff"
-            font-family="Arial">Marriage Certificate</text>
+      <text x="500" y="128"
+            text-anchor="middle"
+            font-size="17"
+            letter-spacing="4"
+            fill="#a992c8"
+            font-family="Arial, sans-serif">
+        MARRIAGE RECORD
+      </text>
 
-      <text x="500" y="320" text-anchor="middle"
-            font-size="44" fill="#e5d7fa"
-            font-family="Arial">${husband}  ×  ${wife}</text>
+      <line x1="250" y1="155" x2="750" y2="155"
+            stroke="url(#line)" stroke-width="2"/>
 
-      <text x="500" y="400" text-anchor="middle"
-            font-size="30" fill="#c9b6e8"
-            font-family="Arial">Dowry: ${dowry} VLT</text>
+      <text x="500" y="235"
+            text-anchor="middle"
+            font-size="58"
+            fill="#ffffff"
+            font-family="Arial, sans-serif">
+        Marriage Certificate
+      </text>
 
-      <text x="500" y="455" text-anchor="middle"
-            font-size="25" fill="#bca8dc"
-            font-family="Arial">Date: ${created}</text>
+      <text x="500" y="320"
+            text-anchor="middle"
+            font-size="43"
+            fill="#eadcfb"
+            font-family="Arial, sans-serif">
+        ${husband}  ×  ${wife}
+      </text>
+
+      <line x1="320" y1="365" x2="680" y2="365"
+            stroke="#8d6cc5"
+            stroke-opacity=".65"
+            stroke-width="1.5"/>
+
+      <text x="500" y="415"
+            text-anchor="middle"
+            font-size="29"
+            fill="#d6c2f0"
+            font-family="Arial, sans-serif">
+        Dowry: ${dowry} VLT
+      </text>
+
+      <text x="500" y="463"
+            text-anchor="middle"
+            font-size="23"
+            fill="#bca8dc"
+            font-family="Arial, sans-serif">
+        Date: ${xml(created)}
+      </text>
 
       <line x1="250" y1="495" x2="750" y2="495"
-            stroke="#8d6cc5" stroke-width="2"/>
+            stroke="url(#line)" stroke-width="2"/>
 
-      <text x="500" y="540" text-anchor="middle"
-            font-size="25" fill="#d8c7f5"
-            font-family="Arial">Registered by AYLA</text>
+      <text x="500" y="535"
+            text-anchor="middle"
+            font-size="21"
+            letter-spacing="2"
+            fill="#d8c7f5"
+            font-family="Arial, sans-serif">
+        REGISTERED BY AYLA
+      </text>
+
     </svg>`;
 
     return sharp(Buffer.from(svg))
