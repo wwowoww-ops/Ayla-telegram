@@ -1,19 +1,19 @@
 
 /**
  * ╔══════════════════════════════════════╗
- * ║           AYLA MARRIAGE CORE          ║
- * ║                 v1.0                 ║
+ * ║          AYLA MARRIAGE CORE          ║
+ * ║                 v2.0                 ║
  * ╚══════════════════════════════════════╝
  *
- * نظام الزواج:
  * - تسجيل الجنس
- * - طلبات الزواج
- * - الموافقة والرفض
- * - المهر
+ * - طلبات الزواج والموافقة والرفض
+ * - المهر والتحويلات المالية
  * - الطلاق والخلع
  * - سجل الزيجات
- * - نسبة توافق الأسماء
- * - الحفظ الدائم في PostgreSQL
+ * - توافق الأسماء
+ * - PostgreSQL persistence
+ * - Atomic financial transactions
+ * - Serialized marriage operations
  */
 
 const crypto = require("crypto");
@@ -22,6 +22,7 @@ const ui = require("../game/ui");
 const { hash } = require("../lib/util");
 
 const TABLE = "ayla_marriage";
+const REQUEST_TTL = 7 * 24 * 60 * 60 * 1000;
 
 const state = {
     profiles: {},
@@ -31,8 +32,8 @@ const state = {
 };
 
 let initialized = false;
-let saveQueue = Promise.resolve();
 let saveTimer = null;
+let operationQueue = Promise.resolve();
 
 const id = value => String(value);
 
@@ -42,10 +43,44 @@ function requireInit() {
     }
 }
 
-function findMarriage(userId) {
+function makeId() {
+    return crypto.randomUUID();
+}
+
+function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+
+function replaceState(next) {
+    state.profiles = next.profiles;
+    state.requests = next.requests;
+    state.marriages = next.marriages;
+    state.history = next.history;
+}
+
+function snapshot() {
+    return {
+        profiles: state.profiles,
+        requests: state.requests,
+        marriages: state.marriages,
+        history: state.history
+    };
+}
+
+function enqueue(callback) {
+    const operation = operationQueue.then(callback);
+
+    operationQueue = operation.catch(error => {
+        console.error("[AYLA MARRIAGE QUEUE]", error.message);
+    });
+
+    return operation;
+}
+
+function findMarriage(userId, source = state) {
     const key = id(userId);
 
-    return Object.values(state.marriages).find(m =>
+    return Object.values(source.marriages).find(m =>
         m.status === "married" &&
         (m.husband === key || m.wife === key)
     ) || null;
@@ -59,12 +94,32 @@ function getRequest(requestId) {
     return state.requests[String(requestId)] || null;
 }
 
-function makeId() {
-    return crypto.randomUUID();
+function isExpired(request) {
+    const created = new Date(request.createdAt).getTime();
+
+    return !Number.isFinite(created) ||
+        Date.now() - created > REQUEST_TTL;
+}
+
+function cleanExpiredRequests(source) {
+    let changed = false;
+
+    for (const request of Object.values(source.requests)) {
+        if (
+            request.status === "pending" &&
+            isExpired(request)
+        ) {
+            request.status = "expired";
+            request.expiredAt = new Date().toISOString();
+            changed = true;
+        }
+    }
+
+    return changed;
 }
 
 // ==================================================
-// INITIALIZATION
+// DATABASE INITIALIZATION
 // ==================================================
 
 async function init() {
@@ -96,41 +151,45 @@ async function init() {
 
     initialized = true;
 
+    const changed = cleanExpiredRequests(state);
+
+    if (changed) {
+        await saveNow();
+    }
+
     console.log(
         `[AYLA MARRIAGE] تم تحميل ${Object.keys(state.marriages).length} سجل زواج`
     );
 }
 
 // ==================================================
-// SAVE
+// PERSISTENCE
 // ==================================================
+
+async function writeState(client, data) {
+    await client.query(`
+        INSERT INTO ${TABLE} (id, data, updated_at)
+        VALUES (1, $1::jsonb, NOW())
+        ON CONFLICT (id)
+        DO UPDATE SET
+            data = EXCLUDED.data,
+            updated_at = NOW()
+    `, [JSON.stringify(data)]);
+}
 
 async function save() {
     requireInit();
 
-    const snapshot = JSON.stringify({
-        profiles: state.profiles,
-        requests: state.requests,
-        marriages: state.marriages,
-        history: state.history
-    });
+    const data = JSON.stringify(snapshot());
 
-    const operation = saveQueue.then(() =>
-        store.query(`
-            INSERT INTO ${TABLE} (id, data, updated_at)
-            VALUES (1, $1::jsonb, NOW())
-            ON CONFLICT (id)
-            DO UPDATE SET
-                data = EXCLUDED.data,
-                updated_at = NOW()
-        `, [snapshot])
-    );
-
-    saveQueue = operation.catch(error => {
-        console.error("[AYLA MARRIAGE SAVE]", error.message);
-    });
-
-    return operation;
+    await store.query(`
+        INSERT INTO ${TABLE} (id, data, updated_at)
+        VALUES (1, $1::jsonb, NOW())
+        ON CONFLICT (id)
+        DO UPDATE SET
+            data = EXCLUDED.data,
+            updated_at = NOW()
+    `, [data]);
 }
 
 function scheduleSave() {
@@ -138,8 +197,9 @@ function scheduleSave() {
 
     saveTimer = setTimeout(() => {
         saveTimer = null;
-        save().catch(error => {
-            console.error("[AYLA MARRIAGE]", error.message);
+
+        enqueue(() => save()).catch(error => {
+            console.error("[AYLA MARRIAGE SAVE]", error.message);
         });
     }, 3000);
 
@@ -147,12 +207,45 @@ function scheduleSave() {
 }
 
 async function saveNow() {
+    requireInit();
+
     if (saveTimer) {
         clearTimeout(saveTimer);
         saveTimer = null;
     }
 
-    await save();
+    return enqueue(() => save());
+}
+
+/**
+ * حفظ سجل الزواج وأرصدة اللاعبين داخل معاملة واحدة.
+ * لا يتم تعديل الحالة المعتمدة في الذاكرة إلا بعد COMMIT.
+ */
+async function commitFinancialChange(nextState, playerUpdates) {
+    await store.transaction(async client => {
+        for (const update of playerUpdates) {
+            await client.query(`
+                INSERT INTO players (id, data, updated_at)
+                VALUES ($1, $2::jsonb, NOW())
+                ON CONFLICT (id)
+                DO UPDATE SET
+                    data = EXCLUDED.data,
+                    updated_at = NOW()
+            `, [
+                update.id,
+                JSON.stringify(update.data)
+            ]);
+        }
+
+        await writeState(client, nextState);
+    });
+
+    // بعد نجاح COMMIT فقط
+    for (const update of playerUpdates) {
+        store.set(update.id, update.data);
+    }
+
+    replaceState(nextState);
 }
 
 // ==================================================
@@ -205,7 +298,32 @@ function getPlayer(user) {
 }
 
 function getBalance(user) {
-    return Number(getPlayer(user).coins || 0);
+    const balance = Number(getPlayer(user).coins || 0);
+
+    if (!Number.isSafeInteger(balance) || balance < 0) {
+        throw new Error("رصيد اللاعب غير صالح.");
+    }
+
+    return balance;
+}
+
+function getStoredPlayer(userId) {
+    const player = store.get(userId);
+
+    if (!player) {
+        throw new Error("تعذر تحميل بيانات أحد الطرفين.");
+    }
+
+    const balance = Number(player.coins || 0);
+
+    if (!Number.isSafeInteger(balance) || balance < 0) {
+        throw new Error("رصيد اللاعب غير صالح.");
+    }
+
+    return {
+        ...player,
+        coins: balance
+    };
 }
 
 // ==================================================
@@ -223,7 +341,7 @@ function createRequest(husband, wife, dowry, chatId) {
     const wifeId = id(wife.id);
 
     if (husbandId === wifeId) {
-        throw new Error("لا يمكنك الزواج من نفسك 😂");
+        throw new Error("لا يمكنك الزواج من نفسك.");
     }
 
     if (getGender(husbandId) !== "male") {
@@ -231,7 +349,7 @@ function createRequest(husband, wife, dowry, chatId) {
     }
 
     if (getGender(wifeId) !== "female") {
-        throw new Error("يجب أن تكون الطرف الآخر مسجلة كأنثى.");
+        throw new Error("يجب أن يكون الطرف الآخر مسجلًا كأنثى.");
     }
 
     if (findMarriage(husbandId) || findMarriage(wifeId)) {
@@ -246,13 +364,20 @@ function createRequest(husband, wife, dowry, chatId) {
         throw new Error("رصيدك لا يكفي لدفع هذا المهر.");
     }
 
-    const pending = Object.values(state.requests).some(r =>
-        r.status === "pending" &&
-        (r.husband === husbandId || r.wife === husbandId ||
-         r.husband === wifeId || r.wife === wifeId)
+    cleanExpiredRequests(state);
+
+    const pending = Object.values(state.requests).some(request =>
+        request.status === "pending" &&
+        (
+            request.husband === husbandId ||
+            request.wife === husbandId ||
+            request.husband === wifeId ||
+            request.wife === wifeId
+        )
     );
 
     if (pending) {
+        scheduleSave();
         throw new Error("لدى أحد الطرفين طلب زواج معلّق بالفعل.");
     }
 
@@ -277,97 +402,132 @@ function createRequest(husband, wife, dowry, chatId) {
 }
 
 // ==================================================
-// ACCEPT / REJECT
+// ACCEPT REQUEST
 // ==================================================
 
 async function acceptRequest(requestId, user) {
     requireInit();
 
-    const request = getRequest(requestId);
-
-    if (!request || request.status !== "pending") {
-        throw new Error("طلب الزواج غير موجود أو انتهت صلاحيته.");
+    if (!user || user.is_bot) {
+        throw new Error("الحساب غير صالح.");
     }
 
-    if (id(user.id) !== request.wife) {
-        throw new Error("هذا الطلب ليس موجهًا إليك.");
-    }
+    return enqueue(async () => {
+        const request = getRequest(requestId);
 
-    if (findMarriage(request.husband) || findMarriage(request.wife)) {
-        request.status = "cancelled";
-        await saveNow();
-        throw new Error("أحد الطرفين أصبح متزوجًا.");
-    }
+        if (!request || request.status !== "pending") {
+            throw new Error("طلب الزواج غير موجود أو انتهت صلاحيته.");
+        }
 
-    const husband = store.get(request.husband);
-    const wife = store.get(request.wife);
+        if (id(user.id) !== request.wife) {
+            throw new Error("هذا الطلب ليس موجهًا إليك.");
+        }
 
-    if (!husband || !wife) {
-        throw new Error("تعذر تحميل بيانات أحد الطرفين.");
-    }
+        if (isExpired(request)) {
+            request.status = "expired";
+            request.expiredAt = new Date().toISOString();
+            await save();
+            throw new Error("انتهت صلاحية طلب الزواج.");
+        }
 
-    const balance = Number(husband.coins || 0);
+        const next = clone(snapshot());
 
-    if (balance < request.dowry) {
-        request.status = "cancelled";
-        await saveNow();
-        throw new Error("رصيد العريس لم يعد يكفي للمهر.");
-    }
+        const nextRequest = next.requests[requestId];
 
-    const wifeBalance = Number(wife.coins || 0);
+        if (
+            findMarriage(request.husband, next) ||
+            findMarriage(request.wife, next)
+        ) {
+            nextRequest.status = "cancelled";
+            await writeStateOnly(next);
+            replaceState(next);
 
-    if (wifeBalance + request.dowry > Number.MAX_SAFE_INTEGER) {
-        throw new Error("رصيد الزوجة سيتجاوز الحد المسموح.");
-    }
+            throw new Error("أحد الطرفين أصبح متزوجًا.");
+        }
 
-    // تحديث رصيد الطرفين
-    husband.coins = balance - request.dowry;
-    wife.coins = wifeBalance + request.dowry;
+        const husband = getStoredPlayer(request.husband);
+        const wife = getStoredPlayer(request.wife);
 
-    store.touch(request.husband);
-    store.touch(request.wife);
+        if (husband.coins < request.dowry) {
+            nextRequest.status = "cancelled";
+            await writeStateOnly(next);
+            replaceState(next);
 
-    const marriage = {
-        id: request.id,
-        husband: request.husband,
-        wife: request.wife,
-        husbandName: request.husbandName,
-        wifeName: request.wifeName,
-        dowry: request.dowry,
-        chatId: request.chatId,
-        status: "married",
-        createdAt: new Date().toISOString()
-    };
+            throw new Error("رصيد العريس لم يعد يكفي للمهر.");
+        }
 
-    state.marriages[marriage.id] = marriage;
+        if (wife.coins + request.dowry > Number.MAX_SAFE_INTEGER) {
+            throw new Error("رصيد الزوجة سيتجاوز الحد المسموح.");
+        }
 
-    request.status = "accepted";
-    request.acceptedAt = new Date().toISOString();
+        husband.coins -= request.dowry;
+        wife.coins += request.dowry;
 
-    await saveNow();
+        const marriage = {
+            id: request.id,
+            husband: request.husband,
+            wife: request.wife,
+            husbandName: request.husbandName,
+            wifeName: request.wifeName,
+            dowry: request.dowry,
+            chatId: request.chatId,
+            status: "married",
+            createdAt: new Date().toISOString()
+        };
 
-    return marriage;
+        next.marriages[marriage.id] = marriage;
+
+        nextRequest.status = "accepted";
+        nextRequest.acceptedAt = new Date().toISOString();
+
+        await commitFinancialChange(next, [
+            { id: request.husband, data: husband },
+            { id: request.wife, data: wife }
+        ]);
+
+        return marriage;
+    });
 }
+
+async function writeStateOnly(data) {
+    await store.transaction(async client => {
+        await writeState(client, data);
+    });
+}
+
+// ==================================================
+// REJECT REQUEST
+// ==================================================
 
 async function rejectRequest(requestId, user) {
     requireInit();
 
-    const request = getRequest(requestId);
-
-    if (!request || request.status !== "pending") {
-        throw new Error("طلب الزواج غير موجود أو انتهت صلاحيته.");
+    if (!user || user.is_bot) {
+        throw new Error("الحساب غير صالح.");
     }
 
-    if (id(user.id) !== request.wife) {
-        throw new Error("لا يمكنك رفض طلب غير موجه إليك.");
-    }
+    return enqueue(async () => {
+        const request = getRequest(requestId);
 
-    request.status = "rejected";
-    request.rejectedAt = new Date().toISOString();
+        if (!request || request.status !== "pending") {
+            throw new Error("طلب الزواج غير موجود أو انتهت صلاحيته.");
+        }
 
-    await saveNow();
+        if (id(user.id) !== request.wife) {
+            throw new Error("لا يمكنك رفض طلب غير موجه إليك.");
+        }
 
-    return request;
+        const next = clone(snapshot());
+        const target = next.requests[requestId];
+
+        target.status = "rejected";
+        target.rejectedAt = new Date().toISOString();
+
+        await writeStateOnly(next);
+        replaceState(next);
+
+        return target;
+    });
 }
 
 // ==================================================
@@ -378,19 +538,6 @@ async function endMarriage(userId, type, compensation = 0) {
     requireInit();
 
     const key = id(userId);
-    const marriage = findMarriage(key);
-
-    if (!marriage) {
-        throw new Error("لا يوجد زواج قائم لديك.");
-    }
-
-    if (type === "divorce" && marriage.husband !== key) {
-        throw new Error("الطلاق متاح للزوج فقط.");
-    }
-
-    if (type === "khula" && marriage.wife !== key) {
-        throw new Error("الخلع متاح للزوجة فقط.");
-    }
 
     if (!["divorce", "khula"].includes(type)) {
         throw new Error("نوع العملية غير صالح.");
@@ -404,52 +551,77 @@ async function endMarriage(userId, type, compensation = 0) {
         throw new Error("لا يوجد تعويض في عملية الطلاق.");
     }
 
-    if (type === "khula") {
-        if (compensation > marriage.dowry) {
+    return enqueue(async () => {
+        const marriage = findMarriage(key);
+
+        if (!marriage) {
+            throw new Error("لا يوجد زواج قائم لديك.");
+        }
+
+        if (type === "divorce" && marriage.husband !== key) {
+            throw new Error("الطلاق متاح للزوج فقط.");
+        }
+
+        if (type === "khula" && marriage.wife !== key) {
+            throw new Error("الخلع متاح للزوجة فقط.");
+        }
+
+        if (type === "khula" && compensation > marriage.dowry) {
             throw new Error("التعويض لا يمكن أن يتجاوز المهر.");
         }
 
-        const wife = store.get(marriage.wife);
-        const husband = store.get(marriage.husband);
+        const next = clone(snapshot());
+        const nextMarriage = next.marriages[marriage.id];
 
-        if (!wife || !husband) {
-            throw new Error("تعذر تحميل بيانات الطرفين.");
+        const updates = [];
+
+        if (type === "khula") {
+            const wife = getStoredPlayer(marriage.wife);
+            const husband = getStoredPlayer(marriage.husband);
+
+            if (wife.coins < compensation) {
+                throw new Error("رصيد الزوجة لا يكفي للتعويض.");
+            }
+
+            if (husband.coins + compensation > Number.MAX_SAFE_INTEGER) {
+                throw new Error("رصيد الزوج سيتجاوز الحد المسموح.");
+            }
+
+            wife.coins -= compensation;
+            husband.coins += compensation;
+
+            updates.push(
+                { id: marriage.wife, data: wife },
+                { id: marriage.husband, data: husband }
+            );
         }
 
-        const wifeBalance = Number(wife.coins || 0);
-        const husbandBalance = Number(husband.coins || 0);
+        const endedAt = new Date().toISOString();
 
-        if (wifeBalance < compensation) {
-            throw new Error("رصيد الزوجة لا يكفي للتعويض.");
+        nextMarriage.status =
+            type === "divorce" ? "divorced" : "khula";
+
+        nextMarriage.endedAt = endedAt;
+        nextMarriage.compensation = compensation;
+
+        next.history.push({
+            marriageId: marriage.id,
+            husband: marriage.husband,
+            wife: marriage.wife,
+            type,
+            compensation,
+            endedAt
+        });
+
+        if (updates.length) {
+            await commitFinancialChange(next, updates);
+        } else {
+            await writeStateOnly(next);
+            replaceState(next);
         }
 
-        if (husbandBalance + compensation > Number.MAX_SAFE_INTEGER) {
-            throw new Error("رصيد الزوج سيتجاوز الحد المسموح.");
-        }
-
-        wife.coins = wifeBalance - compensation;
-        husband.coins = husbandBalance + compensation;
-
-        store.touch(marriage.wife);
-        store.touch(marriage.husband);
-    }
-
-    marriage.status = type === "divorce" ? "divorced" : "khula";
-    marriage.endedAt = new Date().toISOString();
-    marriage.compensation = compensation;
-
-    state.history.push({
-        marriageId: marriage.id,
-        husband: marriage.husband,
-        wife: marriage.wife,
-        type,
-        compensation,
-        endedAt: marriage.endedAt
+        return nextMarriage;
     });
-
-    await saveNow();
-
-    return marriage;
 }
 
 // ==================================================
@@ -465,10 +637,16 @@ function requestsFor(userId) {
     requireInit();
 
     const key = id(userId);
+    const changed = cleanExpiredRequests(state);
 
-    return Object.values(state.requests).filter(r =>
-        r.status === "pending" &&
-        (r.husband === key || r.wife === key)
+    if (changed) scheduleSave();
+
+    return Object.values(state.requests).filter(request =>
+        request.status === "pending" &&
+        (
+            request.husband === key ||
+            request.wife === key
+        )
     );
 }
 
@@ -477,8 +655,9 @@ function groupMarriages(chatId) {
 
     const key = id(chatId);
 
-    return Object.values(state.marriages).filter(m =>
-        m.status === "married" && m.chatId === key
+    return Object.values(state.marriages).filter(marriage =>
+        marriage.status === "married" &&
+        marriage.chatId === key
     );
 }
 
@@ -489,6 +668,7 @@ function groupHistory(chatId) {
 
     return state.history.filter(item => {
         const marriage = state.marriages[item.marriageId];
+
         return marriage && marriage.chatId === key;
     });
 }
