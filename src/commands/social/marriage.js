@@ -1,7 +1,8 @@
+
 /**
  * ╔══════════════════════════════════════╗
  * ║          AYLA SOCIAL MARRIAGE         ║
- * ║                 v2.0                 ║
+ * ║                 v2.1                 ║
  * ╚══════════════════════════════════════╝
  *
  * الأمر الرئيسي: زواج
@@ -13,6 +14,7 @@
  * - متابعة الطلبات وقبولها ورفضها.
  * - سجل زيجات المجموعة.
  * - تسجيل الجنس.
+ * - بطاقة زواج نيونية بصور الحسابات الشخصية.
  *
  * الطلاق والخلع لهما ملفان مستقلان.
  */
@@ -25,11 +27,6 @@ const M = require("../../core/marriage");
 const makeCard = require("../../game/marriageCard");
 
 const FOOTER = "\n\n❀ ━━━━━━━━━━━━━ ❀";
-
-const html = text => ({
-    parse_mode: "HTML",
-    ...text
-});
 
 // ==================================================
 // KEYBOARDS
@@ -529,7 +526,7 @@ module.exports = function (bot) {
             }
 
             // ------------------------------------------
-            // ACCEPT REQUEST
+            // ACCEPT REQUEST + NEON CARD
             // ------------------------------------------
 
             const accept = /^marriage:accept:(.+)$/.exec(action);
@@ -549,18 +546,31 @@ module.exports = function (bot) {
                     reply_markup: new InlineKeyboard()
                 }).catch(() => {});
 
-                const card = await makeCard(result);
+                // إنشاء البطاقة وإرسالها
+                try {
+                    const card = await makeCard(result, ctx.api);
 
-                await ctx.replyWithPhoto(
-                    new InputFile(card, "ayla-marriage.png"),
-                    {
-                        caption:
-                            "❀ ━━ 𝗔𝗬𝗟𝗔 〢 𝗪𝗘𝗗𝗗𝗜𝗡𝗚 ━━ ❀\n\n" +
-                            `💍 ${esc(result.husbandName)} × ${esc(result.wifeName)}\n` +
-                            `💰 المهر: ${Number(result.dowry).toLocaleString("en-US")} VLT\n\n` +
-                            "ألف مبروك! تم تسجيل الزواج رسميًا."
-                    }
-                );
+                    await ctx.replyWithPhoto(
+                        new InputFile(
+                            card,
+                            "ayla-neon-marriage.png"
+                        )
+                    );
+
+                } catch (cardError) {
+                    console.error(
+                        "[AYLA MARRIAGE CARD]",
+                        cardError && (
+                            cardError.stack ||
+                            cardError.message
+                        )
+                    );
+
+                    await ctx.reply(
+                        "💍 تم تسجيل الزواج بنجاح!\n" +
+                        "لكن تعذر إنشاء البطاقة هذه المرة."
+                    );
+                }
 
                 return;
             }
