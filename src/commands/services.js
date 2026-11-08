@@ -2,7 +2,7 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║             AYLA SERVICES            ║
- * ║                 v2.1                 ║
+ * ║                 v2.2                 ║
  * ╚══════════════════════════════════════╝
  */
 
@@ -15,18 +15,160 @@ const {
     digits
 } = require("../lib/util");
 
+const { InputFile } = require("grammy");
+const sharp = require("sharp");
 const stats = require("../lib/groupStats");
 
 // ==================================================
 // DESIGN
 // ==================================================
 
+function stylize(text) {
+    return Array.from(String(text)).map(char => {
+        const code = char.charCodeAt(0);
+
+        if (code >= 65 && code <= 90)
+            return String.fromCodePoint(0x1D5D4 + code - 65);
+
+        if (code >= 97 && code <= 122)
+            return String.fromCodePoint(0x1D5EE + code - 97);
+
+        return char;
+    }).join("");
+}
+
 const HEADER = service =>
-    `❀ ━━ 𝗔𝗬𝗟𝗔 〢 "${service}" ━━ ❀`;
+    `❀ ━━ 𝗔𝗬𝗟𝗔 〢 ${stylize(service)} ━━ ❀`;
 
 const FOOTER = "❀ نتمنى لك يومًا جميلًا ❀";
 
 const sessions = new Map();
+
+// ==================================================
+// SAKURA AVATAR FRAME
+// ==================================================
+
+async function getFramedAvatar(ctx, target, bot) {
+    try {
+        if (target.is_bot) return null;
+
+        const photos = await ctx.api.getUserProfilePhotos(
+            target.id,
+            { limit: 1 }
+        );
+
+        if (!photos.total_count) return null;
+
+        const sizes = photos.photos[0];
+        const photo = sizes[sizes.length - 1];
+
+        const file = await ctx.api.getFile(photo.file_id);
+
+        if (!file.file_path) return null;
+
+        const response = await fetch(
+            `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`
+        );
+
+        if (!response.ok) return null;
+
+        const original = Buffer.from(
+            await response.arrayBuffer()
+        );
+
+        const frame = Buffer.from(`
+            <svg width="512" height="512"
+                 viewBox="0 0 512 512"
+                 xmlns="http://www.w3.org/2000/svg">
+
+                <rect x="7" y="7" width="498" height="498"
+                      rx="100"
+                      fill="none"
+                      stroke="#ff91bd"
+                      stroke-width="12"/>
+
+                <rect x="20" y="20" width="472" height="472"
+                      rx="88"
+                      fill="none"
+                      stroke="#ffffff"
+                      stroke-width="3"/>
+
+                <g fill="#ff9fc8"
+                   stroke="#ffffff"
+                   stroke-width="2">
+
+                    <g transform="translate(55 55)">
+                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
+                        <ellipse cx="15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 15 0)"/>
+                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
+                        <ellipse cx="-15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 -15 0)"/>
+                        <circle r="7" fill="#ffe8a8"/>
+                    </g>
+
+                    <g transform="translate(457 55)">
+                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
+                        <ellipse cx="15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 15 0)"/>
+                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
+                        <ellipse cx="-15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 -15 0)"/>
+                        <circle r="7" fill="#ffe8a8"/>
+                    </g>
+
+                    <g transform="translate(55 457)">
+                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
+                        <ellipse cx="15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 15 0)"/>
+                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
+                        <ellipse cx="-15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 -15 0)"/>
+                        <circle r="7" fill="#ffe8a8"/>
+                    </g>
+
+                    <g transform="translate(457 457)">
+                        <ellipse cx="0" cy="-15" rx="10" ry="15"/>
+                        <ellipse cx="15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 15 0)"/>
+                        <ellipse cx="0" cy="15" rx="10" ry="15"/>
+                        <ellipse cx="-15" cy="0" rx="10" ry="15"
+                                 transform="rotate(90 -15 0)"/>
+                        <circle r="7" fill="#ffe8a8"/>
+                    </g>
+                </g>
+
+                <g fill="#ffb6d2">
+                    <circle cx="120" cy="25" r="4"/>
+                    <circle cx="390" cy="25" r="4"/>
+                    <circle cx="25" cy="250" r="4"/>
+                    <circle cx="487" cy="250" r="4"/>
+                    <circle cx="120" cy="487" r="4"/>
+                    <circle cx="390" cy="487" r="4"/>
+                </g>
+            </svg>
+        `);
+
+        return await sharp(original)
+            .resize(512, 512, {
+                fit: "cover",
+                position: "centre"
+            })
+            .composite([
+                { input: frame, blend: "over" }
+            ])
+            .png()
+            .toBuffer();
+
+    } catch (error) {
+        console.error(
+            "[AYLA AVATAR]",
+            error.message
+        );
+
+        return null;
+    }
+}
 
 // ==================================================
 // WORLD CLOCK
@@ -151,7 +293,9 @@ function statsKeyboard() {
 }
 
 function formatTop(users) {
-    if (!users.length) return "لا توجد بيانات حتى الآن.";
+    if (!users.length) {
+        return "لا توجد بيانات حتى الآن.";
+    }
 
     return users.slice(0, 10).map((user, index) => {
         const username = user.username
@@ -221,6 +365,10 @@ function permissionText(permissions) {
     ).join("\n");
 }
 
+// ==================================================
+// COMMANDS
+// ==================================================
+
 module.exports = function (bot) {
 
     // ==================================================
@@ -249,7 +397,8 @@ module.exports = function (bot) {
     // ==================================================
 
     cmd(bot, ["ايدي", "id", "معرفي"], async ctx => {
-        const target = ctx.message.reply_to_message?.from || ctx.from;
+        const target =
+            ctx.message.reply_to_message?.from || ctx.from;
 
         const username = target.username
             ? `@${esc(target.username)}`
@@ -259,7 +408,7 @@ module.exports = function (bot) {
             ? esc(target.language_code)
             : "غير متوفر";
 
-        return ctx.reply(
+        const caption =
             `${HEADER("ID")}\n\n` +
             `👤 الاسم: ${link(target.id, nameOf(target))}\n` +
             `🆔 المعرف: <code>${target.id}</code>\n` +
@@ -268,9 +417,21 @@ module.exports = function (bot) {
             `🤖 حساب آلي: ${target.is_bot ? "نعم" : "لا"}\n` +
             `⭐ Telegram Premium: ${target.is_premium ? "نعم" : "غير معروف / لا"}\n` +
             `💬 معرف المحادثة: <code>${ctx.chat.id}</code>\n\n` +
-            FOOTER,
-            HTML
-        );
+            FOOTER;
+
+        const avatar = await getFramedAvatar(ctx, target, bot);
+
+        if (avatar) {
+            return ctx.replyWithPhoto(
+                new InputFile(avatar, "ayla-avatar.png"),
+                {
+                    caption,
+                    ...HTML
+                }
+            );
+        }
+
+        return ctx.reply(caption, HTML);
     });
 
     // ==================================================
@@ -278,7 +439,8 @@ module.exports = function (bot) {
     // ==================================================
 
     cmd(bot, ["معلومات"], async ctx => {
-        const target = ctx.message.reply_to_message?.from || ctx.from;
+        const target =
+            ctx.message.reply_to_message?.from || ctx.from;
 
         return ctx.reply(
             `${HEADER("USER INFO")}\n\n` +
@@ -297,7 +459,8 @@ module.exports = function (bot) {
     // ==================================================
 
     cmd(bot, ["عد", "عدد"], async (ctx, args) => {
-        const text = args || ctx.message.reply_to_message?.text || "";
+        const text =
+            args || ctx.message.reply_to_message?.text || "";
 
         if (!text) {
             return ctx.reply(
@@ -327,7 +490,9 @@ module.exports = function (bot) {
 
     cmd(bot, ["المجموعة"], async ctx => {
         if (ctx.chat.type === "private") {
-            return ctx.reply("هذا الأمر يعمل داخل المجموعات فقط.");
+            return ctx.reply(
+                "هذا الأمر يعمل داخل المجموعات فقط."
+            );
         }
 
         const chat = await ctx.getChat();
@@ -337,7 +502,9 @@ module.exports = function (bot) {
         let adminCount = "غير متاح";
 
         try {
-            count = await ctx.api.getChatMemberCount(ctx.chat.id);
+            count = await ctx.api.getChatMemberCount(
+                ctx.chat.id
+            );
         } catch (_) {}
 
         try {
@@ -348,6 +515,7 @@ module.exports = function (bot) {
         const adminList = admins.length
             ? admins.slice(0, 15).map((item, i) => {
                 const user = item.user;
+
                 const role = item.status === "creator"
                     ? "👑 مالك"
                     : "🛡️ مشرف";
@@ -357,7 +525,6 @@ module.exports = function (bot) {
             : "تعذر جلب قائمة المشرفين.";
 
         const permissions = permissionText(chat.permissions);
-
         const total = stats.getTotal(ctx.chat.id);
 
         const msg = await ctx.reply(
@@ -407,7 +574,9 @@ module.exports = function (bot) {
             return ctx.answerCallbackQuery();
         }
 
-        const key = `${message.chat.id}:${message.message_id}`;
+        const key =
+            `${message.chat.id}:${message.message_id}`;
+
         const session = sessions.get(key);
 
         if (!session || session.userId !== ctx.from.id) {
@@ -418,6 +587,7 @@ module.exports = function (bot) {
         }
 
         // إغلاق القوائم
+
         if (
             data === "ayla_clock_close" ||
             data === "ayla_stats_close"
@@ -428,7 +598,11 @@ module.exports = function (bot) {
         }
 
         // إحصائيات اليوم
-        if (data === "ayla_stats_daily" && session.type === "stats") {
+
+        if (
+            data === "ayla_stats_daily" &&
+            session.type === "stats"
+        ) {
             await ctx.editMessageText(
                 dailyText(session.chatId, session.title),
                 {
@@ -452,7 +626,11 @@ module.exports = function (bot) {
         }
 
         // إحصائيات الأسبوع
-        if (data === "ayla_stats_weekly" && session.type === "stats") {
+
+        if (
+            data === "ayla_stats_weekly" &&
+            session.type === "stats"
+        ) {
             await ctx.editMessageText(
                 weeklyText(session.chatId, session.title),
                 {
@@ -476,7 +654,11 @@ module.exports = function (bot) {
         }
 
         // العودة إلى معلومات المجموعة
-        if (data === "ayla_stats_back" && session.type === "stats") {
+
+        if (
+            data === "ayla_stats_back" &&
+            session.type === "stats"
+        ) {
             const total = stats.getTotal(session.chatId);
 
             await ctx.editMessageText(
@@ -495,6 +677,7 @@ module.exports = function (bot) {
         }
 
         // صفحات الوقت
+
         if (session.type !== "clock") {
             return ctx.answerCallbackQuery();
         }
@@ -502,7 +685,10 @@ module.exports = function (bot) {
         if (data.startsWith("ayla_page_")) {
             const page = Number(data.split("_")[2]);
 
-            if (!Number.isInteger(page) || !countryPages[page]) {
+            if (
+                !Number.isInteger(page) ||
+                !countryPages[page]
+            ) {
                 return ctx.answerCallbackQuery();
             }
 
@@ -523,9 +709,12 @@ module.exports = function (bot) {
         const parts = data.split("_");
         const page = Number(parts[2]);
         const index = Number(parts[3]);
+
         const country = countryPages[page]?.[index];
 
-        if (!country) return ctx.answerCallbackQuery();
+        if (!country) {
+            return ctx.answerCallbackQuery();
+        }
 
         const { time, date } = getTime(country.zone);
 
