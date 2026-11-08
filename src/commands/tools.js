@@ -1,6 +1,6 @@
 // أوامر الخدمات (بدون قاعدة بيانات)
 const crypto = require("crypto");
-const { esc, nameOf, link, HTML, cmd, digits } = require("../lib/util");
+const { esc, nameOf, link, HTML, cmd, digits } = require("./lib/util");
 
 // ---------- آلة حاسبة آمنة (بدون eval) ----------
 function calc(input) {
