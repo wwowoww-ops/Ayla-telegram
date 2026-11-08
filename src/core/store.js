@@ -2,12 +2,13 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA STORE               ║
- * ║                 v2.1                 ║
+ * ║                 v2.2                 ║
  * ╚══════════════════════════════════════╝
  *
  * تخزين اقتصادي لـ PostgreSQL / Neon
  * اللاعبون: كل 20 دقيقة عند وجود تغييرات.
  * المجموعات: كل 5 دقائق عند وجود تغييرات.
+ * النسخ الاحتياطي: تصدير واستيراد JSON.
  * الإغلاق: محاولة حفظ كل البيانات المعلّقة.
  */
 
@@ -21,7 +22,6 @@ const PLAYER_FLUSH_MS =
     Number(process.env.FLUSH_MINUTES || 20) * 60 * 1000;
 
 const GROUP_FLUSH_MS = 5 * 60 * 1000;
-
 const BATCH_SIZE = 200;
 
 // ==================================================
@@ -325,6 +325,125 @@ const flush = () =>
     });
 
 // ==================================================
+// BACKUP / RESTORE
+// ==================================================
+
+function exportData() {
+    const clone = value =>
+        JSON.parse(JSON.stringify(value));
+
+    return {
+        format: "AYLA_BACKUP",
+        version: 1,
+        createdAt: new Date().toISOString(),
+
+        players: [...players.entries()].map(([id, data]) => [
+            id,
+            clone(data)
+        ]),
+
+        groups: [...groupSettings.entries()].map(([id, data]) => [
+            id,
+            clone(data)
+        ])
+    };
+}
+
+function importData(backup, options = {}) {
+    const overwrite = options.overwrite === true;
+
+    if (!backup || typeof backup !== "object") {
+        throw new Error("ملف النسخة غير صالح.");
+    }
+
+    if (
+        backup.format !== "AYLA_BACKUP" ||
+        backup.version !== 1
+    ) {
+        throw new Error("صيغة النسخة أو إصدارها غير مدعوم.");
+    }
+
+    if (
+        !Array.isArray(backup.players) ||
+        !Array.isArray(backup.groups)
+    ) {
+        throw new Error("بيانات اللاعبين أو المجموعات غير موجودة.");
+    }
+
+    const validId = id =>
+        typeof id === "string" &&
+        /^-?\d+$/.test(id);
+
+    const validEntries = (entries, label) => {
+        const seen = new Set();
+
+        for (const entry of entries) {
+            if (
+                !Array.isArray(entry) ||
+                entry.length !== 2 ||
+                !validId(entry[0]) ||
+                !entry[1] ||
+                typeof entry[1] !== "object" ||
+                Array.isArray(entry[1])
+            ) {
+                throw new Error(
+                    `توجد بيانات غير صالحة في ${label}.`
+                );
+            }
+
+            if (seen.has(entry[0])) {
+                throw new Error(
+                    `يوجد معرف مكرر في ${label}.`
+                );
+            }
+
+            seen.add(entry[0]);
+
+            // التأكد من إمكانية تحويل البيانات إلى JSON
+            JSON.stringify(entry[1]);
+        }
+    };
+
+    // التحقق من كامل النسخة قبل تعديل الذاكرة
+    validEntries(backup.players, "اللاعبين");
+    validEntries(backup.groups, "المجموعات");
+
+    let playersImported = 0;
+    let groupsImported = 0;
+    let playersSkipped = 0;
+    let groupsSkipped = 0;
+
+    for (const [id, data] of backup.players) {
+        if (players.has(id) && !overwrite) {
+            playersSkipped++;
+            continue;
+        }
+
+        players.set(id, data);
+        dirty.add(id);
+        playersImported++;
+    }
+
+    for (const [id, data] of backup.groups) {
+        if (groupSettings.has(id) && !overwrite) {
+            groupsSkipped++;
+            continue;
+        }
+
+        groupSettings.set(id, data);
+        dirtyGroups.add(id);
+        groupsImported++;
+    }
+
+    return {
+        playersImported,
+        groupsImported,
+        playersSkipped,
+        groupsSkipped
+    };
+}
+
+// ==================================================
 // DATABASE INFORMATION
 // ==================================================
 
@@ -452,6 +571,10 @@ module.exports = {
     setGroup,
     getGroupPrefix,
     setGroupPrefix,
+
+    // Backup / Restore
+    exportData,
+    importData,
 
     // Database
     flush,
