@@ -1,7 +1,11 @@
 const {
     HTML,
-    cmd
-} = require("../../lib/util");
+    cmd(bot, ["وقت", "الوقت"], async ctx => {
+    // محتوى الأمر الحالي
+}, {
+    menu: "وقت",
+    category: "services"
+});
 
 // ==================================================
 // DESIGN
