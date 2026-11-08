@@ -1,39 +1,32 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA SERVICES            ║
- * ║                 v1.0                 ║
+ * ║                 v1.1                 ║
  * ╚══════════════════════════════════════╝
  */
 
 // معلومات تشغيل البوت والاستضافة
 
 const os = require("os");
-const fs = require("fs");
-const { cmd, HTML } = require("../../lib/util");
+const { cmd } = require("../../lib/util");
 const store = require("../../core/store");
 
 const DEVELOPER = "أبو هريرة";
 const BOT_NAME = "AYLA";
 
-// تنسيق الأرقام بالأرقام الإنجليزية
 function number(value) {
     return new Intl.NumberFormat("en-US", {
         maximumFractionDigits: 2
     }).format(value);
 }
 
-// تحويل الحجم إلى MB أو GB
 function size(bytes) {
-    if (!Number.isFinite(bytes) || bytes < 0)
+    if (!Number.isFinite(bytes))
         return "غير متاح";
 
-    if (bytes >= 1024 ** 3)
-        return number(bytes / (1024 ** 3)) + " GB";
-
-    return number(bytes / (1024 ** 2)) + " MB";
+    return number(bytes / (1024 * 1024)) + " MB";
 }
 
-// تنسيق مدة التشغيل
 function formatUptime(seconds) {
     seconds = Math.floor(seconds);
 
@@ -53,7 +46,6 @@ function formatUptime(seconds) {
     return parts.join(" و ");
 }
 
-// معرفة منصة الاستضافة
 function hosting() {
     if (process.env.RAILWAY_PROJECT_ID)
         return "Railway";
@@ -64,32 +56,32 @@ function hosting() {
     if (process.env.HEROKU_APP_NAME)
         return "Heroku";
 
-    if (process.env.VERCEL)
-        return "Vercel";
-
     return "غير محددة";
 }
 
-// معلومات التخزين
-async function diskInfo() {
+// قراءة عدد اللاعبين المسجلين
+function getUserCount() {
     try {
-        if (typeof fs.promises.statfs !== "function")
-            return null;
+        const users = store.all();
 
-        const d = await fs.promises.statfs("/");
+        if (users instanceof Map)
+            return users.size;
 
-        const total = d.blocks * d.bsize;
-        const free = d.bavail * d.bsize;
-        const used = total - (d.bfree * d.bsize);
+        if (Array.isArray(users))
+            return users.length;
 
-        return { total, free, used };
-    } catch {
+        if (users && typeof users === "object")
+            return Object.keys(users).length;
+
+        return null;
+    } catch (error) {
+        console.error("[UPTIME USERS]", error.message);
         return null;
     }
 }
 
 // معلومات قاعدة البيانات
-async function databaseInfo() {
+async function getDatabase() {
     try {
         if (typeof store.databaseInfo !== "function")
             return null;
@@ -108,13 +100,14 @@ module.exports = function (bot) {
         async ctx => {
 
             const memory = process.memoryUsage();
-            const cpu = os.loadavg();
-            const disk = await diskInfo();
+            const uptime = formatUptime(process.uptime());
+
+            const userCount = getUserCount();
 
             let db = null;
 
             try {
-                db = await databaseInfo();
+                db = await getDatabase();
             } catch {
                 db = null;
             }
@@ -123,60 +116,44 @@ module.exports = function (bot) {
                 ? "🟢 متصل"
                 : "🔴 غير متاح";
 
-            const dbSize = db && db.size
-                ? db.size
-                : "غير متاح";
+            const dbSize = db?.size || "غير متاح";
 
-            const dbConnections = db
-                ? number(db.connections)
-                : "غير متاح";
+            const dbConnections =
+                Number.isFinite(db?.connections)
+                    ? number(db.connections)
+                    : "غير متاح";
 
-            const ram = size(memory.rss);
-            const heap = size(memory.heapUsed);
-            const heapTotal = size(memory.heapTotal);
-
-            const storage = disk
-                ? `${size(disk.used)} مستخدم / ${size(disk.total)} إجمالي`
-                : "غير متاح";
-
-            const available = disk
-                ? size(disk.free)
-                : "غير متاح";
-
-            const uptime = formatUptime(process.uptime());
+            const usersText =
+                userCount === null
+                    ? "غير متاح"
+                    : number(userCount);
 
             const text =
                 "❀ ━━ 𝗔𝗬𝗟𝗔 〢 𝗨𝗣𝗧𝗜𝗠𝗘 ━━ ❀\n\n" +
 
-                "🤖 **معلومات البوت**\n" +
+                "🤖 معلومات البوت\n" +
                 `✿ الاسم: ${BOT_NAME}\n` +
                 `✿ المطوّر: ${DEVELOPER}\n` +
                 `✿ مدة التشغيل: ${uptime}\n` +
                 `✿ الاستضافة: ${hosting()}\n` +
                 `✿ Node.js: ${process.version}\n\n` +
 
-                "📊 **موارد النظام**\n" +
-                `✿ RAM للعملية: ${ram}\n` +
-                `✿ Heap المستخدم: ${heap}\n` +
-                `✿ Heap الإجمالي: ${heapTotal}\n` +
-                `✿ أنوية المعالج: ${number(os.cpus().length)}\n` +
-                `✿ متوسط حمل CPU: ${number(cpu[0])}\n` +
-                `✿ التخزين المستخدم: ${storage}\n` +
-                `✿ التخزين المتاح: ${available}\n\n` +
+                "📊 موارد العملية\n" +
+                `✿ RAM: ${size(memory.rss)}\n` +
+                `✿ Heap المستخدم: ${size(memory.heapUsed)}\n` +
+                `✿ Heap الإجمالي: ${size(memory.heapTotal)}\n\n` +
 
-                "🗄 **قاعدة البيانات**\n" +
+                "🗄 قاعدة البيانات\n" +
                 `✿ الحالة: ${dbStatus}\n` +
                 `✿ الحجم: ${dbSize}\n` +
                 `✿ الاتصالات: ${dbConnections}\n\n` +
 
-                "👥 **المستخدمون**\n" +
-                "✿ العدد: غير متاح حاليًا\n\n" +
+                "👥 مستخدمو لعبة الحيوان\n" +
+                `✿ العدد: ${usersText}\n\n` +
 
                 "❀ ━━━━━━━━━━━━━ ❀";
 
-            return ctx.reply(text, {
-                parse_mode: "Markdown"
-            });
+            return ctx.reply(text);
         },
         {
             menu: "ابتـايم",
