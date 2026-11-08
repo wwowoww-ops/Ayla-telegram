@@ -2,14 +2,22 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║              AYLA MENU               ║
- * ║                 v2.3                 ║
+ * ║                 v3.0                 ║
  * ╚══════════════════════════════════════╝
  */
 
-const { cmd } = require("../lib/util");
+const {
+    cmd,
+    getMenuCategories
+} = require("../lib/util");
+
 const { InlineKeyboard } = require("grammy");
 
 const PHOTO_URL = "https://files.catbox.moe/ccdo9v.jpg";
+
+// ==================================================
+// DESIGN
+// ==================================================
 
 const HEADER = section =>
     `❀ ━━ 𝗔𝗬𝗟𝗔 〢 ${section} ━━ ❀`;
@@ -40,66 +48,51 @@ function mainKeyboard() {
 }
 
 // ==================================================
-// CATEGORIES
+// CATEGORY CONFIG
 // ==================================================
 
-const CATEGORIES = {
+const CATEGORY_CONFIG = {
     animals: {
-        text: format(
-            "𝗔𝗡𝗜𝗠𝗔𝗟",
-            "✿ <b>الحيوان</b>\n" +
-            "• حيواني\n" +
-            "• بيض\n" +
-            "• حضانة\n" +
-            "• سوق\n" +
-            "• متجر\n" +
-            "• صيد\n" +
-            "• عناصر\n" +
-            "• ترتيب\n" +
-            "• المتصدرين\n" +
-            "• توب\n" +
-            "• الأغنياء\n" +
-            "• جمع\n" +
-            "• أرباح\n" +
-            "• تسمية\n\n" +
-
-            "✿ <b>الاقتصاد</b>\n" +
-            "• يومي\n" +
-            "• راتب\n" +
-            "• مكافأة\n" +
-            "• رصيد\n" +
-            "• تحويل\n\n" +
-
-            "✿ <b>المبارزة</b>\n" +
-            "• مبارزة\n" +
-            "• نزال"
-        )
+        title: "𝗔𝗡𝗜𝗠𝗔𝗟"
     },
 
     games: {
-        text: format(
-            "𝗚𝗔𝗠𝗘𝗦",
-            "✿ لا يوجد أوامر حاليًا."
-        )
+        title: "𝗚𝗔𝗠𝗘𝗦"
     },
 
     fun: {
-        text: format(
-            "𝗙𝗨𝗡",
-            "✿ لا يوجد أوامر حاليًا."
-        )
+        title: "𝗙𝗨𝗡"
     },
 
     services: {
-        text: format(
-            "𝗦𝗘𝗥𝗩𝗜𝗖𝗘𝗦",
-            "• ايدي\n" +
-            "• المجموعة\n" +
-            "• وقت\n" +
-            "• بادئة"
-        )
+        title: "𝗦𝗘𝗥𝗩𝗜𝗖𝗘𝗦"
     }
 };
+
+// ==================================================
+// CATEGORY CONTENT
+// ==================================================
+
+function buildCategory(category) {
+    const config = CATEGORY_CONFIG[category];
+
+    if (!config) return null;
+
+    const categories = getMenuCategories();
+    const commands = categories[category] || [];
+
+    let content;
+
+    if (!commands.length) {
+        content = "✿ لا يوجد أوامر حاليًا.";
+    } else {
+        content = commands
+            .map(command => `• ${command.name}`)
+            .join("\n");
+    }
+
+    return format(config.title, content);
+}
 
 // ==================================================
 // KEYBOARDS
@@ -123,10 +116,11 @@ async function sendMainMenu(api, chatId) {
 }
 
 async function sendCategory(api, chatId, category) {
-    const page = CATEGORIES[category];
-    if (!page) return;
+    const text = buildCategory(category);
 
-    return api.sendMessage(chatId, page.text, {
+    if (!text) return;
+
+    return api.sendMessage(chatId, text, {
         parse_mode: "HTML",
         reply_markup: backKeyboard()
     });
@@ -163,15 +157,21 @@ module.exports = function (bot) {
 
         if (action === "menu") {
             try {
-                await ctx.api.deleteMessage(chatId, message.message_id);
+                await ctx.api.deleteMessage(
+                    chatId,
+                    message.message_id
+                );
             } catch (_) {}
 
             return sendMainMenu(ctx.api, chatId);
         }
 
-        if (CATEGORIES[action]) {
+        if (CATEGORY_CONFIG[action]) {
             try {
-                await ctx.api.deleteMessage(chatId, message.message_id);
+                await ctx.api.deleteMessage(
+                    chatId,
+                    message.message_id
+                );
             } catch (_) {}
 
             return sendCategory(ctx.api, chatId, action);
