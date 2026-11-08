@@ -1,8 +1,8 @@
 
 /**
  * ╔══════════════════════════════════════╗
- * ║              AYLA UTILS               ║
- * ║                 v2.1                 ║
+ * ║              AYLA UTILS              ║
+ * ║                 v2.2                 ║
  * ╚══════════════════════════════════════╝
  */
 
@@ -62,14 +62,12 @@ const norm = s => String(s).toLowerCase()
 
 const DEFAULT_PREFIX = "!";
 
-// جلب بادئة المجموعة من نظام التخزين
 function getPrefix(chatId) {
     if (!chatId) return DEFAULT_PREFIX;
 
     return store.getGroupPrefix(chatId);
 }
 
-// تغيير بادئة المجموعة وحفظها ضمن البيانات المعلّقة
 function setPrefix(chatId, prefix) {
     if (!chatId) {
         throw new Error("معرّف المجموعة غير موجود");
@@ -86,6 +84,77 @@ function setPrefix(chatId, prefix) {
     store.setGroupPrefix(chatId, prefix);
 
     return prefix;
+}
+
+// ==================================================
+// COMMAND MENU REGISTRY
+// ==================================================
+
+// الأوامر التي تسمح بإظهارها في القائمة
+const commandRegistry = new Map();
+
+/**
+ * تسجيل أمر في قائمة AYLA.
+ *
+ * menu:
+ * الاسم العربي الظاهر للمستخدم.
+ *
+ * category:
+ * animals | games | fun | services
+ *
+ * hidden:
+ * إخفاء الأمر من القائمة.
+ */
+
+function registerMenuCommand(names, options = {}) {
+    if (!options.menu || options.hidden) return;
+
+    const category = options.category || "services";
+
+    const allowedCategories = [
+        "animals",
+        "games",
+        "fun",
+        "services"
+    ];
+
+    if (!allowedCategories.includes(category)) {
+        console.warn(
+            "[AYLA MENU] قسم غير معروف:",
+            category
+        );
+        return;
+    }
+
+    const key = `${category}:${options.menu}`;
+
+    commandRegistry.set(key, {
+        name: String(options.menu),
+        category
+    });
+}
+
+// ==================================================
+// MENU GETTERS
+// ==================================================
+
+function getMenuCommands(category = null) {
+    const commands = Array.from(commandRegistry.values());
+
+    if (!category) return commands;
+
+    return commands.filter(command =>
+        command.category === category
+    );
+}
+
+function getMenuCategories() {
+    return {
+        animals: getMenuCommands("animals"),
+        games: getMenuCommands("games"),
+        fun: getMenuCommands("fun"),
+        services: getMenuCommands("services")
+    };
 }
 
 // ==================================================
@@ -106,14 +175,25 @@ function escapeRegex(s) {
  * الأوامر تحتاج بادئة المجموعة.
  *
  * options.noPrefix:
- * يسمح للأمر بالعمل دون بادئة في المجموعات.
+ * يسمح للأمر بالعمل دون بادئة.
  *
- * handler(ctx, args):
- * ctx  = سياق الرسالة.
- * args = النص الموجود بعد اسم الأمر.
+ * options.menu:
+ * الاسم الظاهر في القائمة.
+ *
+ * options.category:
+ * قسم الأمر.
+ *
+ * options.hidden:
+ * إخفاء الأمر من القائمة.
  */
 
 function cmd(bot, names, handler, options = {}) {
+    if (!Array.isArray(names)) {
+        names = [names];
+    }
+
+    registerMenuCommand(names, options);
+
     const alternatives = names.map(escapeRegex).join("|");
 
     const commandRegex = new RegExp(
@@ -133,21 +213,26 @@ function cmd(bot, names, handler, options = {}) {
             const prefix = getPrefix(ctx.chat.id);
 
             if (options.noPrefix) {
-                // الأمر يعمل دون بادئة أو مع بادئة المجموعة
+                // الأمر يعمل دون بادئة أو معها
                 if (prefix && text.startsWith(prefix)) {
                     commandText = text
                         .slice(prefix.length)
                         .trim();
                 }
             } else {
-                // الأوامر العادية تحتاج بادئة المجموعة
-                if (!prefix || !text.startsWith(prefix)) {
-                    return next();
-                }
+                // إذا كانت البادئة مفعّلة
+                if (prefix) {
+                    if (!text.startsWith(prefix)) {
+                        return next();
+                    }
 
-                commandText = text
-                    .slice(prefix.length)
-                    .trim();
+                    commandText = text
+                        .slice(prefix.length)
+                        .trim();
+                } else {
+                    // المجموعة دون بادئة
+                    commandText = text;
+                }
             }
         }
 
@@ -206,5 +291,9 @@ module.exports = {
     // Prefix
     getPrefix,
     setPrefix,
-    DEFAULT_PREFIX
+    DEFAULT_PREFIX,
+
+    // Menu registry
+    getMenuCommands,
+    getMenuCategories
 };
