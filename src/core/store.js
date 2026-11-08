@@ -1,16 +1,18 @@
 
 /**
  * ╔══════════════════════════════════════╗
- * ║              AYLA STORE               ║
- * ║                 v2.3                 ║
+ * ║              AYLA STORE              ║
+ * ║                 v2.4                 ║
  * ╚══════════════════════════════════════╝
  *
- * تخزين اقتصادي لـ PostgreSQL / Neon
- * اللاعبون: كل 20 دقيقة عند وجود تغييرات.
- * المجموعات: كل 5 دقائق عند وجود تغييرات.
- * الزواج: يُحفظ مباشرة عند إجراء تغيير.
- * النسخ الاحتياطي: تصدير واستيراد JSON.
- * الإغلاق: محاولة حفظ كل البيانات المعلّقة.
+ * PostgreSQL / Neon
+ *
+ * اللاعبون: حفظ دوري عند وجود تغييرات.
+ * المجموعات: حفظ دوري عند وجود تغييرات.
+ * المعاملات: BEGIN / COMMIT / ROLLBACK.
+ * الزواج: دعم الحفظ الذري مع أرصدة اللاعبين.
+ * النسخ الاحتياطي: JSON.
+ * الإغلاق: حفظ البيانات المعلقة.
  */
 
 const { Pool } = require("pg");
@@ -46,7 +48,11 @@ let groupTimer = null;
 let flushing = Promise.resolve();
 
 function connect(rawUrl) {
-    let url = String(rawUrl || "");
+    if (!rawUrl) {
+        throw new Error("رابط قاعدة البيانات غير موجود.");
+    }
+
+    let url = String(rawUrl);
 
     url = url
         .replace(/([?&])channel_binding=[^&]*&?/, "$1")
@@ -62,8 +68,8 @@ function connect(rawUrl) {
         connectionTimeoutMillis: 30000
     });
 
-    pool.on("error", e => {
-        console.error("[DB] اتصال خامل انقطع:", e.message);
+    pool.on("error", error => {
+        console.error("[DB] اتصال خامل انقطع:", error.message);
     });
 }
 
@@ -71,8 +77,8 @@ async function retry(fn, tries = 3) {
     for (let i = 0; ; i++) {
         try {
             return await fn();
-        } catch (e) {
-            if (i >= tries - 1) throw e;
+        } catch (error) {
+            if (i >= tries - 1) throw error;
 
             await new Promise(resolve =>
                 setTimeout(resolve, 1500 * (i + 1))
@@ -90,78 +96,151 @@ function query(sql, params = []) {
 }
 
 // ==================================================
+// TRANSACTIONS
+// ==================================================
+
+/**
+ * تنفيذ مجموعة عمليات داخل معاملة PostgreSQL واحدة.
+ *
+ * عند النجاح: COMMIT
+ * عند الفشل: ROLLBACK
+ *
+ * لا نعيد محاولة المعاملة تلقائيًا؛ لأن إعادة
+ * معاملة فشلت أثناء الاتصال قد تكرر عملية مالية.
+ */
+
+async function transaction(callback) {
+    if (!pool) {
+        throw new Error("قاعدة البيانات غير متصلة.");
+    }
+
+    if (typeof callback !== "function") {
+        throw new Error("يجب توفير دالة للمعاملة.");
+    }
+
+    const client = await pool.connect();
+
+    let started = false;
+
+    try {
+        await client.query("BEGIN");
+        started = true;
+
+        const result = await callback(client);
+
+        await client.query("COMMIT");
+        started = false;
+
+        return result;
+
+    } catch (error) {
+        if (started) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error(
+                    "[DB TRANSACTION ROLLBACK]",
+                    rollbackError.message
+                );
+            }
+        }
+
+        throw error;
+
+    } finally {
+        client.release();
+    }
+}
+
+// ==================================================
 // INITIALIZATION
 // ==================================================
 
 async function init(url) {
+    if (pool) {
+        throw new Error("قاعدة البيانات مهيأة بالفعل.");
+    }
+
     connect(url);
 
-    await retry(() => pool.query(`
-        CREATE TABLE IF NOT EXISTS players (
-            id BIGINT PRIMARY KEY,
-            data JSONB NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        )
-    `));
+    try {
+        await retry(() => pool.query(`
+            CREATE TABLE IF NOT EXISTS players (
+                id BIGINT PRIMARY KEY,
+                data JSONB NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        `));
 
-    await retry(() => pool.query(`
-        CREATE TABLE IF NOT EXISTS group_settings (
-            id BIGINT PRIMARY KEY,
-            data JSONB NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        )
-    `));
+        await retry(() => pool.query(`
+            CREATE TABLE IF NOT EXISTS group_settings (
+                id BIGINT PRIMARY KEY,
+                data JSONB NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        `));
 
-    // تحميل اللاعبين مرة واحدة
-    const playerResult = await retry(() =>
-        pool.query("SELECT id, data FROM players")
-    );
-
-    players.clear();
-    dirty.clear();
-
-    for (const row of playerResult.rows) {
-        players.set(
-            String(row.id),
-            typeof row.data === "string"
-                ? JSON.parse(row.data)
-                : row.data
+        const playerResult = await retry(() =>
+            pool.query("SELECT id, data FROM players")
         );
-    }
 
-    // تحميل إعدادات المجموعات مرة واحدة
-    const groupResult = await retry(() =>
-        pool.query("SELECT id, data FROM group_settings")
-    );
+        players.clear();
+        dirty.clear();
 
-    groupSettings.clear();
-    dirtyGroups.clear();
+        for (const row of playerResult.rows) {
+            players.set(
+                String(row.id),
+                typeof row.data === "string"
+                    ? JSON.parse(row.data)
+                    : row.data
+            );
+        }
 
-    for (const row of groupResult.rows) {
-        groupSettings.set(
-            String(row.id),
-            typeof row.data === "string"
-                ? JSON.parse(row.data)
-                : row.data
+        const groupResult = await retry(() =>
+            pool.query("SELECT id, data FROM group_settings")
         );
+
+        groupSettings.clear();
+        dirtyGroups.clear();
+
+        for (const row of groupResult.rows) {
+            groupSettings.set(
+                String(row.id),
+                typeof row.data === "string"
+                    ? JSON.parse(row.data)
+                    : row.data
+            );
+        }
+
+        console.log(
+            `✅ [DB] ${players.size} لاعب | ${groupSettings.size} مجموعة`
+        );
+
+        playerTimer = setInterval(() => {
+            flushPlayers().catch(error => {
+                console.error("[DB PLAYER FLUSH]", error.message);
+            });
+        }, PLAYER_FLUSH_MS);
+
+        groupTimer = setInterval(() => {
+            flushGroups().catch(error => {
+                console.error("[DB GROUP FLUSH]", error.message);
+            });
+        }, GROUP_FLUSH_MS);
+
+        if (playerTimer.unref) playerTimer.unref();
+        if (groupTimer.unref) groupTimer.unref();
+
+        return players.size;
+
+    } catch (error) {
+        try {
+            await pool.end();
+        } catch (_) {}
+
+        pool = null;
+        throw error;
     }
-
-    console.log(
-        `✅ [DB] ${players.size} لاعب | ${groupSettings.size} مجموعة`
-    );
-
-    playerTimer = setInterval(() => {
-        flushPlayers().catch(() => {});
-    }, PLAYER_FLUSH_MS);
-
-    groupTimer = setInterval(() => {
-        flushGroups().catch(() => {});
-    }, GROUP_FLUSH_MS);
-
-    if (playerTimer.unref) playerTimer.unref();
-    if (groupTimer.unref) groupTimer.unref();
-
-    return players.size;
 }
 
 // ==================================================
@@ -173,8 +252,11 @@ const get = id =>
 
 const set = (id, data) => {
     const key = String(id);
+
     players.set(key, data);
     dirty.add(key);
+
+    return data;
 };
 
 const touch = id =>
@@ -230,9 +312,15 @@ async function savePlayers() {
         for (let i = 0; i < ids.length; i += BATCH_SIZE) {
             const part = ids.slice(i, i + BATCH_SIZE);
 
-            const data = part.map(id =>
-                JSON.stringify(players.get(id))
-            );
+            const data = part.map(id => {
+                const player = players.get(id);
+
+                if (!player) {
+                    return JSON.stringify({});
+                }
+
+                return JSON.stringify(player);
+            });
 
             await retry(() => pool.query(
                 `INSERT INTO players (id, data, updated_at)
@@ -250,11 +338,15 @@ async function savePlayers() {
 
         return done;
 
-    } catch (e) {
+    } catch (error) {
         ids.slice(done).forEach(id => dirty.add(id));
 
-        console.error("[DB] فشل حفظ اللاعبين:", e.message);
-        throw e;
+        console.error(
+            "[DB] فشل حفظ اللاعبين:",
+            error.message
+        );
+
+        throw error;
     }
 }
 
@@ -275,7 +367,7 @@ async function saveGroups() {
             const part = ids.slice(i, i + BATCH_SIZE);
 
             const data = part.map(id =>
-                JSON.stringify(groupSettings.get(id))
+                JSON.stringify(groupSettings.get(id) || {})
             );
 
             await retry(() => pool.query(
@@ -294,11 +386,15 @@ async function saveGroups() {
 
         return done;
 
-    } catch (e) {
+    } catch (error) {
         ids.slice(done).forEach(id => dirtyGroups.add(id));
 
-        console.error("[DB] فشل حفظ المجموعات:", e.message);
-        throw e;
+        console.error(
+            "[DB] فشل حفظ المجموعات:",
+            error.message
+        );
+
+        throw error;
     }
 }
 
@@ -452,7 +548,9 @@ function importData(backup, options = {}) {
 // ==================================================
 
 async function databaseInfo() {
-    if (!pool) throw new Error("قاعدة البيانات غير متصلة");
+    if (!pool) {
+        throw new Error("قاعدة البيانات غير متصلة.");
+    }
 
     const result = await retry(() => pool.query(`
         SELECT
@@ -505,6 +603,7 @@ async function databaseInfo() {
         tablesBytes: Number(row.tables_bytes || 0),
         connections: Number(row.connections || 0),
         estimatedRows: Number(row.estimated_rows || 0),
+
         cacheHitRate: total
             ? ((hits / total) * 100).toFixed(1)
             : null
@@ -516,31 +615,50 @@ async function databaseInfo() {
 // ==================================================
 
 async function shutdown() {
-    if (playerTimer) clearInterval(playerTimer);
-    if (groupTimer) clearInterval(groupTimer);
+    if (playerTimer) {
+        clearInterval(playerTimer);
+        playerTimer = null;
+    }
+
+    if (groupTimer) {
+        clearInterval(groupTimer);
+        groupTimer = null;
+    }
+
+    if (!pool) return;
+
+    let timeout;
 
     try {
         const result = await Promise.race([
             flush(),
-            new Promise((_, reject) =>
-                setTimeout(
-                    () => reject(new Error("timeout")),
-                    8000
-                )
-            )
+
+            new Promise((_, reject) => {
+                timeout = setTimeout(() => {
+                    reject(new Error("انتهت مهلة الحفظ."));
+                }, 8000);
+            })
         ]);
 
         console.log(
             `[DB] حفظ ${result.players} لاعب و${result.groups} مجموعة`
         );
 
-    } catch (e) {
-        console.error("[DB] تعذّر إكمال الحفظ:", e.message);
+    } catch (error) {
+        console.error(
+            "[DB] تعذّر إكمال الحفظ:",
+            error.message
+        );
+
+    } finally {
+        if (timeout) clearTimeout(timeout);
     }
 
     try {
-        if (pool) await pool.end();
-    } catch (e) {}
+        await pool.end();
+    } catch (_) {}
+
+    pool = null;
 }
 
 // ==================================================
@@ -578,6 +696,7 @@ module.exports = {
 
     // Database
     query,
+    transaction,
 
     // Backup / Restore
     exportData,
