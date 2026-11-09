@@ -1,4 +1,3 @@
-
 // شاشات لعبة الحيوان (النصوص والأزرار) وموجّه الضغطات
 const fs = require("fs");
 const path = require("path");
@@ -80,14 +79,12 @@ const cb = (uid, ...parts) => "g:" + uid + ":" + parts.join(":");
 
 function kbBuilder(uid) {
     const kb = new InlineKeyboard();
-    let count = 0;
 
     const api = {
         kb,
 
         btn(label, ...parts) {
             kb.text(label, cb(uid, ...parts));
-            count++;
             return api;
         },
 
@@ -135,7 +132,8 @@ function screenHome(P, note_) {
         .btn("🛒 المتجر", "shop").btn("💰 جمع الأرباح", "collect").row()
         .btn("⚔️ صيد", "hunt").btn("🧬 تزاوج", "bra", 0).row()
         .btn("🎁 يومي", "daily").btn("🏆 ترتيب", "top").row()
-        .btn("🧿 العناصر", "elems");
+        .btn("🧿 العناصر", "elems").row()
+        .btn("📚 المزيد من القوائم", "more");
 
     return { text, kb: b.kb };
 }
@@ -589,7 +587,6 @@ function board(title, rows) {
 function screenTop(P) {
     const players = store.all();
 
-    // ترتيب أقوى اللاعبين
     const rows = players
         .filter(p => p.pets && p.pets.length)
         .map(p => {
@@ -614,7 +611,6 @@ function screenTop(P) {
             val: fmt(r.val) + " ⚔️"
         }));
 
-    // ترتيب أغنى اللاعبين
     const rich = players
         .map(p => {
             const main = E.getPet(p, p.main);
@@ -663,7 +659,6 @@ function screenElems(P) {
 }
 
 // ---------------- الموجّه ----------------
-// يعيد { screen, error?, photo? }
 
 function route(P, parts, ctx) {
     const t = now();
