@@ -1,3 +1,4 @@
+
 // شاشات لعبة الحيوان (النصوص والأزرار) وموجّه الضغطات
 const fs = require("fs");
 const path = require("path");
@@ -136,6 +137,30 @@ function screenHome(P, note_) {
         .btn("📚 المزيد من القوائم", "more");
 
     return { text, kb: b.kb };
+}
+
+// ==================================================
+// القوائم الإضافية
+// ==================================================
+
+function screenMore(P) {
+    const uid = P.id;
+
+    const kb = new InlineKeyboard()
+        .text("🎯 المهام اليومية", `q:${uid}:quests`)
+        .text("🏅 الإنجازات", `q:${uid}:ach`)
+        .row()
+        .text("👤 ملفي الشخصي", `q:${uid}:profile`)
+        .text("🎒 المخزن", `q:${uid}:bag`)
+        .row()
+        .text("📖 دليل اللعبة", `q:${uid}:guide`)
+        .row()
+        .text("🏠 القائمة الرئيسية", `g:${uid}:home`);
+
+    return {
+        text: "📚 <b>القوائم الإضافية</b>\n\nاختر القائمة التي تريد فتحها:",
+        kb
+    };
 }
 
 function sortedPets(P) {
@@ -672,6 +697,10 @@ function route(P, parts, ctx) {
     switch (a) {
         case "home":
             return { screen: screenHome(P) };
+
+        // فتح القوائم الإضافية
+        case "more":
+            return { screen: screenMore(P) };
 
         case "pets":
             return { screen: screenPets(P, Number(x) || 0) };
