@@ -12,6 +12,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 #app { height: 100%; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
 #top { display: flex; gap: 8px; padding: 10px 12px; background: linear-gradient(#1d1730, #120e1f); align-items: center; flex-wrap: wrap; }
 .chip { background: var(--card2); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13px; white-space: nowrap; }
+.chip { color: var(--text); font: inherit; font-size: 13px; }
 .chip b { color: var(--gold); }
 #view { flex: 1; overflow-y: auto; padding: 10px 12px 18px; -webkit-overflow-scrolling: touch; }
 #tabs { display: flex; background: #181229; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
@@ -46,7 +47,7 @@ h2 { margin: 6px 0 10px; font-size: 18px; }
 /* الحظيرة */
 .pen-bar { display: flex; gap: 8px; margin-bottom: 8px; }
 .pen-bar .btn { flex: 1; }
-#pen { width: 100%; height: 56vh; border-radius: 18px; border: 3px solid #5a3d1e; display: block; touch-action: manipulation; }
+#pen { width: 100%; height: calc(100vh - 270px); height: calc(100dvh - 270px); min-height: 280px; border-radius: 18px; border: 3px solid #5a3d1e; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
 
 /* الحضانة */
 .egg { text-align: center; }
@@ -88,3 +89,7 @@ h2 { margin: 6px 0 10px; font-size: 18px; }
 .pick { min-width: 84px; text-align: center; background: var(--card2); border: 2px solid var(--line); border-radius: 14px; padding: 8px 4px; font-size: 12px; }
 .pick.on { border-color: var(--pink); background: #3a2150; }
 .pick .em { font-size: 30px; display: block; }
+
+#nur { display: block; border-radius: 18px; border: 3px solid #5a3d1e; touch-action: manipulation; }
+.pen-bar .btn:nth-child(n+3) { flex: 0 0 auto; }
+input, select { padding: 9px; border-radius: 10px; border: 1px solid var(--line); background: #0e0a18; color: #fff; font: inherit; min-width: 0; }
