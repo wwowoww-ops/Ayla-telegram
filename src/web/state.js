@@ -13,6 +13,7 @@ function petView(P, pet, now) {
         hunger: Math.round(E.hungerNow(pet, now)),
         power: E.power(pet), income: E.incomePerHour(pet),
         main: pet.id === P.main,
+        pen: pet.pen || 0, fx: Number.isFinite(pet.fx) ? pet.fx : null, fy: Number.isFinite(pet.fy) ? pet.fy : null,
         cd: {
             train: Math.max(0, pet.cdTrain - now), play: Math.max(0, pet.cdPlay - now),
             hunt: Math.max(0, pet.cdHunt - now), breed: Math.max(0, pet.cdBreed - now)
@@ -30,7 +31,8 @@ function eggView(egg, now) {
 // معلومات ثابتة تقريبًا (كتالوجات المتجر والمناطق)
 function meta(P) {
     return {
-        elements: D.ELEMENTS,
+        elements: D.ELEMENTS, beats: D.BEATS,
+        species: Object.values(D.SPECIES).map(x => ({ id: x.id, n: x.n, e: x.e, r: x.r, els: x.els })),
         rarities: D.RARITIES.map(r => ({ n: r.n, e: r.e })),
         zones: D.ZONES.map((z, i) => ({ i, name: z.n, power: z.power, coins: z.coins, els: z.els })),
         eggs: D.EGGS.map((e, tier) => ({ tier, name: e.n, emoji: e.e, price: e.price, min: e.min, w: e.w })),
@@ -38,7 +40,7 @@ function meta(P) {
             const f = D.FOODS[id];
             return { id, name: f.n, emoji: f.e, price: f.price, hg: f.hg, xp: f.xp, el: f.el || null };
         }),
-        slotPrice: E.slotPrice(P), hatchPrice: P.hatchSlots < 10 ? E.hatchPrice(P) : 0,
+        penMax: 8, slotPrice: E.slotPrice(P), hatchPrice: P.hatchSlots < 10 ? E.hatchPrice(P) : 0,
         breedLv: D.C.BREED_LV, lvCap: D.C.LV_CAP, maxStars: D.C.MAX_STARS
     };
 }
@@ -56,6 +58,7 @@ function buildState(P, now, quests) {
             stats: P.stats, main: P.main
         },
         pets: P.pets.map(p => petView(P, p, now)),
+        pens: (P.pens || []).map(x => ({ id: x.id, name: x.name })),
         eggs: P.eggs.map(e => eggView(e, now)),
         items: Object.keys(P.items).filter(id => P.items[id] > 0 && D.FOODS[id]).map(id => ({ id, count: P.items[id] })),
         meta: meta(P)
