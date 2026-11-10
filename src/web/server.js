@@ -15,6 +15,7 @@ try { Q = require("../game/quests"); } catch (e) { /* غير موجودة */ }
 
 const PUBLIC = path.join(__dirname, "public");
 const IMG_DIR = path.join(__dirname, "..", "..", "images");
+const STATIC = new Set(fs.readdirSync(PUBLIC));   // كل ملفات مجلد public (js/css/html)
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 const IMG_TYPES = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 const rng = Math.random;
@@ -45,6 +46,8 @@ function ensurePlayer(user, now) {
 
 const int = v => (Number.isInteger(v) ? v : NaN);
 const foodIds = () => new Set(Object.keys(D.FOODS));
+const cleanName = (v, n) => String(v || "").replace(/[<>&]/g, "").trim().slice(0, n);
+const validPen = (P, id) => id === 0 || (P.pens || []).some(x => x.id === id);
 
 // ---------- الأوامر ----------
 // كل أمر يرجع { ok, msg, ...إضافات }
@@ -75,6 +78,55 @@ const ACTIONS = {
         const r = E.hunt(P, int(a.zone), now, rng);
         if (!r.ok) return r;
         return { ok: true, battle: { win: r.win, monEl: r.monEl, eff: r.eff, monPower: r.monPower, mine: r.mine, coins: r.coins || 0, levels: r.levels || 0, drops: r.drops, pet: before, zone: int(a.zone) } };
+    },
+    // ----- الحظائر -----
+    newPen(P, a) {
+        P.pens = P.pens || [];
+        const name = cleanName(a.name, 14);
+        if (P.pens.length >= 8) return { ok: false, msg: "وصلت أقصى عدد من الحظائر." };
+        if (!name) return { ok: false, msg: "اكتب اسمًا للحظيرة." };
+        P.penSeq = (P.penSeq || 0) + 1;
+        P.pens.push({ id: P.penSeq, name });
+        return { ok: true, msg: "🏡 تم إنشاء الحظيرة." };
+    },
+    renamePen(P, a) {
+        const pen = (P.pens || []).find(x => x.id === int(a.id)), name = cleanName(a.name, 14);
+        if (!pen || !name) return { ok: false, msg: "اسم غير صالح." };
+        pen.name = name;
+        return { ok: true, msg: "تم تغيير الاسم." };
+    },
+    delPen(P, a) {
+        const id = int(a.id);
+        if (!(P.pens || []).some(x => x.id === id)) return { ok: false, msg: "حظيرة غير موجودة." };
+        P.pens = P.pens.filter(x => x.id !== id);
+        P.pets.forEach(p => { if (p.pen === id) { p.pen = 0; delete p.fx; delete p.fy; } });
+        return { ok: true, msg: "تم حذف الحظيرة." };
+    },
+    movePet(P, a) {
+        const pet = E.getPet(P, int(a.id)), to = int(a.pen);
+        if (!pet || !validPen(P, to)) return { ok: false, msg: "نقل غير صالح." };
+        pet.pen = to; delete pet.fx; delete pet.fy;
+        return { ok: true, msg: "تم النقل." };
+    },
+    movePets(P, a) {
+        const from = int(a.from), to = int(a.to);
+        if (!validPen(P, to) || !(from === -1 || validPen(P, from))) return { ok: false, msg: "نقل غير صالح." };
+        let n = 0;
+        P.pets.forEach(p => { if ((from === -1 || (p.pen || 0) === from) && (p.pen || 0) !== to) { p.pen = to; delete p.fx; delete p.fy; n++; } });
+        return n ? { ok: true, msg: "تم نقل " + n + " حيوان." } : { ok: false, msg: "لا حيوانات لنقلها." };
+    },
+    place(P, a) {
+        const pet = E.getPet(P, int(a.id));
+        const ok = v => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;
+        if (!pet || !ok(a.fx) || !ok(a.fy)) return { ok: false, msg: "مكان غير صالح." };
+        pet.fx = a.fx; pet.fy = a.fy;
+        return { ok: true };
+    },
+    unpin(P, a) {
+        const pet = E.getPet(P, int(a.id));
+        if (!pet) return { ok: false, msg: "حيوان غير موجود." };
+        delete pet.fx; delete pet.fy;
+        return { ok: true, msg: "سيتجول بحرية." };
     },
     nick(P, a) {
         const pet = E.getPet(P, int(a.id));
@@ -134,7 +186,8 @@ function createServer(botToken, opts = {}) {
             if (req.method === "GET") {
                 if (url === "/health") return send(res, 200, "ok", "text/plain");
                 if (url === "/" || url === "/index.html") return serveFile(res, path.join(PUBLIC, "index.html"));
-                if (url === "/app.js" || url === "/style.css") return serveFile(res, path.join(PUBLIC, url.slice(1)));
+                const name = url.slice(1);
+                if (STATIC.has(name) && /\.(js|css)$/.test(name)) return serveFile(res, path.join(PUBLIC, name));
                 const m = url.match(/^\/img\/(\d{1,3})$/);
                 if (m) {
                     for (const ext of Object.keys(IMG_TYPES)) {
