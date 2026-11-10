@@ -8,7 +8,7 @@ let pensOpen = false;
 const penOf = p => p.pen || 0;
 const visiblePets = () => S.pets.filter(p => penSel === "all" || penOf(p) === penSel);
 function stopPen() {
-  if (pen) { cancelAnimationFrame(pen.raf); window.removeEventListener("resize", pen.onResize); pen = null; }
+  if (pen) { if (pen.ro) pen.ro.disconnect(); cancelAnimationFrame(pen.raf); window.removeEventListener("resize", pen.onResize); pen = null; }
   if (nur) { cancelAnimationFrame(nur.raf); window.removeEventListener("resize", nur.onResize); nur = null; }
 }
 
@@ -104,8 +104,10 @@ function startPen() {
   const c = $("#pen");
   const ctx = c.getContext("2d");
   pen = { c, ctx, actors: new Map(), parts: [], t: 0, last: performance.now(), W: 0, H: 0, vw: 0, vh: 0, bg: null, k: 0, cx: 0, cy: 0, z: 1, zoomT: 1, fit: false, drag: null };
-  pen.onResize = () => sizePen(true);
+  pen.onResize = () => sizePen(false);
   window.addEventListener("resize", pen.onResize);
+  // تيليجرام يغيّر حجم النافذة بعد الفتح (expand): نراقب حجم اللوحة نفسها
+  if (window.ResizeObserver) { pen.ro = new ResizeObserver(() => { if (pen) sizePen(false); }); pen.ro.observe(c); }
   sizePen(true);
   penSync();
   const toWorld = e => { const r = c.getBoundingClientRect(); return { x: (e.clientX - r.left) / pen.z + pen.cx, y: (e.clientY - r.top) / pen.z + pen.cy }; };
@@ -168,14 +170,23 @@ function clampCam() {
 function sizePen(force) {
   const c = pen.c, dpr = Math.min(window.devicePixelRatio || 1, 2);
   const r = c.getBoundingClientRect();
-  pen.vw = r.width; pen.vh = r.height;
-  c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
-  pen.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (r.width < 10 || r.height < 10) return;
+  if (pen.vw !== r.width || pen.vh !== r.height || c.width !== Math.round(r.width * dpr)) {
+    pen.vw = r.width; pen.vh = r.height;
+    c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+    pen.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    force = true;
+  }
   const k = worldK();
   if (force || k !== pen.k) {
+    const oW = pen.W, oH = pen.H;
     pen.k = k; pen.W = Math.round(pen.vw * k); pen.H = Math.round(pen.vh * k);
     pen.bg = makeBackground(pen.W, pen.H, Math.min(dpr, 1.5));
-    pen.actors.forEach(a => { a.x = Math.min(a.x, pen.W - 40); a.y = Math.min(a.y, pen.H - 40); a.tx = a.x; a.ty = a.y; });
+    // نعيد توزيع الحيوانات بنفس النسبة داخل العالم الجديد (حتى لا تتجمع في زاوية)
+    if (oW > 0 && oH > 0) pen.actors.forEach(a => {
+      const sx = pen.W / oW, sy = pen.H / oH;
+      a.x *= sx; a.tx *= sx; a.y *= sy; a.ty *= sy;
+    });
     if (pen.fit) pen.zoomT = fitZoom();
   }
 }
