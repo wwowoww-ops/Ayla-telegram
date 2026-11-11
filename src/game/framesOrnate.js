@@ -104,10 +104,10 @@ function ornate(name) {
 
 // price: السعر بالعملة، ach: مفتاح إنجاز يفتحه مجانًا (أحدهما أو كلاهما). frames: عدد لقطات الحركة
 const ORNATE = [
-    { id: "o_violet",  name: "بنفسجي ملكي", e: "💜", price: 5e6,   ach: null,       text: "", draw: ornate("violet") },
-    { id: "o_azure",   name: "أزرق جليدي",  e: "💙", price: 5e7,   ach: null,       text: "", draw: ornate("azure") },
-    { id: "o_emerald", name: "زمردي",       e: "💚", price: 5e7,   ach: null,       text: "", draw: ornate("emerald") },
-    { id: "o_crimson", name: "قرمزي",       e: "❤️", price: 5e8,   ach: null,       text: "", draw: ornate("crimson") },
+    { id: "o_violet",  name: "بنفسجي ملكي", e: "💜", price: 5e9,   ach: null,       text: "", draw: ornate("violet") },
+    { id: "o_azure",   name: "أزرق جليدي",  e: "💙", price: 5e10,  ach: null,       text: "", draw: ornate("azure") },
+    { id: "o_emerald", name: "زمردي",       e: "💚", price: 5e10,  ach: null,       text: "", draw: ornate("emerald") },
+    { id: "o_crimson", name: "قرمزي",       e: "❤️", price: 5e11,  ach: null,       text: "", draw: ornate("crimson") },
     { id: "o_solar",   name: "شمسي ذهبي",   e: "🌞", price: null,  ach: "streak:3", text: "حافظ على 30 يومًا متتاليًا", draw: ornate("solar") },
     { id: "o_void",    name: "الفراغ",      e: "🌑", price: null,  ach: "power:3",  text: "اجمع قوة كلية مليار", draw: ornate("void") }
 ].map(x => Object.assign({ frames: 16, square: true, win: WIN }, x));
