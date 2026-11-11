@@ -3,18 +3,20 @@
 // غيّر الأرقام هنا فقط (1 = بدون تغيير).
 const D = require("./data");
 
+// الإعداد الحالي: وضع "صعب" (1 = قيم data.js الأصلية)
 const TUNING = {
-    eggPrice: 0.25,       // أسعار البيض
-    foodPrice: 0.3,       // أسعار الطعام والفواكه
-    hatchTime: 0.4,       // مدة الفقس
-    income: 2,            // دخل الحيوانات في الساعة
-    zoneCoins: 2,         // مكافأة الذهب في الصيد
-    zoneXp: 2,            // خبرة الصيد
-    cooldown: 0.4,        // التدريب واللعب والصيد والتزاوج والمبارزة
-    hunger: 0.6,          // سرعة الجوع (أقل = يجوع أبطأ)
-    dailyHours: 12,       // ساعات انتظار المكافأة اليومية
-    collectCapHours: 24,  // أقصى ساعات تتراكم فيها الأرباح
-    breedLevel: 5         // أقل مستوى للتزاوج
+    eggPrice: 2,          // أسعار البيض
+    foodPrice: 1,         // أسعار الطعام الأساسي (تمر، لحم، وليمة)
+    growthFoodPrice: 40,  // أسعار أطعمة الخبرة (كعكة، جرعة، إكسير، دمعة، فواكه): هي ثمن رفع المستوى
+    hatchTime: 1.5,       // مدة الفقس
+    income: 0.3,          // دخل الحيوانات في الساعة
+    zoneCoins: 0.25,      // مكافأة الذهب في الصيد
+    zoneXp: 1,            // خبرة الصيد
+    cooldown: 1,          // التدريب واللعب والصيد والتزاوج والمبارزة
+    hunger: 1,            // سرعة الجوع (أقل = يجوع أبطأ)
+    dailyHours: 20,       // ساعات انتظار المكافأة اليومية
+    collectCapHours: 12,  // أقصى ساعات تتراكم فيها الأرباح
+    breedLevel: 15        // أقل مستوى للتزاوج
 };
 
 let applied = false;
@@ -29,7 +31,7 @@ function apply() {
         e.price = round(e.price * T.eggPrice);
         e.min = Math.max(1, Math.round(e.min * T.hatchTime));
     });
-    Object.values(D.FOODS).forEach(f => { f.price = round(f.price * T.foodPrice); });
+    Object.values(D.FOODS).forEach(f => { f.price = round(f.price * (f.xp > 0 ? T.growthFoodPrice : T.foodPrice)); });
     D.RARITIES.forEach(r => { r.inc = r.inc * T.income; });
     D.ZONES.forEach(z => {
         z.coins = round(z.coins * T.zoneCoins);
