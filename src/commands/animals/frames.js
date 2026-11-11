@@ -1,4 +1,6 @@
 
+"use strict";
+
 // أمر فتح إطارات صورة الحساب
 const { cmd } = require("../../lib/util");
 const store = require("../../core/store");
@@ -7,25 +9,37 @@ const Q = require("../../game/quests");
 const { screenFrames } = require("../../game/frameMenu");
 
 module.exports = function (bot) {
-    cmd(bot, ["إطارات", "اطارات", "إطاري", "إطاراتي"], async ctx => {
-        try {
-            const P = ui.ensure(ctx.from);
+    cmd(
+        bot,
+        ["إطارات", "اطارات", "إطاري", "إطاراتي"],
+        async ctx => {
+            try {
+                const P = ui.ensure(ctx.from);
 
-            Q.settle(P, Date.now());
-            store.touch(P.id);
+                Q.settle(P, Date.now());
+                store.touch(P.id);
 
-            const scr = screenFrames(P);
+                const scr = screenFrames(P);
 
-            await ctx.reply(scr.text, {
-                parse_mode: "HTML",
-                reply_markup: scr.kb
-            });
-        } catch (e) {
-            console.error("[FRAMES COMMAND ERROR]", e.stack || e);
-            await ctx.reply("❌ تعذر فتح قائمة الإطارات.");
+                return await ctx.reply(scr.text, {
+                    parse_mode: "HTML",
+                    reply_markup: scr.kb
+                });
+
+            } catch (error) {
+                console.error(
+                    "[FRAMES COMMAND ERROR]",
+                    error.stack || error
+                );
+
+                return ctx.reply(
+                    "❌ تعذر فتح قائمة الإطارات حاليًا."
+                );
+            }
+        },
+        {
+            menu: "إطارات صورة الحساب",
+            category: "animals"
         }
-    }, {
-        menu: "إطارات صورة الحساب",
-        category: "animals"
-    });
+    );
 };
