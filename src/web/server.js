@@ -1,3 +1,4 @@
+
 // خادم التطبيق المصغّر: يخدم الصفحة ويستقبل أوامر اللعبة ويطبّقها بنفس منطق البوت (engine.js)
 const http = require("http");
 const fs = require("fs");
@@ -5,6 +6,7 @@ const path = require("path");
 const D = require("../game/data");
 const E = require("../game/engine");
 const store = require("../core/store");
+const F = require("../game/feeders");
 const { nameOf } = require("../lib/util");
 const { validateInitData } = require("./auth");
 const { buildState, petView } = require("./state");
@@ -15,7 +17,7 @@ try { Q = require("../game/quests"); } catch (e) { /* غير موجودة */ }
 
 const PUBLIC = path.join(__dirname, "public");
 const IMG_DIR = path.join(__dirname, "..", "..", "images");
-const STATIC = new Set(fs.readdirSync(PUBLIC));   // كل ملفات مجلد public (js/css/html)
+const STATIC = new Set(fs.readdirSync(PUBLIC));
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 const IMG_TYPES = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 const rng = Math.random;
@@ -79,6 +81,19 @@ const ACTIONS = {
         if (!r.ok) return r;
         return { ok: true, battle: { win: r.win, monEl: r.monEl, eff: r.eff, monPower: r.monPower, mine: r.mine, coins: r.coins || 0, levels: r.levels || 0, drops: r.drops, pet: before, zone: int(a.zone) } };
     },
+
+    // ----- أوعية الطعام -----
+    buyBowl: P => F.buy(P),
+    placeBowls: (P, a) => F.placeMany(
+        P,
+        int(a.count),
+        int(a.pen),
+        String(a.food),
+        int(a.qty)
+    ),
+    refillBowl: (P, a) => F.refill(P, int(a.id), int(a.qty)),
+    removeBowl: (P, a) => F.remove(P, int(a.id)),
+
     // ----- الحظائر -----
     newPen(P, a) {
         P.pens = P.pens || [];
@@ -144,7 +159,7 @@ const ACTIONS = {
 };
 
 // ---------- الطلبات ----------
-const hits = new Map();   // تحديد المعدل لكل لاعب
+const hits = new Map();
 function tooMany(id) {
     const now = Date.now();
     const h = hits.get(id) || { n: 0, t: now };
@@ -210,12 +225,13 @@ function createServer(botToken, opts = {}) {
 
                 const now = Date.now();
                 const P = ensurePlayer(user, now);
-                if (Q) Q.ensureMissions(P, now);   // نقطة بداية المهام قبل التنفيذ
+                if (Q) Q.ensureMissions(P, now);
+
+                F.tick(P, now); // تشغيل التغذية التلقائية من الأوعية
 
                 const result = action(P, body.args || {}, now) || { ok: false, msg: "فشل." };
                 store.touch(P.id);
 
-                // منح المهام والإنجازات تلقائيًا
                 let notes = [];
                 if (Q) {
                     const s = Q.settle(P, now);
