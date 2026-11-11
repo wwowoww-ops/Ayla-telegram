@@ -156,16 +156,16 @@ function make(kind) {
 
 // sp: رقم الحيوان في اللعبة (من data.js). من يملكه يفتح إطاره مجانًا، ومن لا يملكه يشتريه.
 const ANIMAL = [
-    { id: "a_cat",     name: "إطار القطة",   e: "🐱", sp: 1,  price: 2e6,  kind: "cat" },
-    { id: "a_bunny",   name: "إطار الأرنب",  e: "🐰", sp: 3,  price: 2e6,  kind: "bunny" },
-    { id: "a_fox",     name: "إطار الثعلب",  e: "🦊", sp: 9,  price: 1e7,  kind: "fox" },
-    { id: "a_wolf",    name: "إطار الذئب",   e: "🐺", sp: 16, price: 5e7,  kind: "wolf" },
-    { id: "a_lion",    name: "إطار الأسد",   e: "🦁", sp: 19, price: 5e7,  kind: "lion" },
-    { id: "a_bear",    name: "إطار الدب",    e: "🐻", sp: 20, price: 5e7,  kind: "bear" },
-    { id: "a_owl",     name: "إطار البومة",  e: "🦉", sp: 23, price: 2e8,  kind: "owl" },
-    { id: "a_unicorn", name: "إطار اليونيكورن", e: "🦄", sp: 36, price: 2e9, kind: "unicorn" },
-    { id: "a_dragon",  name: "إطار التنين",  e: "🐉", sp: 35, price: 5e9,  kind: "dragon" },
-    { id: "a_phoenix", name: "إطار العنقاء", e: "🐦‍🔥", sp: 39, price: 5e9, kind: "phoenix" }
+    { id: "a_cat",     name: "إطار القطة",   e: "🐱", sp: 1,  price: 2e10,  kind: "cat" },
+    { id: "a_bunny",   name: "إطار الأرنب",  e: "🐰", sp: 3,  price: 2e10,  kind: "bunny" },
+    { id: "a_fox",     name: "إطار الثعلب",  e: "🦊", sp: 9,  price: 1e11,  kind: "fox" },
+    { id: "a_wolf",    name: "إطار الذئب",   e: "🐺", sp: 16, price: 5e11,  kind: "wolf" },
+    { id: "a_lion",    name: "إطار الأسد",   e: "🦁", sp: 19, price: 5e11,  kind: "lion" },
+    { id: "a_bear",    name: "إطار الدب",    e: "🐻", sp: 20, price: 5e11,  kind: "bear" },
+    { id: "a_owl",     name: "إطار البومة",  e: "🦉", sp: 23, price: 2e12,  kind: "owl" },
+    { id: "a_unicorn", name: "إطار اليونيكورن", e: "🦄", sp: 36, price: 5e13, kind: "unicorn" },
+    { id: "a_dragon",  name: "إطار التنين",  e: "🐉", sp: 35, price: 3e14,  kind: "dragon" },
+    { id: "a_phoenix", name: "إطار العنقاء", e: "🐦‍🔥", sp: 39, price: 3e14, kind: "phoenix" }
 ].map(x => Object.assign({
     frames: 16, square: true, win: WIN, ach: null,
     text: "امتلك هذا الحيوان",
