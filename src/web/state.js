@@ -1,6 +1,8 @@
+
 // يحوّل بيانات اللاعب إلى شكل مناسب للواجهة (أرقام جاهزة بلا منطق في الصفحة)
 const D = require("../game/data");
 const E = require("../game/engine");
+const F = require("../game/feeders");
 
 function petView(P, pet, now) {
     const sp = D.SPECIES[pet.sp], r = D.RARITIES[sp.r], el = D.ELEMENTS[pet.el];
@@ -41,6 +43,7 @@ function meta(P) {
             return { id, name: f.n, emoji: f.e, price: f.price, hg: f.hg, xp: f.xp, el: f.el || null };
         }),
         penMax: 8, slotPrice: E.slotPrice(P), hatchPrice: P.hatchSlots < 10 ? E.hatchPrice(P) : 0,
+        bowlPrice: F.price(P), bowlMax: F.MAX_BOWLS, bowlCap: F.CAP, bowlFoods: F.FOODS,
         breedLv: D.C.BREED_LV, lvCap: D.C.LV_CAP, maxStars: D.C.MAX_STARS
     };
 }
@@ -59,6 +62,9 @@ function buildState(P, now, quests) {
         },
         pets: P.pets.map(p => petView(P, p, now)),
         pens: (P.pens || []).map(x => ({ id: x.id, name: x.name })),
+        bowls: F.bowls(P).map(b => ({
+            id: b.id, pen: b.pen, food: b.food, qty: b.qty
+        })),
         eggs: P.eggs.map(e => eggView(e, now)),
         items: Object.keys(P.items).filter(id => P.items[id] > 0 && D.FOODS[id]).map(id => ({ id, count: P.items[id] })),
         meta: meta(P)
