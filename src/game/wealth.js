@@ -33,6 +33,7 @@ function apply(P, now) {
         P.coins -= t; paid += t;
     }
     P.coins = Math.max(0, Math.floor(P.coins));
+    if (P.stats) P.stats.taxPaid = (P.stats.taxPaid || 0) + Math.floor(paid);
     return Math.floor(paid);
 }
 
