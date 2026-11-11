@@ -2,13 +2,14 @@
 /**
  * ╔══════════════════════════════════════╗
  * ║               AYLA ID                ║
- * ║                 v1.2                 ║
+ * ║                 v1.3                 ║
  * ╚══════════════════════════════════════╝
  */
 
 "use strict";
 
 const https = require("https");
+const { InputFile } = require("grammy");
 
 const {
     esc,
@@ -46,7 +47,7 @@ const HEADER = service =>
 const FOOTER = "❀ ━━━━━━━━━━━━━ ❀";
 
 // ==================================================
-// DOWNLOAD TELEGRAM PHOTO
+// DOWNLOAD PHOTO
 // ==================================================
 
 function downloadFile(url) {
@@ -88,7 +89,7 @@ async function getPhotoBuffer(ctx, fileId) {
 }
 
 // ==================================================
-// AYLA — ID / USER INFO
+// AYLA ID
 // ==================================================
 
 module.exports = function (bot) {
@@ -130,13 +131,11 @@ module.exports = function (bot) {
                     const sizes = photos.photos[0];
                     const photo = sizes[sizes.length - 1];
 
-                    // جلب بيانات اللاعب المستهدف
                     const P = store.get(String(target.id));
 
-                    // تحديد الإطار المختار
                     let frame = null;
 
-                    if (P && P.frame) {
+                    if (P?.frame) {
                         const selected = F.byId(P.frame);
 
                         if (selected && F.isUnlocked(P, selected)) {
@@ -144,7 +143,6 @@ module.exports = function (bot) {
                         }
                     }
 
-                    // تركيب الإطار إن كان مختارًا
                     if (frame) {
                         try {
                             const photoBuffer = await getPhotoBuffer(
@@ -159,7 +157,10 @@ module.exports = function (bot) {
 
                             if (result.animated) {
                                 return ctx.replyWithAnimation(
-                                    { source: result.buffer },
+                                    new InputFile(
+                                        result.buffer,
+                                        "ayla-id.gif"
+                                    ),
                                     {
                                         caption,
                                         ...HTML
@@ -168,7 +169,10 @@ module.exports = function (bot) {
                             }
 
                             return ctx.replyWithPhoto(
-                                { source: result.buffer },
+                                new InputFile(
+                                    result.buffer,
+                                    "ayla-id.jpg"
+                                ),
                                 {
                                     caption,
                                     ...HTML
@@ -177,13 +181,12 @@ module.exports = function (bot) {
 
                         } catch (error) {
                             console.error(
-                                "[AYLA ID FRAME]",
+                                "[AYLA ID FRAME ERROR]",
                                 error.stack || error.message
                             );
                         }
                     }
 
-                    // لا يوجد إطار أو فشل التركيب
                     return ctx.replyWithPhoto(photo.file_id, {
                         caption,
                         ...HTML
@@ -192,12 +195,11 @@ module.exports = function (bot) {
 
             } catch (error) {
                 console.error(
-                    "[AYLA ID PHOTO]",
+                    "[AYLA ID PHOTO ERROR]",
                     error.stack || error.message
                 );
             }
 
-            // إذا لم تتوفر صورة
             return ctx.reply(caption, HTML);
         },
         {
