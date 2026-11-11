@@ -131,8 +131,9 @@ function update() {
   else { const y = view.scrollTop; stopPen(); VIEWS[tab](); view.scrollTop = y; }
   if (sheetPet != null) openPet(sheetPet);
   if (pensOpen) openPens();
+  if (bowlsOpen) openBowls();
 }
-function closeSheet() { $("#sheet").classList.add("hidden"); sheetPet = null; renaming = false; releasing = false; pensOpen = false; }
+function closeSheet() { $("#sheet").classList.add("hidden"); sheetPet = null; renaming = false; releasing = false; pensOpen = false; bowlsOpen = false; }
 $("#sheet").addEventListener("pointerdown", e => { if (e.target.id === "sheet") closeSheet(); });
 
 // عدّادات تنازلية: أي عنصر فيه data-ts (وقت الانتهاء المطلق)
