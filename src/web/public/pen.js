@@ -16,11 +16,12 @@ VIEWS.pen = () => {
   if (penSel !== "all" && penSel !== 0 && !S.pens.find(p => p.id === penSel)) penSel = "all";
   view.innerHTML = `
     <div class="seg" id="penTabs"></div>
-    <div class="pen-bar"><button class="btn" id="bCollect"></button><button class="btn sec" id="bDaily"></button><button class="btn sec" id="bFeed">🍖</button><button class="btn sec" id="bZoom">🔍</button></div>
+    <div class="pen-bar"><button class="btn" id="bCollect"></button><button class="btn sec" id="bDaily"></button><button class="btn sec" id="bFeed">🍖</button><button class="btn sec" id="bBowl">🥣</button><button class="btn sec" id="bZoom">🔍</button></div>
     <canvas id="pen"></canvas>`;
   $("#bCollect").onclick = () => { buzz("medium"); run("collect"); };
   $("#bDaily").onclick = () => { buzz("medium"); run("daily"); };
   $("#bFeed").onclick = feedAll;
+  $("#bBowl").onclick = () => { buzz(); openBowls(); };
   $("#bZoom").onclick = () => { pen.fit = !pen.fit; pen.zoomT = pen.fit ? fitZoom() : 1; buzz(); };
   startPen();
   penBar();
@@ -262,9 +263,13 @@ function penStep(dt) {
       a.moving = false;
       a.wait -= dt;
       if (a.wait <= 0) {
-        a.tx = 36 + Math.random() * (pen.W - 72);
-        a.ty = 60 + Math.random() * (pen.H - 100);
-        a.wait = 0.8 + Math.random() * 3;
+        const bw = a.pet.hunger < 70 ? nearestBowl(a) : null;   // الجائع يتجه لوعاء فيه طعام
+        if (bw) { a.tx = bw.x + (Math.random() - 0.5) * 50; a.ty = bw.y + 18 + Math.random() * 14; a.wait = 2 + Math.random() * 2; }
+        else {
+          a.tx = 36 + Math.random() * (pen.W - 72);
+          a.ty = 60 + Math.random() * (pen.H - 100);
+          a.wait = 0.8 + Math.random() * 3;
+        }
       }
     }
   });
@@ -288,6 +293,15 @@ function penDraw() {
   ctx.drawImage(pen.bg, 0, 0, pen.W, pen.H);
   const list = [...pen.actors.values()].sort((a, b) => a.y - b.y);
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  bowlsHere().forEach(b => {
+    const p = bowlPos(b), cap = S.meta.bowlCap, f = S.meta.foods.find(x => x.id === b.food);
+    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(p.x, p.y + 16, 22, 7, 0, 0, 7); ctx.fill();
+    ctx.font = "32px serif"; ctx.fillText("🥣", p.x, p.y);
+    if (b.qty > 0 && f) { ctx.font = "13px serif"; ctx.fillText(f.emoji, p.x, p.y - 4); }
+    ctx.fillStyle = "#0008"; ctx.fillRect(p.x - 18, p.y + 22, 36, 5);
+    ctx.fillStyle = b.qty > cap * 0.25 ? "#4ade80" : "#f87171"; ctx.fillRect(p.x - 18, p.y + 22, 36 * Math.min(1, b.qty / cap), 5);
+    if (b.qty <= 0) { ctx.font = "14px serif"; ctx.fillText("⚠️", p.x + 22, p.y - 12); }
+  });
   list.forEach(a => {
     if (a.x < pen.cx - 60 || a.x > pen.cx + vw / z + 60 || a.y < pen.cy - 60 || a.y > pen.cy + vh / z + 60) return;
     const p = a.pet, size = petSize(p), bob = Math.sin(pen.t * (a.moving ? 9 : 2) + a.ph) * (a.moving ? 3 : 1.2);
@@ -333,4 +347,22 @@ function penTap(e) {
   if (best && bd < petSize(best.pet) * 0.9 + 14) { buzz(); pen.parts.push({ x: best.x, y: best.y - 20, vx: 0, life: 0.8, ch: "❤️" }); openPet(best.pet.id); return; }
   if (best) { best.tx = x; best.ty = y; best.boost = 2; best.wait = 1.5; }
   pen.parts.push({ x, y, vx: 0, life: 0.7, ch: "✨" });
+}
+// ---- أوعية الأكل داخل الحظيرة ----
+const bowlSeed = n => { const x = Math.sin(n * 91.7) * 43758.5; return x - Math.floor(x); };
+// الأوعية الموضوعة والظاهرة في الحظيرة المعروضة
+function bowlsHere() {
+  return (S.bowls || []).filter(b => b.pen != null && (penSel === "all" || b.pen === -1 || b.pen === penSel));
+}
+const bowlPos = b => ({ x: pen.W * (0.12 + 0.76 * bowlSeed(b.id * 3.7 + 1)), y: pen.H * (0.15 + 0.7 * bowlSeed(b.id * 5.1 + 2)) });
+// أقرب وعاء فيه طعام يخدم هذا الحيوان
+function nearestBowl(a) {
+  let best = null, bd = 1e9;
+  bowlsHere().forEach(b => {
+    if (b.qty <= 0) return;
+    if (b.pen !== -1 && b.pen !== penOf(a.pet)) return;
+    const p = bowlPos(b), d = Math.hypot(p.x - a.x, p.y - a.y);
+    if (d < bd) { bd = d; best = p; }
+  });
+  return best;
 }
