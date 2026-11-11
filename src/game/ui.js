@@ -1,4 +1,3 @@
-
 // شاشات لعبة الحيوان (النصوص والأزرار) وموجّه الضغطات
 const fs = require("fs");
 const path = require("path");
@@ -153,6 +152,7 @@ function screenMore(P) {
         .text("👤 ملفي الشخصي", `q:${uid}:profile`)
         .text("🎒 المخزن", `q:${uid}:bag`)
         .row()
+        .text("🖼️ إطارات الصورة", `f:${uid}:main`)
         .text("📖 دليل اللعبة", `q:${uid}:guide`)
         .row()
         .text("🏠 القائمة الرئيسية", `g:${uid}:home`);
@@ -698,7 +698,6 @@ function route(P, parts, ctx) {
         case "home":
             return { screen: screenHome(P) };
 
-        // فتح القوائم الإضافية
         case "more":
             return { screen: screenMore(P) };
 
