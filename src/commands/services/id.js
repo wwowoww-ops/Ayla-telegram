@@ -20,7 +20,7 @@ const {
 
 const store = require("../../core/store");
 const F = require("../../game/frames");
-const { renderCard } = require("../../lib/udcard");
+const { renderCard } = require("../../lib/idcard");
 
 // ==================================================
 // DESIGN
