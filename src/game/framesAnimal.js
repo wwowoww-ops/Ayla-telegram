@@ -61,7 +61,7 @@ const ANIMALS = {
         const sw = 4 * Math.sin(TAU * t);
         const e = `<g transform="rotate(${f(-10 + sw)} 128 96)"><ellipse cx="128" cy="60" rx="19" ry="46" fill="${p.c}" stroke="url(#silver)" stroke-width="2.5"/><ellipse cx="128" cy="64" rx="9" ry="32" fill="${p.in}"/></g>`;
         let front = "";
-        for (let i = 0; i < 5; i++) {      // قلوب ترتفع (مرسومة بالمسار لأن الخطوط لا تدعم الإيموجي)
+        for (let i = 0; i < 5; i++) {
             const k = (t + i / 5) % 1, x = 40 + rnd(i) * 320, y = 380 - 330 * k, z = 0.5 + rnd(i + 7) * 0.4;
             front += `<path transform="translate(${f(x)} ${f(y)}) scale(${f(z)})" d="M0 8 C-14 -4 -8 -14 0 -6 C8 -14 14 -4 0 8 Z" fill="${p.b}" opacity="${f(1 - k)}"/>`;
         }
@@ -76,7 +76,6 @@ const ANIMALS = {
     },
     wolf(p, t) {
         const e = `<path d="M82 112 L80 24 L158 90 Z" fill="${p.c}" stroke="url(#silver)" stroke-width="2.5" stroke-linejoin="round"/><path d="M94 92 L92 52 L130 86 Z" fill="${p.in}"/>`;
-        // هلال
         const glow = 0.7 + 0.3 * Math.sin(TAU * t);
         const moon = `<circle cx="200" cy="44" r="30" fill="${p.glow}" filter="url(#g)" opacity="${f(0.35 * glow)}"/><mask id="cm"><rect width="400" height="110" fill="#fff"/><circle cx="214" cy="38" r="24" fill="#000"/></mask><circle cx="200" cy="46" r="28" fill="${p.a}" mask="url(#cm)"/>`;
         const claws = mirror(`<path d="M52 330 L78 372 M40 338 L64 380 M64 322 L92 362" stroke="${p.glow}" stroke-width="4" stroke-linecap="round" opacity="${f(0.6 + 0.4 * glow)}"/>`);
@@ -84,7 +83,7 @@ const ANIMALS = {
     },
     lion(p, t) {
         let back = "";
-        for (let i = 0; i < 28; i++) {              // لبدة: أشعة حول الإطار
+        for (let i = 0; i < 28; i++) {
             const a = i / 28 * TAU, r0 = 150, r1 = 176 + 12 * Math.sin(TAU * (t * 2 + i * 0.13));
             const cx = 200, cy = 218, ax = Math.cos(a), ay = Math.sin(a) * 0.92, nx = -ay, ny = ax;
             back += `<path d="M${f(cx + ax * r0 + nx * 11)} ${f(cy + ay * r0 + ny * 11)} L${f(cx + ax * r1)} ${f(cy + ay * r1)} L${f(cx + ax * r0 - nx * 11)} ${f(cy + ay * r0 - ny * 11)} Z" fill="${i % 2 ? p.b : p.a}" opacity=".95"/>`;
@@ -120,7 +119,7 @@ const ANIMALS = {
         return { back: mirror(horn), front: mirror(scale) + spines + flame };
     },
     phoenix(p, t) {
-        const fl = Math.sin(TAU * t) * 8;           // رفرفة
+        const fl = Math.sin(TAU * t) * 8;
         let wing = "";
         for (let i = 0; i < 5; i++) {
             const ty = 70 + i * 36 + fl * (1 - i * 0.15), tx = 8 + i * 4;
@@ -156,21 +155,24 @@ function make(kind) {
 
 // sp: رقم الحيوان في اللعبة (من data.js). من يملكه يفتح إطاره مجانًا، ومن لا يملكه يشتريه.
 const ANIMAL = [
-    { id: "a_cat",     name: "إطار القطة",   e: "🐱", sp: 1,  price: 2e10,  kind: "cat" },
-    { id: "a_bunny",   name: "إطار الأرنب",  e: "🐰", sp: 3,  price: 2e10,  kind: "bunny" },
-    { id: "a_fox",     name: "إطار الثعلب",  e: "🦊", sp: 9,  price: 1e11,  kind: "fox" },
-    { id: "a_wolf",    name: "إطار الذئب",   e: "🐺", sp: 16, price: 5e11,  kind: "wolf" },
-    { id: "a_lion",    name: "إطار الأسد",   e: "🦁", sp: 19, price: 5e11,  kind: "lion" },
-    { id: "a_bear",    name: "إطار الدب",    e: "🐻", sp: 20, price: 5e11,  kind: "bear" },
-    { id: "a_owl",     name: "إطار البومة",  e: "🦉", sp: 23, price: 2e12,  kind: "owl" },
+    { id: "a_cat",     name: "إطار القطة",      e: "🐱", sp: 1,  price: 2e10, kind: "cat" },
+    { id: "a_bunny",   name: "إطار الأرنب",     e: "🐰", sp: 3,  price: 2e10, kind: "bunny" },
+    { id: "a_fox",     name: "إطار الثعلب",     e: "🦊", sp: 9,  price: 1e11, kind: "fox" },
+    { id: "a_wolf",    name: "إطار الذئب",      e: "🐺", sp: 16, price: 5e11, kind: "wolf" },
+    { id: "a_lion",    name: "إطار الأسد",      e: "🦁", sp: 19, price: 5e11, kind: "lion" },
+    { id: "a_bear",    name: "إطار الدب",       e: "🐻", sp: 20, price: 5e11, kind: "bear" },
+    { id: "a_owl",     name: "إطار البومة",     e: "🦉", sp: 23, price: 2e12, kind: "owl" },
     { id: "a_unicorn", name: "إطار اليونيكورن", e: "🦄", sp: 36, price: 5e13, kind: "unicorn" },
-    { id: "a_dragon",  name: "إطار التنين",  e: "🐉", sp: 35, price: 3e14,  kind: "dragon" },
-    { id: "a_phoenix", name: "إطار العنقاء", e: "🐦‍🔥", sp: 39, price: 3e14, kind: "phoenix" }
-].map(x => Object.assign({
-    frames: 16, square: true, win: WIN, ach: null,
-    text: "امتلك هذا الحيوان",
-    unlock: P => !!(P && P.pets && P.pets.some(p => p.sp === x.sp)),
-    draw: make(x.kind)
-}, x));
+    { id: "a_dragon",  name: "إطار التنين",     e: "🐉", sp: 35, price: 3e14, kind: "dragon" },
+    { id: "a_phoenix", name: "إطار العنقاء",    e: "🐦‍🔥", sp: 39, price: 3e14, kind: "phoenix" }
+].map(x => {
+    const { sp, kind } = x;
+    return Object.assign({
+        frames: 16, square: true, win: WIN, ach: null,
+        text: "امتلك هذا الحيوان",
+        unlock: P => !!(P && P.pets && P.pets.some(p => p.sp === sp)),
+        draw: make(kind)
+    }, x);
+});
 
 module.exports = { ANIMAL };
