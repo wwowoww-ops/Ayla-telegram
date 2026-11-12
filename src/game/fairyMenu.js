@@ -1,70 +1,86 @@
-// قوائم الجنيات: الرئيسية، التجهيز، الترقية، الدليل
+// قوائم الجنيات: الرئيسية، التجهيز، المتجر، الإطلاق، الدليل
 const { InlineKeyboard } = require("grammy");
 const F = require("./fairies");
 const E = require("./engine");
 const { frame } = require("./menus");
 
-const stars = r => "⭐".repeat(r) || "—";
+const sorted = P => [...F.st(P).fairies].sort((a, b) => F.sp(b).r - F.sp(a).r || F.lvOf(b) - F.lvOf(a) || a.id - b.id);
 
 function header(P, note) {
     F.st(P);
-    return (note ? note + "\n\n" : "") + `🧚 <b>الجنيات</b>\n✨ الغبار: ${P.dust} · 🪙 ${E.fmt(P.coins)}\nخانات التجهيز: ${P.fequip.length}/${P.fslots}\n`;
+    return (note ? note + "\n\n" : "") + `🧚 <b>حديقة الجنيات</b> — ${P.fairies.length}/${F.OWN_CAP}\n🪙 ${E.fmt(P.coins)} · خانات التجهيز: ${P.fequip.length}/${P.fslots}\n`;
 }
-const row = (P, x) => {
-    const on = P.fequip.includes(x.id);
-    return `${on ? "✅" : "▫️"} ${x.t.e} <b>${x.t.n}</b> ${F.RANK_E[x.f.rank]}${F.RANKS[x.f.rank]} · مستوى ${x.f.lv}/${F.MAX_LV}` +
-        (x.f.rank < F.MAX_RANK ? ` · نسخ ${x.f.copies}/${F.COPIES[x.f.rank]}` : "") + `\n    ↳ ${F.buffTxt(F.buffOf(x.t, x.f))}`;
-};
+function line(P, f) {
+    const lv = F.lvOf(f), on = P.fequip.includes(f.id), s = F.sp(f);
+    const nxt = lv >= F.MAX_LV ? "أعلى مستوى" : "المستوى التالي بعد " + E.dur(F.nextLvMs(f));
+    return `${on ? "✅" : "▫️"} ${s.e} <b>${s.n}</b> ${F.RANK_E[s.r]} — ${F.RARITIES[s.r]} · مستوى ${lv}/${F.MAX_LV}\n    ↳ ${F.buffTxt(F.buffOf(f))}\n    ⏳ ${nxt}`;
+}
 
 function screenMain(P, note) {
-    const list = F.owned(P);
+    const list = sorted(P);
     let t = header(P, note) + "\n";
-    t += list.length ? list.map(x => row(P, x)).join("\n") : "لا تملك جنيات بعد. استدعِ أولى جنياتك!";
-    t += `\n\n🔮 استدعاء: ${E.fmt(F.summonCost(P))} 🪙`;
+    t += list.length ? list.map(f => line(P, f)).join("\n") : "لا تملك جنيات بعد.\nاصطدها بالصيد (فرصة صغيرة جدًا عند الفوز)، أو اشترها من المتجر اليومي.";
+    t += "\n\n⏳ تنمو الجنيات بمرور الوقت فقط، وتعمل بفاتها وهي مجهزة.";
     const kb = new InlineKeyboard()
-        .text("🔮 استدعاء", `fy:${P.id}:sum`).text("🎒 التجهيز", `fy:${P.id}:eq`).row()
-        .text("⬆️ ترقية بالغبار", `fy:${P.id}:up`).text("📖 الدليل", `fy:${P.id}:gd`);
+        .text("🛒 متجر الجنيات", `fy:${P.id}:shop`).text("🎒 التجهيز", `fy:${P.id}:eq`).row()
+        .text("🕊️ إطلاق", `fy:${P.id}:rl`).text("📖 الدليل", `fy:${P.id}:gd`);
     const sp = F.slotPrice(P);
-    if (sp) kb.row().text(`➕ خانة جديدة (${E.fmt(sp)})`, `fy:${P.id}:slot`);
+    if (sp) kb.row().text(`➕ خانة تجهيز (${E.fmt(sp)})`, `fy:${P.id}:slot`);
     kb.row().text("🏠 القائمة الرئيسية", `g:${P.id}:home`);
     return { text: frame(t.slice(0, 3900)), kb };
 }
 
 function screenEquip(P, note) {
-    const list = F.owned(P);
-    let t = header(P, note) + "\nاضغط لتجهيز جنية أو إزالتها. تعمل بفاتها في كل اللعبة وهي مجهزة.\n";
+    const list = sorted(P);
     const kb = new InlineKeyboard();
-    list.forEach((x, i) => {
-        kb.text(`${P.fequip.includes(x.id) ? "✅" : "▫️"} ${x.t.e} ${x.t.n}`, `fy:${P.id}:tg:${x.id}`);
-        if (i % 2) kb.row();
+    list.forEach((f, i) => {
+        kb.text(`${P.fequip.includes(f.id) ? "✅" : "▫️"} ${F.sp(f).e} Lv${F.lvOf(f)}`, `fy:${P.id}:tg:${f.id}`);
+        if (i % 3 === 2) kb.row();
     });
-    if (list.length % 2) kb.row();
+    if (list.length % 3) kb.row();
+    kb.text("🔙 رجوع", `fy:${P.id}:main`);
+    const t = header(P, note) + "\nاضغط لتجهيز جنية أو إزالتها (✅ = مجهزة).\n\n" + list.map(f => `${P.fequip.includes(f.id) ? "✅" : "▫️"} ${F.label(f)} Lv${F.lvOf(f)} — ${F.buffTxt(F.buffOf(f))}`).join("\n");
+    return { text: frame(t.slice(0, 3900)), kb };
+}
+
+function screenShop(P, note) {
+    const offers = F.shop(P);
+    let t = header(P, note) + "\n🛒 <b>متجر الجنيات</b> (يتجدد كل يوم، وأسعاره ترتفع مع كثرة جنياتك)\n";
+    const kb = new InlineKeyboard();
+    offers.forEach((o, i) => {
+        const s = F.SPECIES[o.sp];
+        t += `\n${o.sold ? "❌ بيعت" : "🆕"} ${s.e} <b>${s.n}</b> ${F.RANK_E[s.r]} ${F.RARITIES[s.r]}\n    ↳ ${F.famTxt(s.fam, s.r, 1)} (ينمو إلى ${F.famTxt(s.fam, s.r, F.MAX_LV)})\n    🪙 ${E.fmt(o.price)}\n`;
+        if (!o.sold) kb.text(`🛒 ${s.e} ${E.fmt(o.price)}`, `fy:${P.id}:buy:${i}`).row();
+    });
     kb.text("🔙 رجوع", `fy:${P.id}:main`);
     return { text: frame(t), kb };
 }
 
-function screenUp(P, note) {
-    const list = F.owned(P);
-    let t = header(P, note) + "\nالترقية تكلّف غبارًا ✨ (يأتي من البوس واليومية والصيد والنسخ الزائدة):\n";
+function screenRelease(P, note, askId) {
+    const list = sorted(P);
     const kb = new InlineKeyboard();
-    list.forEach((x, i) => {
-        const max = x.f.lv >= F.MAX_LV;
-        t += `\n${x.t.e} ${x.t.n}: مستوى ${x.f.lv}${max ? " (أعلى مستوى)" : " ← " + F.upDust(x.f) + " ✨"}`;
-        kb.text(`${x.t.e} ${max ? "✔️" : "⬆️ " + F.upDust(x.f) + "✨"}`, `fy:${P.id}:lv:${x.id}`);
-        if (i % 3 === 2) kb.row();
-    });
-    kb.row().text("🔙 رجوع", `fy:${P.id}:main`);
-    return { text: frame(t.slice(0, 3900)), kb };
+    let t = header(P, note) + "\n🕊️ <b>إطلاق جنية</b> (لا رجعة ولا تعويض)\n";
+    if (askId) {
+        const f = F.get(P, askId);
+        if (f) {
+            t += `\nهل تريد إطلاق ${F.label(f)} (مستوى ${F.lvOf(f)})؟`;
+            kb.text("✅ نعم، أطلقها", `fy:${P.id}:rc:${f.id}`).text("❌ لا", `fy:${P.id}:rl`);
+            return { text: frame(t), kb };
+        }
+    }
+    list.forEach((f, i) => { kb.text(`${F.sp(f).e} Lv${F.lvOf(f)}`, `fy:${P.id}:ra:${f.id}`); if (i % 4 === 3) kb.row(); });
+    if (list.length % 4) kb.row();
+    kb.text("🔙 رجوع", `fy:${P.id}:main`);
+    return { text: frame(t), kb };
 }
 
 function screenGuide(P) {
-    let t = "📖 <b>دليل الجنيات</b>\nكل جنية يمكن استدعاؤها بالعملات. النسخ المكررة ترفع <b>الرتبة</b>، والغبار يرفع <b>المستوى</b>.\n\n";
-    F.TYPES.forEach(x => {
-        const base = F.buffTxt(x.fx);
-        const mx = F.buffTxt(F.buffOf(x, { rank: F.MAX_RANK, lv: F.MAX_LV }));
-        t += `${x.e} <b>${x.n}</b>${x.mythic ? " 🌟 نادرة" : ""}\n   البداية: ${base}\n   الأقصى: ${mx}\n`;
+    let t = "📖 <b>دليل الجنيات</b>\n• <b>الحصول:</b> اصطدها عند الفوز في الصيد (فرصة صغيرة جدًا، وأفضل في المناطق العالية وبجنيات الحظ)، أو اشترها من المتجر اليومي، أو بجائزة البوس لصاحب أعلى ضرر.\n• <b>المستوى:</b> يزيد بمرور الوقت فقط (لا أكل ولا تدريب). الأندر تنمو أبطأ.\n• <b>الخانات:</b> تعمل بفات الجنيات المجهزة فقط.\n\n";
+    F.RARITIES.forEach((rn, r) => {
+        t += `${F.RANK_E[r]} <b>${rn}</b> — مستوى كل ${F.HOURS_PER_LV[r]} ساعة\n`;
+        Object.values(F.SPECIES).filter(s => s.r === r).forEach(s => { t += `   ${s.e} ${s.n}: ${F.famTxt(s.fam, r, 1)}\n`; });
     });
     return { text: frame(t.slice(0, 3900)), kb: new InlineKeyboard().text("🔙 رجوع", `fy:${P.id}:main`) };
 }
 
-module.exports = { screenMain, screenEquip, screenUp, screenGuide };
+module.exports = { screenMain, screenEquip, screenShop, screenRelease, screenGuide };
