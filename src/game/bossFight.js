@@ -3,6 +3,7 @@
 const D = require("./data");
 const E = require("./engine");
 const S = require("./bossSkills");
+const Fair = require("./fairies");
 
 // ---------- الإعدادات (عدّل من هنا) ----------
 const ROUNDS = 15;        // أقصى عدد جولات
@@ -21,16 +22,18 @@ const floor = Math.floor;
 function simulate(parts, boss, now, rng = Math.random) {
     const kind = require("./boss").kindOf(boss);
     const units = [];
-    parts.forEach(p => p.pets.forEach(pet => {
-        const pw = E.power(pet) * E.hungerFactor(E.hungerNow(pet, now));
-        const maxHp = Math.max(1, floor(E.power(pet) * HP_MULT));
+            // بفات الجنيات (إن وُجدت): هجوم، حياة، علاج، تقليل ضرر
+        const fm = (p.P && Fair.bossMods(p.P)) || { atk: 0, heal: 0, hp: 0, dr: 0 };
+        const pw0 = E.power(pet) * E.hungerFactor(E.hungerNow(pet, now));
+        const pw = pw0 * (1 + fm.atk);
+        const maxHp = Math.max(1, floor(E.power(pet) * HP_MULT * (1 + fm.hp)));
         units.push({
             uid: String(p.uid), owner: p.name, pet, e: D.SPECIES[pet.sp].e, el: pet.el, m: S.rm(pet),
-            pw, maxHp, hp: maxHp, shield: 0, cd: 1, cdMax: S.cdOf(pet), revived: false, taunt: 0,
+            pw, pw0, healM: fm.heal, dr: fm.dr, maxHp, hp: maxHp, shield: 0, cd: 1, cdMax: S.cdOf(pet), revived: false, taunt: 0,
             st: { dmg: 0, heal: 0, healN: 0, taken: 0, casts: 0, deaths: 0, rev: 0, hits: 0 }
         });
     }));
-    const sumPw = units.reduce((s, u) => s + u.pw, 0);
+        const sumPw = units.reduce((s, u) => s + u.pw0, 0);
     const level = boss.level || 0;
     const maxHp = Math.max(1000, floor(sumPw * ROUNDS * BOSS_HPK * Math.pow(GROW_HP, level)));
     let hp = maxHp;
@@ -46,6 +49,7 @@ function simulate(parts, boss, now, rng = Math.random) {
 
     function heal(u, target, amount, r) {
         if (!target || target.hp <= 0 || amount <= 0) return 0;
+           amount *= 1 + (u.healM || 0);
         const got = Math.max(0, Math.min(target.maxHp - target.hp, amount));
         if (got <= 0) return 0;
         target.hp += got; u.st.heal += got; u.st.healN++;
@@ -107,7 +111,7 @@ function simulate(parts, boss, now, rng = Math.random) {
         const k = rage ? RAGE_MULT : 1;
         if (rage && !events.some(x => x.includes("غضب"))) ev(r, `😡 ${kind.n} غضب!`);
         const hurt = (u, base, r) => {
-            let d = base * k * (0.9 + 0.2 * rng());
+                        let d = base * k * (0.9 + 0.2 * rng()) * (1 - Math.min(0.6, u.dr || 0));
             if (u.el === "earth") d *= 1 - Math.min(0.6, 0.08 * u.m);
             if (u.taunt > 0) d *= 1 - Math.min(0.7, 0.35 + 0.05 * u.m);
             if (u.shield > 0) { const a = Math.min(u.shield, d); u.shield -= a; d -= a; }
