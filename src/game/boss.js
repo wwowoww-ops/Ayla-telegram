@@ -1,22 +1,19 @@
-// البوس الجماعي: زعيم ضخم في كل مجموعة يهاجمه الجميع بأقوى حيواناتهم خلال وقت محدد.
-// يتجدد حياته تدريجيًا، ويزداد قوة بعد كل هزيمة. المكافآت بحسب الضرر، وصاحب أكبر ضرر يأخذ إطارًا حصريًا.
+// البوس الجماعي (v2): تسجيل ثم قتال تلقائي بضغطة واحدة وتقرير مفصل.
+// المراحل: reg (تسجيل واختيار الحيوانات) ← قتال يُحسب فورًا (bossFight.js) ← done (نتائج وتفاصيل).
 // الحالة تُحفظ مع إعدادات المجموعة (store.setGroup) فلا تضيع عند إعادة التشغيل.
 const D = require("./data");
 const E = require("./engine");
 const store = require("../core/store");
+const Fight = require("./bossFight");
 
 // ---------- الإعدادات (عدّل من هنا) ----------
-const HOUR = 3600e3;
-const DURATION = 12 * HOUR;      // مدة بقاء الزعيم
-const COOLDOWN = 8 * HOUR;       // الانتظار بعد نهايته قبل زعيم جديد
-const ATTACK_CD = 40 * 60e3;     // انتظار اللاعب بين هجمتين
-const TEAM = 3;                  // عدد الحيوانات في الهجمة
-const HUNGER_COST = 12;          // جوع كل حيوان مهاجم
-const REGEN_PER_H = 0.03;        // تجدد الزعيم من حياته القصوى كل ساعة
-const HP_FACTOR = 70;            // حياة الزعيم = (متوسط أقوى 5 لاعبين) × هذا الرقم
-const HP_GROWTH = 1.25;          // يزداد كل زعيم بعد هزيمة
-const CRIT = 0.12;               // احتمال ضربة قاضية (ضرر ×2)
-const PART_MIN = 0.03;           // أقل ضرر (من حياة الزعيم) لنيل إطار المشاركة
+const MIN = 60e3, HOUR = 3600e3;
+const REG_TIME = 15 * MIN;       // مهلة التسجيل
+const COOLDOWN = 8 * HOUR;       // الانتظار بعد القتال قبل زعيم جديد
+const TEAM = 3;                  // عدد الحيوانات لكل لاعب
+const MIN_AUTO = 2;              // أقل عدد لاعبين ليبدأ القتال تلقائيًا عند استعداد الجميع
+const HUNGER_COST = 12;          // جوع كل حيوان بعد القتال
+const PART_MIN = 0.03;           // أقل ضرر+علاج (من حياة الزعيم) لنيل إطار المشاركة
 
 const KINDS = [
     { id: "fire",    n: "التنين القرمزي",     e: "🐲", el: "fire" },
@@ -30,103 +27,114 @@ const KINDS = [
 const kindOf = b => KINDS.find(k => k.id === b.kind) || KINDS[0];
 
 const fail = msg => ({ ok: false, msg });
-const chats = new Set();                // مجموعات فيها زعيم نشط (للمؤقت)
+const chats = new Set();                // مجموعات فيها تسجيل مفتوح (للمؤقت)
 
-// ---------- الحالة ----------
 const get = chatId => store.getGroup(chatId).boss || null;
 const save = (chatId, boss, extra) => store.setGroup(chatId, Object.assign({ boss }, extra || {}));
+const open = b => !!(b && !b.done && b.phase === "reg");
 
-// أقوى فريق للاعب: أفضل TEAM حيوانات بحسب القوة
-function team(P) {
-    return [...P.pets].sort((a, b) => E.power(b) - E.power(a)).slice(0, TEAM);
-}
-const teamPower = P => team(P).reduce((s, p) => s + E.power(p), 0);
+const ranked = P => [...P.pets].sort((a, b) => E.power(b) - E.power(a));
+const defaultTeam = P => ranked(P).slice(0, TEAM).map(p => p.id);
 
-// متوسط قوة أقوى 5 فرق في اللعبة (مقياس لحياة الزعيم)
-function reference() {
-    const top = store.all().map(teamPower).filter(x => x > 0).sort((a, b) => b - a).slice(0, 5);
-    return top.length ? top.reduce((a, b) => a + b, 0) / top.length : 1000;
-}
-
-// يجدد حياة الزعيم بحسب الوقت المنقضي
-function regen(b, now) {
-    if (b.hp <= 0 || b.done) return;
-    const h = (Math.min(now, b.endAt) - b.regenAt) / HOUR;
-    if (h <= 0) return;
-    b.hp = Math.min(b.maxHp, b.hp + b.maxHp * REGEN_PER_H * h);
-    b.regenAt = Math.min(now, b.endAt);
-}
-
-// ---------- الاستدعاء ----------
-function spawn(chatId, now) {
+// ---------- الاستدعاء والتسجيل ----------
+function spawn(chatId, now, uid, name) {
     const G = store.getGroup(chatId);
     const old = G.boss;
-    if (old && !old.done) return fail("هناك زعيم نشط بالفعل.");
+    if (open(old)) return fail("هناك تسجيل مفتوح بالفعل.");
     if (G.bossNextAt && now < G.bossNextAt) return fail("الزعيم القادم يظهر بعد " + E.dur(G.bossNextAt - now) + ".");
     const kills = G.bossKills || 0, level = G.bossLevel || 0;
     const kind = KINDS[kills % KINDS.length];
-    const maxHp = Math.max(5000, Math.floor(reference() * HP_FACTOR * Math.pow(HP_GROWTH, level)));
     const boss = {
-        id: (old ? old.id : 0) + 1, kind: kind.id, level, maxHp, hp: maxHp,
-        startAt: now, endAt: now + DURATION, regenAt: now, dmg: {}, cd: {}, done: false
+        id: (old ? old.id : 0) + 1, kind: kind.id, level, phase: "reg", by: String(uid || ""), byName: name || "",
+        startAt: now, regEnd: now + REG_TIME, reg: {}, done: false
     };
     save(chatId, boss);
     chats.add(String(chatId));
     return { ok: true, boss };
 }
 
-// ---------- الهجوم ----------
-function attack(chatId, P, name, now, rng = Math.random) {
+function join(chatId, P, name, now) {
     const b = get(chatId);
-    if (!b || b.done) return fail("لا يوجد زعيم نشط الآن.");
-    if (now >= b.endAt) return fail("انتهى وقت الزعيم.");
-    regen(b, now);
-    const wait = (b.cd[P.id] || 0) + ATTACK_CD - now;
-    if (wait > 0) return fail("حيواناتك متعبة! عد بعد " + E.dur(wait) + ".");
-    const crew = team(P);
-    if (!crew.length) return fail("لا تملك حيوانات تهاجم بها.");
-    const kind = kindOf(b);
-    let total = 0, crit = false;
-    const lines = [];
-    for (const pet of crew) {
-        const h = E.hungerNow(pet, now);
-        const eff = D.elementMult(pet.el, kind.el);
-        const hit = E.power(pet) * eff * E.hungerFactor(h) * (0.85 + 0.3 * rng());
-        total += hit;
-        pet.hg = Math.max(0, h - HUNGER_COST); pet.hgAt = now;
-        lines.push({ e: D.SPECIES[pet.sp].e, eff, hit });
-    }
-    if (rng() < CRIT) { total *= 2; crit = true; }
-    total = Math.floor(total);
-    b.hp = Math.max(0, b.hp - total);
-    b.cd[P.id] = now;
-    const rec = b.dmg[P.id] || (b.dmg[P.id] = { n: name, d: 0, hits: 0 });
-    rec.n = name; rec.d += total; rec.hits++;
-    P.stats.bossDmg = (P.stats.bossDmg || 0) + total;
-    const killed = b.hp <= 0;
+    if (!open(b)) return fail("لا يوجد تسجيل مفتوح.");
+    if (now >= b.regEnd) return fail("انتهت مهلة التسجيل.");
+    if (!P.pets.length) return fail("لا تملك حيوانات.");
+    const r = b.reg[P.id] || (b.reg[P.id] = { n: name, pets: defaultTeam(P), ready: false });
+    r.n = name;
     save(chatId, b);
-    return { ok: true, dmg: total, crit, lines, killed, boss: b };
+    return { ok: true, boss: b, entry: r };
 }
 
-// ---------- الإنهاء والمكافآت ----------
-function ranking(b) {
-    return Object.entries(b.dmg).map(([id, r]) => ({ id, n: r.n, d: r.d, hits: r.hits })).sort((x, y) => y.d - x.d);
+function toggle(chatId, P, petId) {
+    const b = get(chatId), r = open(b) && b.reg[P.id];
+    if (!r) return fail("سجّل أولًا.");
+    if (r.ready) return fail("أنت جاهز. ألغِ الجاهزية لتعديل الاختيار.");
+    const id = Number(petId);
+    if (!P.pets.some(p => p.id === id)) return fail("حيوان غير موجود.");
+    const i = r.pets.indexOf(id);
+    if (i >= 0) r.pets.splice(i, 1);
+    else { if (r.pets.length >= TEAM) return fail("الحد الأقصى " + TEAM + " حيوانات."); r.pets.push(id); }
+    save(chatId, b);
+    return { ok: true, boss: b, entry: r };
 }
 
-function finish(chatId, now, killed) {
+function setReady(chatId, uid, on) {
+    const b = get(chatId), r = open(b) && b.reg[uid];
+    if (!r) return fail("سجّل أولًا.");
+    if (on && !r.pets.length) return fail("اختر حيوانًا واحدًا على الأقل.");
+    r.ready = !!on;
+    save(chatId, b);
+    const list = Object.values(b.reg);
+    return { ok: true, boss: b, entry: r, all: list.length >= MIN_AUTO && list.every(x => x.ready) };
+}
+
+function leave(chatId, uid) {
+    const b = get(chatId);
+    if (!open(b) || !b.reg[uid]) return fail("غير مسجّل.");
+    delete b.reg[uid];
+    save(chatId, b);
+    return { ok: true, boss: b };
+}
+
+// ---------- القتال والنتائج ----------
+function start(chatId, now, rng = Math.random) {
     const G = store.getGroup(chatId);
     const b = G.boss;
-    if (!b || b.done) return null;
-    b.done = true; b.killed = killed; b.endedAt = now;
-    const rank = ranking(b), top = rank[0] ? rank[0].d : 1, kind = kindOf(b);
-    const out = [];
-    rank.forEach((r, i) => {
-        const P = store.get(r.id);
+    if (!open(b)) return fail("لا يوجد تسجيل مفتوح.");
+    const parts = [];
+    Object.entries(b.reg).forEach(([uid, r]) => {
+        const P = store.get(uid);
         if (!P) return;
+        const pets = r.pets.map(id => P.pets.find(p => p.id === id)).filter(Boolean);
+        if (pets.length) parts.push({ uid, name: r.n, pets, P });
+    });
+    if (!parts.length) {
+        b.done = true; b.phase = "done"; b.canceled = true;
+        store.setGroup(chatId, { boss: b });
+        chats.delete(String(chatId));
+        return { ok: true, canceled: true, boss: b, results: [] };
+    }
+    const rep = Fight.simulate(parts, b, now, rng);
+    const kind = kindOf(b), killed = rep.killed;
+
+    // تجميع كل لاعب
+    const by = {};
+    rep.units.forEach(u => {
+        const x = by[u.uid] || (by[u.uid] = { id: u.uid, n: (b.reg[u.uid] || {}).n || "لاعب", dmg: 0, heal: 0, healN: 0, taken: 0, deaths: 0, casts: 0 });
+        x.dmg += u.dmg; x.heal += u.heal; x.healN += u.healN; x.taken += u.taken; x.deaths += u.deaths; x.casts += u.casts;
+    });
+    const rank = Object.values(by).map(x => Object.assign(x, { score: x.dmg + x.heal * 1.5 })).sort((a, c) => c.score - a.score);
+    const top = rank[0] ? Math.max(1, rank[0].score) : 1;
+
+    rank.forEach((r, i) => {
+        const part = parts.find(p => p.uid === r.id);
+        const P = part.P;
         P.fown = P.fown || {};
-        const share = 0.5 + 0.5 * (r.d / top);
+        part.pets.forEach(pet => { pet.hg = Math.max(0, E.hungerNow(pet, now) - HUNGER_COST); pet.hgAt = now; });
+        const share = 0.5 + 0.5 * (r.score / top);
         const coins = Math.floor(E.incomeAll(P) * (killed ? 6 : 1.5) * share);
         P.coins = E.clampCoins(P.coins + coins);
+        P.stats.bossDmg = (P.stats.bossDmg || 0) + r.dmg;
+        P.stats.bossHeal = (P.stats.bossHeal || 0) + r.heal;
         const got = [];
         if (killed) {
             P.stats.bossKills = (P.stats.bossKills || 0) + 1;
@@ -139,39 +147,43 @@ function finish(chatId, now, killed) {
                 P.stats.bossTop = (P.stats.bossTop || 0) + 1;
                 if (!P.fown["b_" + kind.id + "_top"]) { P.fown["b_" + kind.id + "_top"] = true; got.push("🖼️ إطار " + kind.n + " الذهبي"); }
             }
-            if (r.d >= b.maxHp * PART_MIN && !P.fown["b_" + kind.id + "_part"]) {
+            if (r.score >= rep.bossMax * PART_MIN && !P.fown["b_" + kind.id + "_part"]) {
                 P.fown["b_" + kind.id + "_part"] = true; got.push("🖼️ إطار صيّاد " + kind.n);
             }
         }
         store.touch(P.id);
-        out.push({ id: r.id, n: r.n, d: r.d, coins, got, rank: i + 1 });
+        r.coins = coins; r.got = got; r.rank = i + 1;
     });
+
+    b.done = true; b.phase = "done"; b.killed = killed; b.endedAt = now;
+    b.report = Object.assign(rep, { players: rank });
+    delete b.reg;
     const upd = { boss: b, bossNextAt: now + COOLDOWN };
     if (killed) { upd.bossKills = (G.bossKills || 0) + 1; upd.bossLevel = (G.bossLevel || 0) + 1; }
     store.setGroup(chatId, upd);
     chats.delete(String(chatId));
-    return { boss: b, killed, results: out };
+    return { ok: true, boss: b, killed, report: b.report, results: rank };
 }
 
-// ---------- مؤقت: إنهاء الزعماء المنتهية مهلتهم وإرسال النتيجة ----------
+// ---------- مؤقت: بدء القتال تلقائيًا عند انتهاء مهلة التسجيل ----------
 async function loadActive() {
     try {
         const r = await store.query("SELECT id FROM group_settings");
-        r.rows.forEach(x => { const b = get(x.id); if (b && !b.done) chats.add(String(x.id)); });
+        r.rows.forEach(x => { const b = get(x.id); if (open(b)) chats.add(String(x.id)); });
     } catch (e) { /* قد لا تتصل القاعدة بعد */ }
 }
 async function tickAll(now, announce) {
     for (const id of [...chats]) {
         const b = get(id);
-        if (!b || b.done) { chats.delete(id); continue; }
-        if (now >= b.endAt && b.hp > 0) {
-            const res = finish(id, now, false);
-            if (res && announce) await announce(id, res).catch(() => {});
+        if (!open(b)) { chats.delete(id); continue; }
+        if (now >= b.regEnd) {
+            const res = start(id, now);
+            if (res && res.ok && announce) await announce(id, res).catch(() => {});
         }
     }
 }
 
 module.exports = {
-    KINDS, DURATION, COOLDOWN, ATTACK_CD, TEAM, REGEN_PER_H, CRIT, kindOf,
-    get, spawn, attack, regen, ranking, finish, team, teamPower, chats, loadActive, tickAll
+    KINDS, REG_TIME, COOLDOWN, TEAM, MIN_AUTO, kindOf, open, ranked, defaultTeam,
+    get, spawn, join, toggle, setReady, leave, start, chats, loadActive, tickAll
 };
