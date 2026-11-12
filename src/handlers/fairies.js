@@ -1,22 +1,24 @@
-// أزرار الجنيات: استدعاء، تجهيز، ترقية، توسيع، دليل
+// أزرار الجنيات: متجر، تجهيز، إطلاق، توسيع، دليل
 const store = require("../core/store");
 const F = require("../game/fairies");
 const M = require("../game/fairyMenu");
 
 module.exports = function (bot) {
-    bot.callbackQuery(/^fy:(\d+):(main|sum|eq|up|gd|slot|tg|lv)(?::(\w+))?$/, async ctx => {
+    bot.callbackQuery(/^fy:(\d+):(main|eq|shop|rl|gd|slot|tg|buy|ra|rc)(?::(\d+))?$/, async ctx => {
         try {
             if (String(ctx.from.id) !== ctx.match[1]) return await ctx.answerCallbackQuery({ text: "هذه القائمة ليست لك.", show_alert: true });
             const P = store.get(ctx.match[1]);
             if (!P) return await ctx.answerCallbackQuery({ text: "اكتب: حيواني لتبدأ" });
             const act = ctx.match[2], arg = ctx.match[3];
             let scr, r = null;
-            if (act === "sum") { r = F.summon(P); scr = M.screenMain(P, r.msg); }
-            else if (act === "slot") { r = F.buySlot(P); scr = M.screenMain(P, r.msg); }
+            if (act === "slot") { r = F.buySlot(P); scr = M.screenMain(P, r.msg); }
             else if (act === "tg") { r = F.toggle(P, arg); scr = M.screenEquip(P, r.msg); }
-            else if (act === "lv") { r = F.levelUp(P, arg); scr = M.screenUp(P, r.msg); }
+            else if (act === "buy") { r = F.buy(P, arg); scr = M.screenShop(P, r.msg); }
+            else if (act === "rc") { r = F.release(P, arg); scr = M.screenRelease(P, r.msg); }
+            else if (act === "ra") scr = M.screenRelease(P, "", arg);
+            else if (act === "rl") scr = M.screenRelease(P);
             else if (act === "eq") scr = M.screenEquip(P);
-            else if (act === "up") scr = M.screenUp(P);
+            else if (act === "shop") scr = M.screenShop(P);
             else if (act === "gd") scr = M.screenGuide(P);
             else scr = M.screenMain(P);
             if (r && r.ok) store.touch(P.id);
