@@ -659,11 +659,14 @@ function screenTop(P) {
             val: fmt(r.val) + " 🪙"
         }));
 
+        const fairies = require("./fairies").topRows(players);
+
     return {
         text:
             board("🏆 <b>أقوى اللاعبين</b>", rows) +
             "\n\n" +
-            board("💎 <b>أغنى اللاعبين</b>", rich),
+            board("💎 <b>أغنى اللاعبين</b>", rich) +
+            (fairies.length ? "\n\n" + board("🧚 <b>أقوى الجنيات</b>", fairies) : ""),
         kb: kbBuilder(P.id).back().kb
     };
 }
