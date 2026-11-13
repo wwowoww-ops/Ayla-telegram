@@ -128,12 +128,14 @@ function screenHome(P, note_) {
 
     const b = kbBuilder(P.id);
 
-    b.btn("🐾 حيواناتي", "pets", 0).btn("🥚 الحضانة", "eggs").row()
-        .btn("🛒 المتجر", "shop").btn("💰 جمع الأرباح", "collect").row()
-        .btn("⚔️ صيد", "hunt").btn("🧬 تزاوج", "bra", 0).row()
-        .btn("🎁 يومي", "daily").btn("🏆 ترتيب", "top").row()
-        .btn("🧿 العناصر", "elems").row()
-        .btn("📚 المزيد من القوائم", "more");
+    const b = kbBuilder(P.id);
+
+b.btn("🐾 حيواناتي", "pets", 0).btn("🧚 الجنيات", `fy:${uid}:main`).row()
+    .btn("🥚 الحضانة", "eggs").btn("🛒 المتجر", "shop").row()
+    .btn("💰 جمع الأرباح", "collect").btn("⚔️ صيد", "hunt").row()
+    .btn("🧬 تزاوج", "bra", 0).btn("🎁 يومي", "daily").row()
+    .btn("🏆 ترتيب", "top").btn("🧿 العناصر", "elems").row()
+    .btn("📚 المزيد من القوائم", "more");
 
     return { text, kb: b.kb };
 }
