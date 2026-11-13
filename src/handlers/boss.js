@@ -1,30 +1,25 @@
-// أزرار البوس الجماعي (v2): استدعاء، تسجيل، اختيار الحيوانات، بدء القتال، التفاصيل
+// أزرار البوس الجماعي (v3): استدعاء، تسجيل، اختيار الحيوانات والنمط، بدء القتال، لوحة القتال اليدوي، التفاصيل
 const store = require("../core/store");
 const B = require("../game/boss");
 const BM = require("../game/bossMenu");
+const Live = require("../game/bossLive");
 
 const isNotModified = e => /not modified/i.test(String(e && (e.description || e.message)));
 const opts = scr => ({ parse_mode: "HTML", reply_markup: scr.kb });
 const nameOf = u => [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || "لاعب";
 
 module.exports = function (bot) {
-    // تحديث الرسالة الرئيسية للبوس (المحفوظ رقمها عند الاستدعاء)
-    async function editMain(chatId, note) {
-        const b = B.get(chatId);
-        if (!b || !b.msg) return;
-        const scr = BM.screenBoss(chatId, Date.now(), note);
-        await bot.api.editMessageText(chatId, b.msg, scr.text, opts(scr)).catch(e => { if (!isNotModified(e)) console.error("[BOSS EDIT]", e && e.message); });
-    }
-    // بدء القتال وإعلان النتيجة
+    const driver = require("../game/bossDriver")(bot);
+    const editMain = chatId => driver.editMain(chatId);
+    // بدء القتال وإعلانه (أوتو فوري أو مباشر)
     async function runFight(ctx, chatId) {
-        const res = B.start(chatId, Date.now());
+        const res = B.begin(chatId, Date.now());
         if (!res.ok) return res;
-        await bot.api.sendMessage(chatId, BM.resultText(res), { parse_mode: "HTML", reply_markup: res.canceled ? undefined : BM.resultKb() });
-        await editMain(chatId);
+        await driver.announce(chatId, res);
         return res;
     }
 
-    bot.callbackQuery(/^bs:(spawn|reg|go|ref|det|pk|pg|rd|nr|lv|cl)(?::(\d+))?(?::(\d+))?(?::(\d+))?$/, async ctx => {
+    bot.callbackQuery(/^bs:(spawn|reg|go|ref|det|pk|pg|rd|nr|lv|cl|md|cm|ok)(?::(\d+))?(?::(\d+))?(?::(\d+))?$/, async ctx => {
         try {
             const chat = ctx.chat;
             if (!chat || chat.type === "private") return await ctx.answerCallbackQuery({ text: "داخل المجموعات فقط." });
@@ -34,8 +29,28 @@ module.exports = function (bot) {
             if (act === "ref") { await ctx.answerCallbackQuery(); return await edit(BM.screenBoss(cid, now)); }
             if (act === "det") { await ctx.answerCallbackQuery(); return await edit(BM.screenDetails(cid, ctx.match[2])); }
 
+            // لوحة القتال المباشر: لصاحبها فقط
+            if (act === "cm" || act === "ok") {
+                const uid = ctx.match[2];
+                if (String(ctx.from.id) !== uid) return await ctx.answerCallbackQuery({ text: "هذه اللوحة ليست لك.", show_alert: true });
+                const s = Live.get(cid);
+                if (!s) { await ctx.answerCallbackQuery({ text: "انتهى القتال.", show_alert: true }); return await ctx.deleteMessage().catch(() => {}); }
+                if (act === "cm") {
+                    const r = Live.setCmd(s, uid, Number(ctx.match[3]), Number(ctx.match[4]));
+                    if (!r.ok) return await ctx.answerCallbackQuery({ text: r.msg, show_alert: true });
+                    await ctx.answerCallbackQuery();
+                    return await edit(BM.screenPanel(s, uid, now));
+                }
+                const r = Live.confirm(s, uid);
+                if (!r.ok) return await ctx.answerCallbackQuery({ text: r.msg, show_alert: true });
+                await ctx.answerCallbackQuery({ text: "✅ تم التأكيد" });
+                await edit(BM.screenPanel(s, uid, now));
+                if (r.all) return await driver.advance(cid);
+                return await driver.refreshLive(cid);
+            }
+
             // أزرار الاختيار: لصاحبها فقط (المعرّف في الزر)
-            if (["pk", "pg", "rd", "nr", "lv", "cl"].includes(act)) {
+            if (["pk", "pg", "rd", "nr", "lv", "cl", "md"].includes(act)) {
                 const uid = ctx.match[2];
                 if (String(ctx.from.id) !== uid) return await ctx.answerCallbackQuery({ text: "هذه القائمة ليست لك.", show_alert: true });
                 const P = store.get(uid);
@@ -50,11 +65,12 @@ module.exports = function (bot) {
                 let note = "", page = 0, r;
                 if (act === "pk") { page = Number(ctx.match[4]); r = B.toggle(cid, P, ctx.match[3]); }
                 else if (act === "pg") { page = Number(ctx.match[3]); }
+                else if (act === "md") { page = Number(ctx.match[3]); const cur = B.get(cid); const rr = B.open(cur) && cur.reg[uid]; r = B.setMode(cid, uid, rr && rr.mode === "manual" ? "auto" : "manual"); }
                 else { page = Number(ctx.match[3]); r = B.setReady(cid, uid, act === "rd"); }
                 if (r && !r.ok) { await ctx.answerCallbackQuery({ text: r.msg, show_alert: true }); return; }
                 await ctx.answerCallbackQuery(act === "rd" ? { text: "✅ أنت جاهز" } : undefined);
                 await edit(BM.screenPick(P, cid, page, note));
-                if (act === "rd" || act === "nr" || act === "pk") await editMain(cid);
+                if (act === "rd" || act === "nr" || act === "pk" || act === "md") await editMain(cid);
                 if (act === "rd" && r.all) await runFight(ctx, cid);
                 return;
             }
