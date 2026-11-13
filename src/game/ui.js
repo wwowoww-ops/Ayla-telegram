@@ -128,7 +128,7 @@ function screenHome(P, note_) {
 
     const b = kbBuilder(P.id);
 
-b.btn("🐾 حيواناتي", "pets", 0).btn("🧚 الجنيات", `fy:${uid}:main`).row()
+b.btn("🐾 حيواناتي", "pets", 0).btn("🧚 الجنيات", "fy", P.id, "main").row()
     .btn("🥚 الحضانة", "eggs").btn("🛒 المتجر", "shop").row()
     .btn("💰 جمع الأرباح", "collect").btn("⚔️ صيد", "hunt").row()
     .btn("🧬 تزاوج", "bra", 0).btn("🎁 يومي", "daily").row()
