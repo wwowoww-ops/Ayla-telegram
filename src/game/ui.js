@@ -128,8 +128,6 @@ function screenHome(P, note_) {
 
     const b = kbBuilder(P.id);
 
-    const b = kbBuilder(P.id);
-
 b.btn("🐾 حيواناتي", "pets", 0).btn("🧚 الجنيات", `fy:${uid}:main`).row()
     .btn("🥚 الحضانة", "eggs").btn("🛒 المتجر", "shop").row()
     .btn("💰 جمع الأرباح", "collect").btn("⚔️ صيد", "hunt").row()
