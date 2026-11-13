@@ -4,8 +4,8 @@
 // - المستوى: يزيد بمرور الوقت منذ الحصول عليها (لا يتأثر بالأكل ولا التدريب). الأندر تنمو أبطأ.
 // - التجهيز: خانات قليلة (تبدأ بواحدة) تُوسَّع بالعملات. تعمل البفات وهي مجهزة فقط.
 // يُركَّب على اللعبة بدون تعديل ملفاتها: install() يغلّف دوال engine وغيرها وقت التشغيل (listeners/07-fairies.js).
-const D = require("./data");
-const E = require("./engine");
+const D = require("../data");
+const E = require("../engine");
 
 // ---------- الإعدادات (عدّل من هنا) ----------
 const MAX_LV = 20;
@@ -314,7 +314,7 @@ function install() {
     });
     // ضريبة الثروة: حماية
     try {
-        const W = require("./wealth");
+        const W = require("../wealth");
         wrap(W, "apply", orig => function (P, now) {
             const paid = orig.call(this, P, now);
             const g = paid > 0 ? buffs(P).tax : 0;
@@ -324,10 +324,10 @@ function install() {
     } catch (e) { /* ملف الضريبة غير موجود */ }
     // البوس: فرصة جنية ملحمية أو أعلى لصاحب أعلى ضرر عند الفوز (من الزر ومن المؤقت)
     try {
-        const B = require("./boss");
+        const B = require("../boss");
         const grant = res => {
             if (!(res && res.ok && res.killed && res.results && res.results[0])) return;
-            const r = res.results[0], P = require("../core/store").get(r.id);
+            const r = res.results[0], P = require("../../core/store").get(r.id);
             if (!P || Math.random() >= BOSS_FAIRY_CHANCE) return;
             const f = addFairy(P, pickSpecies(pickRarity([0, 0, 60, 30, 10], Math.random), Math.random));
             if (f && r.got) r.got.push("🧚 " + label(f));
@@ -338,7 +338,7 @@ function install() {
     } catch (e) { /* البوس غير موجود */ }
     // إنجازات الجنيات
     try {
-        const Q = require("./quests");
+        const Q = require("../quests");
         const maxLv = P => st(P).fairies.reduce((m, f) => Math.max(m, lvOf(f)), 0);
         const maxR = P => st(P).fairies.reduce((m, f) => Math.max(m, sp(f).r + 1), 0);
         const cats = [

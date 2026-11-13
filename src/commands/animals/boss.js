@@ -1,6 +1,6 @@
 // أمر البوس الجماعي: .بوس
 const { cmd } = require("../../lib/util");
-const BM = require("../../game/bossMenu");
+const BM = require("../../game/boss/menu");
 
 module.exports = function (bot) {
     cmd(bot, ["بوس", "زعيم", "البوس", "الزعيم"], async ctx => {

@@ -1,6 +1,6 @@
 // إطارات الحيوانات: كل إطار يرمز لحيوان من اللعبة (آذان، أجنحة، قرون، لبدة...).
 // تُفتح مجانًا إن كنت تملك هذا الحيوان، أو تُشترى بالعملة. تُرسم بالكود بتصميم أصلي.
-const { WIN } = require("./framesOrnate");
+const { WIN } = require("./ornate");
 const SIZE = 400, TAU = Math.PI * 2;
 const f = n => Number(n.toFixed(2));
 const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };

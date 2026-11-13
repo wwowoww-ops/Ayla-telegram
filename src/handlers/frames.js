@@ -6,7 +6,7 @@ const store = require("../core/store");
 const F = require("../game/frames");
 const Q = require("../game/quests");
 const E = require("../game/engine");
-const { screenFrames } = require("../game/frameMenu");
+const { screenFrames } = require("../game/frames/menu");
 
 module.exports = function (bot) {
     bot.callbackQuery(

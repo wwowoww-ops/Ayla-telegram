@@ -1,5 +1,5 @@
 // عدّة رسم مشتركة للإطارات الجديدة (SVG). كل إطار يركّب أشكالًا كبيرة مختلفة حول نافذة الصورة.
-const { WIN } = require("./framesOrnate");
+const { WIN } = require("./ornate");
 const SIZE = 400, TAU = Math.PI * 2;
 const f = n => Number(n.toFixed(2));
 const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };

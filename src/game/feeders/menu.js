@@ -1,8 +1,8 @@
 // قوائم أماكن الأكل في اللعبة العادية (أزرار البوت)
 const { InlineKeyboard } = require("grammy");
-const D = require("./data");
-const E = require("./engine");
-const F = require("./feeders");
+const D = require("../data");
+const E = require("../engine");
+const F = require("./index");
 
 const HEADER = "🌸 ═══ 𝐀𝐘𝐋𝐀 〢 𝐏𝐄𝐓𝐒 ═══ 🌸";
 const FOOTER = "╰┈➤ 𝐀𝐘𝐋𝐀 • 𝐏𝐄𝐓 𝐒𝐘𝐒𝐓𝐄𝐌 🌸";

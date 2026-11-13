@@ -1,9 +1,9 @@
 // محرك قتال البوس (v3): يعمل جولة بجولة (step) ليدعم القتال اليدوي، ومنه simulate() للقتال التلقائي الكامل.
 // كل حيوان: هجوم عادي + 3 مهارات (مع كولداون) + سلبية. اللاعب اليدوي يختار لكل حيوان، والأوتو يختار الذكاء الاصطناعي.
-const D = require("./data");
-const E = require("./engine");
-const S = require("./bossSkills");
-const Fair = require("./fairies");
+const D = require("../data");
+const E = require("../engine");
+const S = require("./skills");
+const Fair = require("../fairies");
 
 // ---------- الإعدادات (عدّل من هنا) ----------
 const ROUNDS = 15;        // أقصى عدد جولات
@@ -20,7 +20,7 @@ const GROW_HP = 1.25;     // وتزيد حياته 25% لكل مستوى
 const floor = Math.floor;
 
 function create(parts, boss, now, rng = Math.random) {
-    const kind = require("./boss").kindOf(boss);
+    const kind = require("./index").kindOf(boss);
     const units = [];
     parts.forEach(p => p.pets.forEach(pet => {
         const fm = (p.P && Fair.bossMods(p.P)) || { atk: 0, heal: 0, hp: 0, dr: 0 };

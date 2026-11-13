@@ -1,5 +1,5 @@
 // دفعة 3 (ب) + 4: الأساطير (8) + الكلاسيكية (8) + المزخرفة (6)
-const K = require("./framesKit");
+const K = require("../kit");
 const { f, rnd, TAU, win, cx, cy, L, R, T, Bt, mirror, at, pt, star, twinkle, glowDefs, grad, rgrad, GOLD, SILVER, wrap, rr, body, ring, thin } = K;
 const D = (extra = "") => `<defs>${glowDefs}${grad("gd", GOLD)}${grad("sv", SILVER)}${extra}</defs>`;
 const corners = (fn) => [[L, T, 1, 1], [R, T, -1, 1], [L, Bt, 1, -1], [R, Bt, -1, -1]].map(([x, y, sx, sy]) => `<g transform="translate(${x} ${y}) scale(${sx} ${sy})">${fn()}</g>`).join("");

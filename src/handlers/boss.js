@@ -1,15 +1,15 @@
 // أزرار البوس الجماعي (v3): استدعاء، تسجيل، اختيار الحيوانات والنمط، بدء القتال، لوحة القتال اليدوي، التفاصيل
 const store = require("../core/store");
 const B = require("../game/boss");
-const BM = require("../game/bossMenu");
-const Live = require("../game/bossLive");
+const BM = require("../game/boss/menu");
+const Live = require("../game/boss/live");
 
 const isNotModified = e => /not modified/i.test(String(e && (e.description || e.message)));
 const opts = scr => ({ parse_mode: "HTML", reply_markup: scr.kb });
 const nameOf = u => [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || "لاعب";
 
 module.exports = function (bot) {
-    const driver = require("../game/bossDriver")(bot);
+    const driver = require("../game/boss/driver")(bot);
     const editMain = chatId => driver.editMain(chatId);
     // بدء القتال وإعلانه (أوتو فوري أو مباشر)
     async function runFight(ctx, chatId) {

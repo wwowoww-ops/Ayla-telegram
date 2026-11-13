@@ -1,5 +1,5 @@
 // دفعة 2 (ب): الإطارات الخاصة (12) — مناسبات وأفكار مختلفة
-const K = require("./framesKit");
+const K = require("../kit");
 const { f, rnd, TAU, win, cx, cy, L, R, T, Bt, mirror, at, pt, star, twinkle, glowDefs, grad, rgrad, GOLD, SILVER, wrap, rr, body, ring, thin, heart, paw } = K;
 
 // هلال رمضان: قوس مسجد، هلال ونجمة، فوانيس صغيرة

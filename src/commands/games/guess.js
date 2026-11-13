@@ -1,6 +1,6 @@
 // تخمين الرقم
-const { cmd } = require("../lib/util");
-const { guess, alive } = require("../lib/rounds");
+const { cmd } = require("../../lib/util");
+const { guess, alive } = require("../../lib/rounds");
 
 module.exports = function (bot) {
     cmd(bot, ["تخمين", "خمن", "خمّن"], async (ctx, args) => {

@@ -9,7 +9,7 @@
 const {
     cmd,
     getMenuCategories
-} = require("../lib/util");
+} = require("../../lib/util");
 
 const { InlineKeyboard } = require("grammy");
 

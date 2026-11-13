@@ -1,11 +1,11 @@
 // يحمّل الإنجازات الصعبة، ويشغّل مؤقت بدء قتال البوس عند انتهاء مهلة التسجيل وإعلان نتيجته
 const B = require("../game/boss");
-const Live = require("../game/bossLive");
+const Live = require("../game/boss/live");
 
 module.exports = function (bot) {
     require("../game/achievementsHard").install();
 
-    const driver = require("../game/bossDriver")(bot);
+    const driver = require("../game/boss/driver")(bot);
     let loaded = false;
     // كل 5 ثوانٍ: يبدأ البوس عند انتهاء التسجيل، ويكمل جولات القتال المباشر عند انتهاء مهلتها
     const timer = setInterval(async () => {

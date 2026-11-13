@@ -1,5 +1,5 @@
 // دفعة 1: إطارات الحيوانات (10) — كل حيوان بهيكل مميز (آذان، أعراف، أذيال، قرون...)
-const K = require("./framesKit");
+const K = require("../kit");
 const { f, rnd, TAU, win, cx, cy, L, R, T, Bt, mirror, at, pt, star, twinkle, glowDefs, grad, rgrad, GOLD, wrap, rr, ring, thin, heart, paw } = K;
 
 function cat(t) {

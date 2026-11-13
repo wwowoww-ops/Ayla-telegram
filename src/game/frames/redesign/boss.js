@@ -1,5 +1,5 @@
 // دفعة 3 (أ): إطارات الزعماء (14): "تاج" = للأول (فخم)، و"صيّاد" = للمشارك (أبسط) — لكل زعيم موضوعه
-const K = require("./framesKit");
+const K = require("../kit");
 const { f, rnd, TAU, win, cx, cy, L, R, T, Bt, mirror, at, pt, star, twinkle, glowDefs, grad, rgrad, GOLD, SILVER, wrap, rr, body, ring, thin } = K;
 const gdefs = (extra = "") => `<defs>${glowDefs}${grad("gd", GOLD)}${extra}</defs>`;
 const flameP = (x, y, a, len, w, c1, c2, t, ph) => { const l = len * (1 + 0.15 * Math.sin(TAU * (t * 2 + ph))); return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a + 90 + 5 * Math.sin(TAU * (t + ph)))})"><path d="M0 0 C${w} ${-l * .3} ${w * .3} ${-l * .6} 0 ${-l} C${-w * .3} ${-l * .6} ${-w} ${-l * .3} 0 0Z" fill="${c1}"/><path d="M0 0 C${w * .5} ${-l * .25} ${w * .15} ${-l * .5} 0 ${-l * .62} C${-w * .15} ${-l * .5} ${-w * .5} ${-l * .25} 0 0Z" fill="${c2}"/></g>`; };

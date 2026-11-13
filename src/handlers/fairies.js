@@ -1,7 +1,7 @@
 // أزرار الجنيات: متجر، تجهيز، إطلاق، توسيع، دليل
 const store = require("../core/store");
 const F = require("../game/fairies");
-const M = require("../game/fairyMenu");
+const M = require("../game/fairies/menu");
 
 module.exports = function (bot) {
     bot.callbackQuery(/^fy:(\d+):(main|eq|shop|rl|gd|slot|tg|buy|ra|rc)(?::(\d+))?$/, async ctx => {

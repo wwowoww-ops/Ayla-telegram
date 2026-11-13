@@ -149,12 +149,12 @@ const FRAMES = [
 const withCat = (list, cat) => list.map(x => Object.assign({ cat }, x));
 FRAMES.forEach(x => { x.cat = "classic"; });
 FRAMES.push(
-    ...withCat(require("./framesOrnate").ORNATE, "ornate"),
-    ...withCat(require("./framesAnimal").ANIMAL, "animal"),
-    ...require("./framesMore").MORE,
-    ...require("./framesEpic").EPIC
+    ...withCat(require("./ornate").ORNATE, "ornate"),
+    ...withCat(require("./animal").ANIMAL, "animal"),
+    ...require("./more").MORE,
+    ...require("./epic").EPIC
 );
-require("./framesNew").apply(FRAMES);   // رسم جديد للإطارات القديمة (نفس المعرّفات)
+require("./redesign").apply(FRAMES);   // رسم جديد للإطارات القديمة (نفس المعرّفات)
 
 
 // الفئات المعروضة في القائمة (بهذا الترتيب)

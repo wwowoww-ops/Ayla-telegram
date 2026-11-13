@@ -6,7 +6,7 @@ const { cmd } = require("../../lib/util");
 const store = require("../../core/store");
 const ui = require("../../game/ui");
 const Q = require("../../game/quests");
-const { screenFrames } = require("../../game/frameMenu");
+const { screenFrames } = require("../../game/frames/menu");
 
 module.exports = function (bot) {
     cmd(

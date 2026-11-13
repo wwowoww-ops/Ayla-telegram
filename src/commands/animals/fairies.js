@@ -2,7 +2,7 @@
 const { cmd } = require("../../lib/util");
 const store = require("../../core/store");
 const ui = require("../../game/ui");
-const M = require("../../game/fairyMenu");
+const M = require("../../game/fairies/menu");
 
 module.exports = function (bot) {
     cmd(bot, ["جنيات", "الجنيات", "جنية", "جنياتي"], ctx => {

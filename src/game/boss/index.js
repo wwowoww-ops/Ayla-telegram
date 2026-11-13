@@ -1,10 +1,10 @@
 // البوس الجماعي (v3): تسجيل (يدوي/أوتو لكل لاعب) ثم قتال: أوتو فوري أو مباشر جولة بجولة (bossLive.js) ← نتائج وتفاصيل.
 // المراحل: reg ← live (إن وُجد لاعب يدوي) ← done.
 // الحالة تُحفظ مع إعدادات المجموعة (store.setGroup) فلا تضيع عند إعادة التشغيل.
-const D = require("./data");
-const E = require("./engine");
-const store = require("../core/store");
-const Fight = require("./bossFight");
+const D = require("../data");
+const E = require("../engine");
+const store = require("../../core/store");
+const Fight = require("./fight");
 
 // ---------- الإعدادات (عدّل من هنا) ----------
 const MIN = 60e3, HOUR = 3600e3;

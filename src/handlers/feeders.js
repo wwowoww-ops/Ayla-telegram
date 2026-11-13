@@ -1,6 +1,6 @@
 // أزرار قوائم أماكن الأكل
 const store = require("../core/store");
-const FM = require("../game/feederMenu");
+const FM = require("../game/feeders/menu");
 const F = require("../game/feeders");
 
 module.exports = function (bot) {

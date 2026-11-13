@@ -1,6 +1,6 @@
 // مجموعات إطارات إضافية: عناصر، ندرة، خاصة، زعماء (حصرية)، وأساطير (إنجازات صعبة).
 // كل إطار = لون + معدن + زخرفة علوية + جانبية + سفلية + مؤثر متحرك. كلها تُرسم بالكود.
-const { WIN } = require("./framesOrnate");
+const { WIN } = require("./ornate");
 const SIZE = 400, TAU = Math.PI * 2;
 const f = n => Number(n.toFixed(2));
 const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -129,7 +129,7 @@ function compose(spec) {
 }
 
 const has = (P, fn) => !!(P && P.pets && P.pets.some(fn));
-const D = require("./data");
+const D = require("../data");
 const el = id => ({ fire: "نار", water: "ماء", plant: "نبات", earth: "أرض", thunder: "برق", light: "نور", dark: "ظلام" }[id]);
 
 // ======== الفئات ========

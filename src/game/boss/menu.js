@@ -1,13 +1,13 @@
 // شاشات البوس الجماعي (v3): التسجيل، اختيار الحيوانات والنمط، القتال المباشر، النتائج، التفاصيل
 const { InlineKeyboard } = require("grammy");
-const B = require("./boss");
-const S = require("./bossSkills");
-const E = require("./engine");
-const D = require("./data");
-const store = require("../core/store");
-const Live = require("./bossLive");
-const Fight = require("./bossFight");
-const { frame } = require("./menus");
+const B = require("./index");
+const S = require("./skills");
+const E = require("../engine");
+const D = require("../data");
+const store = require("../../core/store");
+const Live = require("./live");
+const Fight = require("./fight");
+const { frame } = require("../menus");
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const medal = i => ["🥇", "🥈", "🥉"][i] || (i + 1) + ".";

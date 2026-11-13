@@ -1,6 +1,6 @@
 // الحزورات
-const { pick, cmd } = require("../lib/util");
-const { riddle, alive } = require("../lib/rounds");
+const { pick, cmd } = require("../../lib/util");
+const { riddle, alive } = require("../../lib/rounds");
 
 const RIDDLES = [
     ["ما هو الشيء الذي له أسنان ولا يعض؟", ["المشط", "مشط"]],

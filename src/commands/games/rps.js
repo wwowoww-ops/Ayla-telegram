@@ -1,6 +1,6 @@
 // حجر ورقة مقص: الأمر يعرض الأزرار، والنتيجة في handlers/rps.js
 const { InlineKeyboard } = require("grammy");
-const { nameOf, cmd } = require("../lib/util");
+const { nameOf, cmd } = require("../../lib/util");
 
 module.exports = function (bot) {
     cmd(bot, ["حجر", "حجرة", "مقص"], async ctx => {

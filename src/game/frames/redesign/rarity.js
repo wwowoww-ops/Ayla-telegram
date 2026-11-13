@@ -1,5 +1,5 @@
 // دفعة 2 (أ): إطارات الندرة (7) من الشائع إلى السماوي — كل مستوى أفخم وبهيكل مختلف
-const K = require("./framesKit");
+const K = require("../kit");
 const { f, rnd, TAU, win, cx, cy, L, R, T, Bt, mirror, at, pt, star, twinkle, glowDefs, grad, rgrad, GOLD, SILVER, wrap, rr, body, ring, thin, heart } = K;
 
 // 0) شائع: جلد/خشب مخيّط بمسامير وغصن صغير

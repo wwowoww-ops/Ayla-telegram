@@ -1,8 +1,8 @@
 // شاشة الإطارات: صفحة رئيسية بالفئات، ثم صفحة لكل فئة فيها الاختيار والشراء
 const { InlineKeyboard } = require("grammy");
-const F = require("./frames");
-const E = require("./engine");
-const { frame } = require("./menus");
+const F = require("./index");
+const E = require("../engine");
+const { frame } = require("../menus");
 
 const inCat = c => F.FRAMES.filter(f => f.cat === c);
 

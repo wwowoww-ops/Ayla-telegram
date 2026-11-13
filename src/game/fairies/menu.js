@@ -1,8 +1,8 @@
 // قوائم الجنيات: الرئيسية، التجهيز، المتجر، الإطلاق، الدليل
 const { InlineKeyboard } = require("grammy");
-const F = require("./fairies");
-const E = require("./engine");
-const { frame } = require("./menus");
+const F = require("./index");
+const E = require("../engine");
+const { frame } = require("../menus");
 
 const sorted = P => [...F.st(P).fairies].sort((a, b) => F.sp(b).r - F.sp(a).r || F.lvOf(b) - F.lvOf(a) || a.id - b.id);
 

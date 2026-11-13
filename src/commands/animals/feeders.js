@@ -3,7 +3,7 @@ const { cmd } = require("../../lib/util");
 const store = require("../../core/store");
 const ui = require("../../game/ui");
 const F = require("../../game/feeders");
-const FM = require("../../game/feederMenu");
+const FM = require("../../game/feeders/menu");
 
 module.exports = function (bot) {
     cmd(bot, ["اماكن الاكل", "أماكن الأكل", "مغذيات", "اوعية", "أوعية", "وعاء"], async ctx => {

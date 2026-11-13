@@ -1,9 +1,9 @@
 // المشغّل المرتبط بالبوت: يرسل ويحدّث رسائل القتال المباشر ولوحات التحكم، وينهي القتال ويعلن النتيجة.
 // يُستعمل من handlers/boss.js ومن المؤقت في listeners/06-extras.js (نسخة واحدة لكل بوت).
-const B = require("./boss");
-const BM = require("./bossMenu");
-const Live = require("./bossLive");
-const Fight = require("./bossFight");
+const B = require("./index");
+const BM = require("./menu");
+const Live = require("./live");
+const Fight = require("./fight");
 
 const isNotModified = e => /not modified/i.test(String(e && (e.description || e.message)));
 const log = (tag, e) => console.error(`[BOSS ${tag}]`, e && e.message);
