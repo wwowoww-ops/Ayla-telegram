@@ -134,7 +134,6 @@ b.btn("🐾 حيواناتي", "pets", 0).btn("🧚 الجنيات", `fy:${uid}:
     .btn("🧬 تزاوج", "bra", 0).btn("🎁 يومي", "daily").row()
     .btn("🏆 ترتيب", "top").btn("🧿 العناصر", "elems").row()
     .btn("📚 المزيد من القوائم", "more");
-
     return { text, kb: b.kb };
 }
 
