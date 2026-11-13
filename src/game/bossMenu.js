@@ -1,10 +1,12 @@
-// شاشات البوس الجماعي (v2): التسجيل، اختيار الحيوانات، النتائج، التفاصيل
+// شاشات البوس الجماعي (v3): التسجيل، اختيار الحيوانات والنمط، القتال المباشر، النتائج، التفاصيل
 const { InlineKeyboard } = require("grammy");
 const B = require("./boss");
 const S = require("./bossSkills");
 const E = require("./engine");
 const D = require("./data");
 const store = require("../core/store");
+const Live = require("./bossLive");
+const Fight = require("./bossFight");
 const { frame } = require("./menus");
 
 const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -22,6 +24,10 @@ function screenBoss(chatId, now, note) {
     const b = B.get(chatId);
     const kb = new InlineKeyboard();
     const pre = note ? note + "\n\n" : "";
+    if (b && b.phase === "live") {
+        const k = B.kindOf(b);
+        return { text: frame(pre + `${k.e} <b>${k.n}</b>\n\n⚔️ <b>القتال جارٍ الآن!</b> تابع رسالة القتال أدناه.`), kb };
+    }
     if (B.open(b)) {
         const k = B.kindOf(b), el = D.ELEMENTS[k.el];
         const list = Object.values(b.reg);
@@ -29,7 +35,8 @@ function screenBoss(chatId, now, note) {
         t += `📝 <b>التسجيل مفتوح</b> — ينتهي بعد ${E.dur(Math.max(0, b.regEnd - now))}\n`;
         t += `يبدأ القتال تلقائيًا عند انتهاء المهلة، أو عندما يستعد الجميع (لاعبان فأكثر)، أو عندما يبدأه من استدعى الزعيم.\n\n`;
         t += `👥 <b>المسجّلون (${list.length}):</b>\n`;
-        t += list.length ? list.map(r => `${r.ready ? "✅" : "⏳"} ${esc(r.n)} — ${r.pets.length} حيوان`).join("\n") : "لا أحد بعد.";
+        t += list.length ? list.map(r => `${r.ready ? "✅" : "⏳"} ${r.mode === "manual" ? "🎮" : "🤖"} ${esc(r.n)} — ${r.pets.length} حيوان`).join("\n") : "لا أحد بعد.";
+        t += `\n\n🎮 يدوي: تختار مهارات حيواناتك كل جولة · 🤖 أوتو: يقاتل الذكاء الاصطناعي عنك.`;
         t += `\n\n💡 ${D.ELEMENTS[Object.keys(D.BEATS).find(x => D.BEATS[x] === k.el)].e} حيوانات العنصر الذي يهزم عنصر الزعيم تضربه أقوى. وحيوانات الماء والنور تعالج الفريق!`;
         kb.text("📝 تسجيل / تعديل فريقي", "bs:reg").row().text("▶️ ابدأ القتال", "bs:go").text("🔄 تحديث", "bs:ref");
         return { text: frame(cut(t)), kb };
@@ -54,7 +61,7 @@ function screenBoss(chatId, now, note) {
 // ---------- واجهة اختيار الحيوانات (لكل لاعب) ----------
 function skillLines(pet) {
     const d = S.describe(pet);
-    return `${petLabel(pet)} <b>${esc(pet.nick || D.SPECIES[pet.sp].n)}</b> Lv${pet.lv} — ⚔️ ${E.fmt(E.power(pet))}\n   • ${d.passive}\n   • ${d.active}`;
+    return `${petLabel(pet)} <b>${esc(pet.nick || D.SPECIES[pet.sp].n)}</b> Lv${pet.lv} — ⚔️ ${E.fmt(E.power(pet))}\n   • ${d.passive}\n` + d.skills.map((x, i) => `   ${["①", "②", "③"][i]} ${x}`).join("\n");
 }
 function screenPick(P, chatId, page, note) {
     const b = B.get(chatId);
@@ -66,7 +73,8 @@ function screenPick(P, chatId, page, note) {
     const sel = r.pets.map(id => P.pets.find(p => p.id === id)).filter(Boolean);
     let t = (note ? note + "\n\n" : "") + `⚔️ <b>فريقك لقتال ${B.kindOf(b).n}</b>\nاختر حتى ${B.TEAM} حيوانات (${sel.length}/${B.TEAM}).\n\n`;
     t += sel.length ? sel.map(skillLines).join("\n\n") : "لم تختر شيئًا بعد.";
-    t += `\n\n${r.ready ? "✅ أنت جاهز" : "⏳ لم تضغط جاهز بعد"}`;
+    t += `\n\n🕹️ النمط: <b>${r.mode === "manual" ? "🎮 يدوي (تختار المهارات كل جولة)" : "🤖 أوتو (القتال تلقائي)"}</b>`;
+    t += `\n${r.ready ? "✅ أنت جاهز" : "⏳ لم تضغط جاهز بعد"}`;
     const kb = new InlineKeyboard();
     const slice = all.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
     slice.forEach((p, i) => {
@@ -80,9 +88,56 @@ function screenPick(P, chatId, page, note) {
         if (page < pages - 1) kb.text("➡️", `bs:pg:${P.id}:${page + 1}`);
         kb.row();
     }
+    kb.text(r.mode === "manual" ? "🎮 يدوي ← تحويل إلى أوتو 🤖" : "🤖 أوتو ← تحويل إلى يدوي 🎮", `bs:md:${P.id}:${page}`).row();
     if (r.ready) kb.text("↩️ إلغاء الجاهزية", `bs:nr:${P.id}:${page}`);
     else kb.text("✔️ جاهز للقتال", `bs:rd:${P.id}:${page}`);
     kb.row().text("🚪 انسحاب", `bs:lv:${P.id}`).text("🔙 إغلاق", `bs:cl:${P.id}`);
+    return { text: cut(t), kb };
+}
+
+// ---------- القتال المباشر ----------
+const bar = (a, b, n = 12) => { const k = Math.max(0, Math.min(1, b ? a / b : 0)), f = Math.round(k * n); return "█".repeat(f) + "░".repeat(n - f); };
+const secs = (s, now) => Math.max(0, Math.ceil((s.deadline - now) / 1000));
+
+function screenLive(s, now, final) {
+    const st = s.st, k = st.kind;
+    let t = `${k.e} <b>${k.n}</b>  — الجولة ${Math.min(st.round + (st.done ? 0 : 1), Fight.ROUNDS)}/${Fight.ROUNDS}\n`;
+    t += `❤️ ${bar(st.hp, st.maxHp)} ${Math.ceil(st.hp / st.maxHp * 100)}%${st.raged ? " 😡" : ""}${st.stun > 0 ? " 😵" : ""}${st.curse.n > 0 ? " ☠️" : ""}${st.burn.n > 0 ? " ♨️" : ""}\n\n`;
+    t += `👥 <b>الفريق:</b>\n`;
+    const by = {};
+    st.units.forEach(u => { (by[u.uid] = by[u.uid] || []).push(u); });
+    Object.entries(by).forEach(([uid, us]) => {
+        const mode = s.modes[uid] === "manual" ? "🎮" : "🤖";
+        const ok = s.modes[uid] === "manual" && !st.done ? (s.confirmed.has(uid) ? " ✅" : " ⏳") : "";
+        t += `${mode} ${esc(us[0].owner)}${ok}: ` + us.map(u => `${u.e}${u.hp > 0 ? Math.ceil(u.hp / u.maxHp * 100) + "%" : "💀"}`).join(" ") + "\n";
+    });
+    if (s.last && s.last.length) t += `\n📜 <b>ما حدث في الجولة ${st.round}:</b>\n` + s.last.slice(0, 18).map(esc).join("\n");
+    if (!st.done && !final) t += `\n\n⏱️ ${secs(s, now)} ث لاختيار الجولة القادمة (🎮 اختر من لوحتك ثم ✅). الأوتو يلعب وحده.`;
+    return { text: frame(cut(t)), kb: new InlineKeyboard() };
+}
+
+// لوحة تحكم لاعب يدوي (رسالة خاصة بصاحبها)
+function screenPanel(s, uid, now) {
+    const st = s.st, mine = Live.unitsOf(s, uid);
+    let t = `🎮 <b>لوحة التحكم</b> — ${esc(((s.parts.find(p => String(p.uid) === String(uid))) || {}).name || "")}\n`;
+    t += `الجولة ${st.round + 1}/${Fight.ROUNDS} · ⏱️ ${secs(s, now)} ث\n\n`;
+    const kb = new InlineKeyboard();
+    mine.forEach(u => {
+        const sel = s.cmds[u.id];
+        const sk = S.SKILLS[u.el];
+        t += `${u.hp > 0 ? u.e : "💀"} <b>${esc(u.pet.nick || D.SPECIES[u.pet.sp].n)}</b> — ❤️ ${Math.max(0, Math.ceil(u.hp))}/${u.maxHp}${u.shield > 0 ? " 🛡️" : ""}\n`;
+        if (u.hp <= 0) { t += "   ساقط\n"; return; }
+        t += "   " + sk.map((x, i) => `${["①", "②", "③"][i]}${x.e}${x.n}${u.cd[i] > 0 ? "⏳" + u.cd[i] : ""}`).join("  ") + "\n";
+        t += `   المختار: ${sel === undefined ? "🤖 تلقائي" : sel === 0 ? "⚔️ هجوم" : sk[sel - 1].e + " " + sk[sel - 1].n}\n`;
+        kb.text(`${u.e}${sel === 0 ? "✅" : ""}⚔️`, `bs:cm:${uid}:${u.id}:0`);
+        sk.forEach((x, i) => {
+            const cd = u.cd[i];
+            kb.text(cd > 0 ? `⏳${cd}` : `${sel === i + 1 ? "✅" : ""}${x.e}`, `bs:cm:${uid}:${u.id}:${i + 1}`);
+        });
+        kb.row();
+    });
+    t += `\n⚔️ = هجوم عادي · ⏳ = جولات انتظار المهارة. ما لم تختر له يلعب تلقائيًا.`;
+    kb.text("✅ تأكيد الجولة", `bs:ok:${uid}`);
     return { text: cut(t), kb };
 }
 
@@ -139,4 +194,4 @@ function screenDetails(chatId, page) {
     return { text: frame(cut(t)), kb: tabs(page) };
 }
 
-module.exports = { screenBoss, screenPick, screenDetails, resultText, resultKb, esc };
+module.exports = { screenBoss, screenPick, screenLive, screenPanel, screenDetails, resultText, resultKb, esc };
