@@ -151,8 +151,11 @@ FRAMES.forEach(x => { x.cat = "classic"; });
 FRAMES.push(
     ...withCat(require("./framesOrnate").ORNATE, "ornate"),
     ...withCat(require("./framesAnimal").ANIMAL, "animal"),
-    ...require("./framesMore").MORE
+    ...require("./framesMore").MORE,
+    ...require("./framesEpic").EPIC
 );
+require("./framesNew").apply(FRAMES);   // رسم جديد للإطارات القديمة (نفس المعرّفات)
+
 
 // الفئات المعروضة في القائمة (بهذا الترتيب)
 const CATS = [
@@ -163,7 +166,8 @@ const CATS = [
     { id: "rarity",  name: "الندرة",     e: "💎" },
     { id: "special", name: "خاصة",       e: "🎆" },
     { id: "boss",    name: "الزعماء",    e: "👑" },
-    { id: "legend",  name: "الأساطير",   e: "🏆" }
+    { id: "legend",  name: "الأساطير",   e: "🏆" },
+    { id: "epic",    name: "الملحمية",   e: "🐉" }
 ];
 
 const byId = id => FRAMES.find(x => x.id === id) || null;
