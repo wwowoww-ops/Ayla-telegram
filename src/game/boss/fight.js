@@ -90,7 +90,7 @@ function step(st, cmds = {}) {
         return got;
     }
     function hitBoss(u, mult) {
-        const el = D.elementMult(u.el, kind.el);
+        const el = E.elMult(u.pet, kind.el);
         let dmg = u.pw * mult * el * (0.9 + 0.2 * rng());
         const aura = Math.min(0.8, aliveOf(st).filter(x => x.el === "light").reduce((s, x) => s + 0.04 * x.m, 0));
         dmg *= 1 + aura;

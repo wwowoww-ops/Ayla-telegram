@@ -266,7 +266,7 @@ function screenPet(P, petId, note_) {
         b.btn("📌 اجعله أساسيًا", "main", pet.id);
     }
 
-    b.btn("🖼️ صورة", "img", pet.id).row();
+    b.btn("🧬 تطور", "evo", pet.id).btn("🖼️ صورة", "img", pet.id).row();
     b.btn("🗑️ تخلٍّ", "rel", pet.id).row();
     b.back("pets:0", "🔙 حيواناتي");
 
@@ -305,6 +305,23 @@ function screenFeed(P, petId, note_) {
         note(note_);
 
     return { text, kb: b.kb };
+}
+
+function screenEvo(P, petId, note_) {
+    const pet = E.getPet(P, petId);
+    if (!pet) return screenPets(P, 0);
+    const c = E.evoCost(pet);
+    const b = kbBuilder(P.id);
+    let text = `🧬 <b>تطور ${nameP(pet)}</b>\nركّب عنصرًا ثانويًا: +8% قوة، تفوق عنصري بنصف الأثر، ومهارات الصيد منه.\n` +
+        `التكلفة: ${c.ess} جوهر العنصر + ${fmt(c.coins)} 🪙 · يشترط المستوى 20 أو نجمة.\n` +
+        `الحالي: ${elTxt(pet.el)}${pet.el2 ? " + " + elTxt(pet.el2) : " (بلا ثانوي)"}\n\n`;
+    D.EL_KEYS.filter(k => k !== pet.el && k !== pet.el2).forEach(k => {
+        const r = D.RES["ess_" + k];
+        text += `${r.e} ${r.n}: ${Res.have(P, "ess_" + k)}/${c.ess}\n`;
+        b.btn(r.e + " " + D.ELEMENTS[k].n, "evgo", pet.id, k);
+    });
+    b.row().back("pet:" + pet.id, "🔙 البطاقة");
+    return { text: text + note(note_), kb: b.kb };
 }
 
 function screenRelease(P, petId) {
@@ -750,6 +767,12 @@ function route(P, parts, ctx) {
 
         case "up":
             return act(E.upgrade(P, x), n => screenPet(P, x, n));
+
+        case "evo":
+            return { screen: screenEvo(P, x) };
+
+        case "evgo":
+            return act(E.evolve(P, x, y), n => screenEvo(P, x, n));
 
         case "rel":
             return { screen: screenRelease(P, x) };

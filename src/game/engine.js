@@ -53,7 +53,12 @@ const starMult = st => 1 + 5 * st;
 const lvMult = lv => 1 + 0.09 * (lv - 1);
 function power(pet) {
     const s = spOf(pet);
-    return floor(D.RARITIES[s.r].pow * s.v * pet.q * lvMult(pet.lv) * starMult(pet.st));
+    return floor(D.RARITIES[s.r].pow * s.v * pet.q * lvMult(pet.lv) * starMult(pet.st) * (pet.el2 ? 1.08 : 1));
+}
+// أفضل مضاعف عنصر: الأساسي كاملًا، والثانوي بنصف أثره
+function elMult(pet, foeEl) {
+    const a = D.elementMult(pet.el, foeEl);
+    return pet.el2 ? Math.max(a, 1 + (D.elementMult(pet.el2, foeEl) - 1) * 0.5) : a;
 }
 function incomePerHour(pet) {
     const s = spOf(pet);
@@ -297,8 +302,7 @@ function hunt(P, zoneIdx, now, rng) {
     pet.cdHunt = now + C.HUNT_CD;
     P.stats.hunts++;
     const c = Hunt.prepare(pet, zone, rng, 0);
-    let eff = D.elementMult(pet.el, c.monEl);
-    if (pet.el2) eff = Math.max(eff, D.elementMult(pet.el2, c.monEl));
+    const eff = elMult(pet, c.monEl);
     const roll = c.lo + (1.2 - c.lo) * rng();
     const mine = power(pet) * eff * c.mult * roll;
     const win = mine >= c.monPower;
@@ -344,28 +348,66 @@ function breedCheck(P, aId, bId, now) {
     }
     return { ok: true, a, b, cost: breedCost(a, b) };
 }
+// بيانات بيضة التزاوج من أبوين (مشتركة بين التزاوج العادي والمشترك)
+function bredEggData(a, b, rng) {
+    let spId = rng() < 0.5 ? a.sp : b.sp;
+    let mutated = false;
+    const r = D.SPECIES[spId].r;
+    if (r < 6 && rng() < 0.12) { spId = pick(D.SPECIES_BY_RARITY[r + 1], rng); mutated = true; }
+    const el = rng() < 0.88 ? (rng() < 0.5 ? a.el : b.el) : pick(D.EL_KEYS, rng);
+    const q = Math.min(1.6, Math.max(0.8, Math.round(((a.q + b.q) / 2) * (0.98 + rng() * 0.12) * 1000) / 1000));
+    const rr = D.SPECIES[spId].r;
+    const gen = Math.max(a.gen || 0, b.gen || 0) + 1;
+    return { tier: Math.min(6, rr), pre: { sp: spId, el, q, gen }, mutated };
+}
+// تزاوج مشترك بين لاعبين: حيوانا الطرفين يرتاحان، والبيضة تذهب لمن يُحدَّد
+function breedPair(PA, a, PB, b, costA, costB, eggTo, now, rng) {
+    for (const [P, p, c] of [[PA, a, costA], [PB, b, costB]]) {
+        if (!p) return fail("حيوان غير موجود.");
+        if (p.lv < C.BREED_LV && p.st === 0) return fail(D.SPECIES[p.sp].n + " صغير. يجب أن يصل المستوى " + C.BREED_LV + ".");
+        if (p.cdBreed > now) return fail(D.SPECIES[p.sp].n + " يستريح من التزاوج " + dur(p.cdBreed - now) + ".");
+        if (P.coins < c) return fail("رصيد " + P.name + " لا يكفي (" + fmt(c) + ").");
+    }
+    PA.coins -= costA; PB.coins -= costB;
+    const d = bredEggData(a, b, rng);
+    const W = eggTo === "b" ? PB : eggTo === "a" ? PA : (rng() < 0.5 ? PA : PB);
+    addEggToBag(W, d.tier, { pre: d.pre, bred: true });
+    a.cdBreed = b.cdBreed = now + C.BREED_CD;
+    PA.stats.bred++; PB.stats.bred++;
+    return { ok: true, winner: W, mutated: d.mutated, tier: d.tier };
+}
+// تطور: عنصر ثانوي لحيوان بجواهر العنصر (يمكن تغييره بتكلفة جديدة)
+const evoCost = pet => ({ ess: 6 + 4 * spOf(pet).r, coins: floor(D.EGGS[Math.min(6, spOf(pet).r)].price * 0.5) });
+function evolve(P, petId, el) {
+    const Res = require("./resources"), pet = getPet(P, petId), id = "ess_" + el;
+    if (!pet) return fail("الحيوان غير موجود.");
+    if (!D.RES[id]) return fail("عنصر غير معروف.");
+    if (el === pet.el) return fail("هذا عنصره الأساسي.");
+    if (el === pet.el2) return fail("هذا عنصره الثانوي بالفعل.");
+    if (pet.lv < 20 && pet.st === 0) return fail("يجب أن يصل المستوى 20 (أو نجمة).");
+    const c = evoCost(pet);
+    if (Res.have(P, id) < c.ess) return fail("تحتاج " + c.ess + " " + D.RES[id].e + " " + D.RES[id].n + ".");
+    if (P.coins < c.coins) return fail("تحتاج " + fmt(c.coins) + " 🪙.");
+    Res.take(P, id, c.ess); P.coins -= c.coins;
+    pet.el2 = el;
+    return { ok: true, msg: "🧬 تطور! صار عنصره الثانوي " + D.ELEMENTS[el].e + " " + D.ELEMENTS[el].n + " (+8% قوة، ومهارات الصيد منه)" };
+}
+
 function breed(P, aId, bId, now, rng) {
     const chk = breedCheck(P, aId, bId, now);
     if (!chk.ok) return chk;
     const { a, b, cost } = chk;
     if (P.coins < cost) return fail("تحتاج " + fmt(cost) + ".");
     P.coins -= cost;
-    let spId = rng() < 0.5 ? a.sp : b.sp;
-    let mutated = false;
-    const r = D.SPECIES[spId].r;
-    if (r < 6 && rng() < 0.12) { spId = pick(D.SPECIES_BY_RARITY[r + 1], rng); mutated = true; }
-    let el = rng() < 0.88 ? (rng() < 0.5 ? a.el : b.el) : pick(D.EL_KEYS, rng);
-    const q = Math.min(1.6, Math.max(0.8, Math.round(((a.q + b.q) / 2) * (0.98 + rng() * 0.12) * 1000) / 1000));
-    const rr = D.SPECIES[spId].r;
-    const gen = Math.max(a.gen || 0, b.gen || 0) + 1;
-    addEggToBag(P, Math.min(6, rr), { pre: { sp: spId, el, q, gen }, bred: true });
+    const d = bredEggData(a, b, rng), mutated = d.mutated;
+    addEggToBag(P, d.tier, { pre: d.pre, bred: true });
     a.cdBreed = b.cdBreed = now + C.BREED_CD;
     P.stats.bred++;
     return { ok: true, mutated, cost, msg: "بيضة جديدة 🎒 في محفظتك" + (mutated ? " ✨ (طفرة نادرة!)" : "") + ". ضعها في الحضانة لتفقس." };
 }
 
 // ---------------- المبارزة ----------------
-function duelPower(pet, enemy) { return power(pet) * D.elementMult(pet.el, enemy.el); }
+function duelPower(pet, enemy) { return power(pet) * elMult(pet, enemy.el); }
 function duelCheck(A, B, bet, now) {
     const a = getPet(A, A.main), b = getPet(B, B.main);
     if (!a) return fail("ليس عندك حيوان أساسي.");
@@ -411,5 +453,5 @@ module.exports = {
     hungerFactor, addXp, makePet, buyEgg, hatch, buyFood, slotPrice, hatchPrice, expandSlots, expandHatch,
     train, play, feed, starCost, upgrade, collect, daily, hunt, breedCost, breedCheck, breed,
     duelPower, duelCheck, duel, setMain, release, clampCoins,
-    givePct, setHunger, feedCrystal, pick, rollRarity, bag, addEggToBag, eggMs, placeEgg, placeAll, hatchAll
+    elMult, bredEggData, breedPair, evoCost, evolve, givePct, setHunger, feedCrystal, pick, rollRarity, bag, addEggToBag, eggMs, placeEgg, placeAll, hatchAll
 };
