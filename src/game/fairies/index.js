@@ -9,13 +9,13 @@ const E = require("../engine");
 
 // ---------- الإعدادات (عدّل من هنا) ----------
 const MAX_LV = 20;
-const HOURS_PER_LV = [12, 18, 24, 36, 48];        // ساعات كل مستوى بحسب الندرة (كلما ندر نما أبطأ)
+const HOURS_PER_LV = [6, 9, 12, 18, 24];          // ساعات تلفيل كل مستوى بحسب الندرة (كلما ندر نما أبطأ) — تُحسب فقط وهي في البيئة
 const RM = [1, 1.7, 2.6, 3.8, 5.5];               // مضاعف الندرة
 const LV_SCALE = 0.06;                            // كل مستوى +6% من البف
 const CAP = 0.6;                                  // سقف أي بَف نسبي
 const OWN_CAP = 20;                               // أقصى عدد جنيات تملكها
-const SLOT_START = 1, SLOT_PRICES = [50e9, 5e12, 500e12, 50e15];   // خانات التجهيز: 1 → 5
-const SHOP_BASE = [5e9, 80e9, 1.5e12, 40e12, 1e15];               // سعر الشراء بحسب الندرة
+const SLOT_START = 1, SLOT_PRICES = [2e8, 5e9, 2e11, 8e12];   // خانات التجهيز: 1 → 5
+const SHOP_BASE = [3e6, 5e7, 1e9, 2e10, 4e11];               // سعر الشراء بحسب الندرة
 const SHOP_GROW = 1.6, SHOP_GROW_CAP = 8;                         // ×1.6 لكل جنية تملكها (حتى 8)
 const SHOP_W = [60, 28, 9, 2.5, 0.5];                             // أوزان الندرة في المتجر
 const CATCH_BASE = 0.012, CATCH_ZONE = 0.0012;                    // فرصة اصطياد جنية عند الفوز في الصيد (+ لكل منطقة)
@@ -69,17 +69,67 @@ function st(P) {
     if (!Array.isArray(P.fequip)) P.fequip = [];
     if (!P.fslots) P.fslots = SLOT_START;
     if (!P.fseq) P.fseq = P.fairies.reduce((m, f) => Math.max(m, f.id || 0), 0);
+    const t0 = Date.now();
+    P.fairies.forEach(f => { if (typeof f.tm !== "number") f.tm = Math.max(0, t0 - (f.at || t0)); });   // ترحيل: يحتفظ بما نمت به سابقًا
     if (P.stats) { P.stats.fcatch = P.stats.fcatch || 0; P.stats.fbuy = P.stats.fbuy || 0; }
     return P;
 }
 const get = (P, id) => st(P).fairies.find(f => f.id === Number(id)) || null;
 const sp = f => SPECIES[f.sp];
-const lvOf = (f, now = Date.now()) => Math.min(MAX_LV, 1 + Math.floor(Math.max(0, now - f.at) / (HOURS_PER_LV[sp(f).r] * 3600e3)));
+// البيئات: الجنية الوحيدة الموضوعة فيها تتلفل بلا وقت محدد (يمكن نزعها ووضعها في أي وقت). البيئة المناسبة لعائلتها ×1.5
+const HABITATS = {
+    forest: { n: "الغابة",   e: "🌳", fams: ["luck", "wis", "heal"] },
+    lake:   { n: "البحيرة",  e: "🌊", fams: ["trade", "hatch", "sat"] },
+    peak:   { n: "القمة",    e: "⛰️", fams: ["war", "guard", "time"] },
+    meadow: { n: "المرج",    e: "🌼", fams: ["gold", "breed", "dawn"] }
+};
+const HAB_FAV = 1.5, DUST_HOURS = 2;
+const habMult = f => (f.hab && HABITATS[f.hab] ? (HABITATS[f.hab].fams.includes(sp(f).fam) ? HAB_FAV : 1) : 0);
+// وقت التلفيل المتراكم (ملّي ثانية)
+const trainedMs = (f, now = Date.now()) => (f.tm || 0) + (f.hab && f.since ? Math.max(0, now - f.since) * habMult(f) : 0);
+const lvOf = (f, now = Date.now()) => Math.min(MAX_LV, 1 + Math.floor(trainedMs(f, now) / (HOURS_PER_LV[sp(f).r] * 3600e3)));
+// الوقت الفعلي المتبقي للمستوى التالي (0 = أعلى مستوى، -1 = ليست في بيئة)
 const nextLvMs = (f, now = Date.now()) => {
     if (lvOf(f, now) >= MAX_LV) return 0;
+    if (!f.hab) return -1;
     const per = HOURS_PER_LV[sp(f).r] * 3600e3;
-    return per - ((now - f.at) % per);
+    return Math.ceil((per - (trainedMs(f, now) % per)) / habMult(f));
 };
+const inHabitat = P => st(P).fairies.find(f => f.hab) || null;
+function setHabitat(P, id, hab, now = Date.now()) {
+    const f = get(P, id);
+    if (!f) return { ok: false, msg: "لا تملكها." };
+    if (!HABITATS[hab]) return { ok: false, msg: "بيئة غير معروفة." };
+    const cur = inHabitat(P);
+    if (cur) { cur.tm = trainedMs(cur, now); cur.hab = null; cur.since = 0; }   // واحدة فقط: تُنزع السابقة وتُحفظ خبرتها
+    f.hab = hab; f.since = now;
+    return { ok: true, msg: `${HABITATS[hab].e} وُضعت ${label(f)} في ${HABITATS[hab].n}.` + (HABITATS[hab].fams.includes(sp(f).fam) ? " بيئة مناسبة ×" + HAB_FAV + "!" : "") };
+}
+function removeHabitat(P, id, now = Date.now()) {
+    const f = get(P, id);
+    if (!f || !f.hab) return { ok: false, msg: "ليست في بيئة." };
+    f.tm = trainedMs(f, now); f.hab = null; f.since = 0;
+    return { ok: true, msg: `نُزعت ${label(f)} من البيئة وحُفظ تلفيلها.` };
+}
+// غبار الجنيات: كل غبارة = ساعتا تلفيل فورًا
+function useDust(P, id, n, now = Date.now()) {
+    const Res = require("../resources"), f = get(P, id);
+    n = Math.floor(Number(n));
+    if (!f) return { ok: false, msg: "لا تملكها." };
+    if (lvOf(f, now) >= MAX_LV) return { ok: false, msg: "وصلت أعلى مستوى." };
+    n = Math.min(n, Res.have(P, "dust"));
+    if (!(n >= 1) || !Res.take(P, "dust", n)) return { ok: false, msg: "لا تملك غبار جنيات ✨." };
+    f.tm = (f.tm || 0) + n * DUST_HOURS * 3600e3;
+    return { ok: true, msg: `✨ استخدمت ${n} غبار (+${n * DUST_HOURS} ساعة تلفيل) → مستوى ${lvOf(f, now)}` };
+}
+function rename(P, id, name) {
+    const f = get(P, id);
+    name = String(name || "").replace(/[<>&]/g, "").trim().slice(0, 16);
+    if (!f) return { ok: false, msg: "لا تملك جنية بهذا الرقم." };
+    if (!name) { delete f.nick; return { ok: true, msg: "أُزيل الاسم." }; }
+    f.nick = name;
+    return { ok: true, msg: `✅ صار اسمها ${sp(f).e} ${name}` };
+}
 const scale = (f, now) => RM[sp(f).r] * (1 + LV_SCALE * (lvOf(f, now) - 1));
 
 function buffOf(f, now) {
@@ -106,13 +156,13 @@ const famTxt = (fam, r, lv) => buffTxt(Object.fromEntries(Object.entries(FAM[fam
 function addFairy(P, spId, now = Date.now()) {
     st(P);
     if (P.fairies.length >= OWN_CAP) return null;
-    const f = { id: ++P.fseq, sp: spId, at: now };
+    const f = { id: ++P.fseq, sp: spId, at: now, tm: 0 };
     P.fairies.push(f);
     return f;
 }
 const pickRarity = (w, rng) => { let x = rng() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < w.length; i++) { x -= w[i]; if (x <= 0) return i; } return 0; };
 const pickSpecies = (r, rng) => { const l = BY_RARITY[r]; return l[Math.floor(rng() * l.length) % l.length]; };
-const label = f => `${sp(f).e} ${sp(f).n} ${RANK_E[sp(f).r]}`;
+const label = f => `${sp(f).e} ${f.nick || sp(f).n} ${RANK_E[sp(f).r]}`;
 
 function toggle(P, id) {
     const f = get(P, id);
@@ -135,6 +185,7 @@ function buySlot(P) {
 function release(P, id) {
     const f = get(P, id);
     if (!f) return { ok: false, msg: "غير موجودة." };
+    if (f.hab) removeHabitat(P, f.id);
     P.fairies.splice(P.fairies.indexOf(f), 1);
     P.fequip = P.fequip.filter(x => x !== f.id);
     return { ok: true, msg: `🕊️ أطلقت ${label(f)}.` };
@@ -177,6 +228,19 @@ function tryCatch(P, zoneIdx, luck, now, rng = Math.random) {
     const f = addFairy(P, pickSpecies(pickRarity(CATCH_W[tier], rng), rng), now);
     if (f && P.stats) P.stats.fcatch = (P.stats.fcatch || 0) + 1;
     return { f };
+}
+
+// نسب النزول (لزر النسب)
+function ratesTxt() {
+    const pcs = (w) => { const t = w.reduce((a, b) => a + b, 0); return w.map((x, i) => x ? RANK_E[i] + Math.round(x / t * 1000) / 10 + "%" : "").filter(Boolean).join(" "); };
+    let t = "🧚 <b>نسب الجنيات</b>\n\n🎯 <b>الاصطياد عند الفوز في الصيد</b>\n";
+    [["المراحل 1-4", 0], ["المراحل 5-8", 3], ["المراحل 9-12", 7], ["المراحل 13-14", 11]].forEach(([n, z], i) => {
+        const lo = CATCH_BASE + CATCH_ZONE * z, hi = CATCH_BASE + CATCH_ZONE * (z + 3);
+        t += `${n}: ${(lo * 100).toFixed(1)}%–${(hi * 100).toFixed(1)}% · ${pcs(CATCH_W[i])}\n`;
+    });
+    t += "\n(جنيات الحظ تزيد الفرصة)\n\n🛒 <b>متجر اليوم</b>: " + pcs(SHOP_W) + "\n👑 <b>البوس</b>: " + Math.round(BOSS_FAIRY_CHANCE * 100) + "% لصاحب أعلى ضرر (ملحمية فأعلى)\n";
+    t += "\n🌿 <b>البيئة</b>: ×" + HAB_FAV + " للعائلة المناسبة · ✨ الغبار = " + DUST_HOURS + " ساعة تلفيل";
+    return t;
 }
 
 // ترتيب الجنيات (للوحة المتصدرين): مجموع (ندرة × مستوى)
@@ -346,5 +410,5 @@ function install() {
 
 module.exports = {
     SPECIES, FAM, RARITIES, RANK_E, RM, MAX_LV, OWN_CAP, HOURS_PER_LV, SLOT_PRICES, st, get, sp, label, lvOf, nextLvMs, scale,
-    buffOf, buffs, buffTxt, famTxt, addFairy, toggle, buySlot, slotPrice, release, shop, buy, tryCatch, score, topRows, bossMods, install
+    HABITATS, HAB_FAV, DUST_HOURS, trainedMs, inHabitat, setHabitat, removeHabitat, useDust, rename, ratesTxt, SHOP_BASE, buffOf, buffs, buffTxt, famTxt, addFairy, toggle, buySlot, slotPrice, release, shop, buy, tryCatch, score, topRows, bossMods, install
 };

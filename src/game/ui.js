@@ -161,6 +161,9 @@ function screenMore(P) {
         .text("🖼️ إطارات الصورة", `f:${uid}:main`)
         .text("📖 دليل اللعبة", `q:${uid}:guide`)
         .row()
+        .text("🤝 سوق اللاعبين", `mk:${uid}:main`)
+        .text("📊 النسب", `g:${uid}:rates:all`)
+        .row()
         .text("🏠 القائمة الرئيسية", `g:${uid}:home`);
 
     return {
