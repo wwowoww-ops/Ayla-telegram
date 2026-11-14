@@ -33,7 +33,7 @@ function eggView(egg, now) {
 // معلومات ثابتة تقريبًا (كتالوجات المتجر والمناطق)
 function meta(P) {
     return {
-        elements: D.ELEMENTS, beats: D.BEATS,
+        elements: D.ELEMENTS, beats: D.BEATS, beatsAll: D.BEATS_ALL,
         species: Object.values(D.SPECIES).map(x => ({ id: x.id, n: x.n, e: x.e, r: x.r, els: x.els })),
         rarities: D.RARITIES.map(r => ({ n: r.n, e: r.e })),
         zones: D.ZONES.map((z, i) => ({ i, name: z.n, power: z.power, coins: z.coins, els: z.els })),

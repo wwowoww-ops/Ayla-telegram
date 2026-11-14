@@ -230,7 +230,7 @@ function cardText(P, pet) {
     return (
         `${s.e} <b>${esc(pet.nick || s.n)}</b>${pet.nick ? " (" + s.n + ")" : ""} — ${r.e} ${r.n}${pet.id === P.main ? "  ⭐ الأساسي" : ""}\n` +
         `🧿 العنصر: ${elTxt(pet.el)}\n` +
-        `🎖 الجودة: ${E.grade(pet.q)} (${pet.q.toFixed(2)})${pet.gen ? " · الجيل " + pet.gen : ""}\n` +
+        `🎖 الجودة: ${E.grade(pet.q)} (${pet.q.toFixed(2)})${E.isElite(pet) ? " 👑 نخبة" : ""}${pet.pol ? " · صقل " + pet.pol + "/" + E.POL_MAX : ""}${pet.gen ? " · الجيل " + pet.gen : ""}\n` +
         `📈 المستوى: ${pet.lv}/${D.C.LV_CAP} ${starsTxt(pet.st)}\n` +
         (pet.lv < D.C.LV_CAP
             ? `▫️ الخبرة: ${bar(pet.xp / need * 100)} ${Math.floor(pet.xp / need * 100)}%\n`
@@ -266,7 +266,8 @@ function screenPet(P, petId, note_) {
         b.btn("📌 اجعله أساسيًا", "main", pet.id);
     }
 
-    b.btn("🧬 تطور", "evo", pet.id).btn("🖼️ صورة", "img", pet.id).row();
+    b.btn("🧬 تطور", "evo", pet.id).btn("💎 صقل", "pol", pet.id).row();
+    b.btn("🖼️ صورة", "img", pet.id).row();
     b.btn("🗑️ تخلٍّ", "rel", pet.id).row();
     b.back("pets:0", "🔙 حيواناتي");
 
@@ -322,6 +323,18 @@ function screenEvo(P, petId, note_) {
     });
     b.row().back("pet:" + pet.id, "🔙 البطاقة");
     return { text: text + note(note_), kb: b.kb };
+}
+
+function screenPolish(P, petId, note_) {
+    const pet = E.getPet(P, petId);
+    if (!pet) return screenPets(P, 0);
+    const c = E.polishCost(pet), id = "ess_" + pet.el, r = D.RES[id];
+    const b = kbBuilder(P.id);
+    const text = `💎 <b>صقل ${nameP(pet)}</b>\nيرفع الجودة +0.025 في كل صقلة (حتى ${E.POL_MAX} صقلات)، والجودة ${E.ELITE_Q} فأعلى تجعله 👑 نخبة.\n` +
+        `الجودة: ${E.grade(pet.q)} (${pet.q.toFixed(3)}) · الصقل ${pet.pol || 0}/${E.POL_MAX}\n\n` +
+        `التكلفة التالية:\n🔷 بلورات: ${Res.have(P, "crystal")}/${c.crystal}\n${r.e} ${r.n}: ${Res.have(P, id)}/${c.ess}\n🪙 ${fmt(c.coins)}` + note(note_);
+    b.btn("💎 اصقل", "polgo", pet.id).row().back("pet:" + pet.id, "🔙 البطاقة");
+    return { text, kb: b.kb };
 }
 
 function screenRelease(P, petId) {
@@ -715,10 +728,10 @@ function screenElems(P) {
     let text = "🧿 <b>العناصر</b>\n\n";
 
     ["fire", "plant", "earth", "thunder", "water"].forEach(e => {
-        text += `${elTxt(e)} ⟵ يتفوق على ${elTxt(D.BEATS[e])}\n`;
+        text += `${elTxt(e)} ⟵ يتفوق على ${D.BEATS_ALL[e].map(elTxt).join(" و")} · يضعف أمام ${D.beatenBy(e).map(elTxt).join(" و")}\n`;
     });
 
-    text += `${elTxt("light")} ↔ ${elTxt("dark")} يتفوق كل منهما على الآخر\n\n⬆️ التفوق: قوة ×1.5 · ⬇️ الضعف: ×0.75`;
+    text += `${elTxt("light")} ↔ ${elTxt("dark")} يتفوق كل منهما على الآخر\n\n⬆️ التفوق: ×1.5 · ⬇️ الضعف: ×0.7\n🧿 العنصر الثانوي يعطي نصف أثره، ويُحتسب الأفضل بين عنصريه.`;
 
     return {
         text,
@@ -770,6 +783,12 @@ function route(P, parts, ctx) {
 
         case "evo":
             return { screen: screenEvo(P, x) };
+
+        case "pol":
+            return { screen: screenPolish(P, x) };
+
+        case "polgo":
+            return act(E.polish(P, x), n => screenPolish(P, x, n));
 
         case "evgo":
             return act(E.evolve(P, x, y), n => screenEvo(P, x, n));

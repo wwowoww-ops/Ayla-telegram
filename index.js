@@ -10,6 +10,7 @@ if (!token || /ضع_/.test(token)) { console.error("لم تضع التوكن ف�
 if (!dbUrl || /ضع_/.test(dbUrl)) { console.error("لم تضع رابط القاعدة في config.js"); process.exit(1); }
 
 const bot = new Bot(token);
+bot.api.config.use(require("./src/lib/kbfit").transformer);
 bot.catch(err => console.error("[bot error]", (err.error && err.error.message) || err));
 
 run(bot, dbUrl);

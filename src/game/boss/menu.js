@@ -37,7 +37,7 @@ function screenBoss(chatId, now, note) {
         t += `👥 <b>المسجّلون (${list.length}):</b>\n`;
         t += list.length ? list.map(r => `${r.ready ? "✅" : "⏳"} ${r.mode === "manual" ? "🎮" : "🤖"} ${esc(r.n)} — ${r.pets.length} حيوان`).join("\n") : "لا أحد بعد.";
         t += `\n\n🎮 يدوي: تختار مهارات حيواناتك كل جولة · 🤖 أوتو: يقاتل الذكاء الاصطناعي عنك.`;
-        t += `\n\n💡 ${D.ELEMENTS[Object.keys(D.BEATS).find(x => D.BEATS[x] === k.el)].e} حيوانات العنصر الذي يهزم عنصر الزعيم تضربه أقوى. وحيوانات الماء والنور تعالج الفريق!`;
+        t += `\n\n💡 ${D.beatenBy(k.el).map(x => D.ELEMENTS[x].e).join("")} حيوانات العنصر الذي يهزم عنصر الزعيم تضربه أقوى. وحيوانات الماء والنور تعالج الفريق!`;
         kb.text("📝 تسجيل / تعديل فريقي", "bs:reg").row().text("▶️ ابدأ القتال", "bs:go").text("🔄 تحديث", "bs:ref");
         return { text: frame(cut(t)), kb };
     }

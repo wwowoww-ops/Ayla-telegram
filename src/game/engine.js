@@ -334,6 +334,25 @@ function hunt(P, zoneIdx, now, rng) {
 }
 
 // ---------------- التزاوج ----------------
+// ---- الجودة: النخبة والصقل ----
+const ELITE_Q = 1.3, QCAP = 1.75, POL_MAX = 8, POL_STEP = 0.025;
+const isElite = pet => pet.q >= ELITE_Q;
+const polishCost = pet => { const n = (pet.pol || 0) + 1; return { crystal: 8 * n, ess: 2 * n, coins: floor(D.EGGS[Math.min(6, spOf(pet).r)].price * 0.2 * n) }; };
+function polish(P, petId) {
+    const Res = require("./resources"), pet = getPet(P, petId);
+    if (!pet) return fail("الحيوان غير موجود.");
+    if ((pet.pol || 0) >= POL_MAX) return fail("وصل أقصى صقل (" + POL_MAX + ").");
+    if (pet.q >= QCAP) return fail("وصلت جودته الحد الأقصى.");
+    const c = polishCost(pet), id = "ess_" + pet.el;
+    if (Res.have(P, "crystal") < c.crystal) return fail("تحتاج " + c.crystal + " 🔷 بلورة.");
+    if (Res.have(P, id) < c.ess) return fail("تحتاج " + c.ess + " " + D.RES[id].e + " " + D.RES[id].n + ".");
+    if (P.coins < c.coins) return fail("تحتاج " + fmt(c.coins) + " 🪙.");
+    Res.take(P, "crystal", c.crystal); Res.take(P, id, c.ess); P.coins -= c.coins;
+    pet.pol = (pet.pol || 0) + 1;
+    pet.q = Math.min(QCAP, Math.round((pet.q + POL_STEP) * 1000) / 1000);
+    return { ok: true, msg: "💎 صُقل! الجودة الآن " + grade(pet.q) + " (" + pet.q.toFixed(3) + ")" + (isElite(pet) ? " 👑 نخبة" : "") };
+}
+
 function breedCost(a, b) {
     const r = Math.max(spOf(a).r, spOf(b).r);
     return D.EGGS[r].price * 2;
@@ -353,9 +372,12 @@ function bredEggData(a, b, rng) {
     let spId = rng() < 0.5 ? a.sp : b.sp;
     let mutated = false;
     const r = D.SPECIES[spId].r;
-    if (r < 6 && rng() < 0.12) { spId = pick(D.SPECIES_BY_RARITY[r + 1], rng); mutated = true; }
+    const elite = a.q >= ELITE_Q && b.q >= ELITE_Q;
+    if (r < 6 && rng() < (elite ? 0.2 : 0.12)) { spId = pick(D.SPECIES_BY_RARITY[r + 1], rng); mutated = true; }
     const el = rng() < 0.88 ? (rng() < 0.5 ? a.el : b.el) : pick(D.EL_KEYS, rng);
-    const q = Math.min(1.6, Math.max(0.8, Math.round(((a.q + b.q) / 2) * (0.98 + rng() * 0.12) * 1000) / 1000));
+    // التزاوج يعطي جودة أقوى من الفقس العادي: متوسط الأبوين + مكافأة، ويزداد مع الجيل
+    const gen0 = Math.min(5, Math.max(a.gen || 0, b.gen || 0));
+    const q = Math.min(QCAP, Math.max(0.9, Math.round((((a.q + b.q) / 2) + 0.04 + 0.01 * gen0) * (1 + rng() * 0.09) * 1000) / 1000));
     const rr = D.SPECIES[spId].r;
     const gen = Math.max(a.gen || 0, b.gen || 0) + 1;
     return { tier: Math.min(6, rr), pre: { sp: spId, el, q, gen }, mutated };
@@ -383,7 +405,7 @@ function evolve(P, petId, el) {
     if (!pet) return fail("الحيوان غير موجود.");
     if (!D.RES[id]) return fail("عنصر غير معروف.");
     if (el === pet.el) return fail("هذا عنصره الأساسي.");
-    if (el === pet.el2) return fail("هذا عنصره الثانوي بالفعل.");
+    if (pet.el2) return fail("لديه عنصر ثانوي بالفعل (" + D.ELEMENTS[pet.el2].n + "). يُركَّب عنصر ثانوي واحد فقط.");
     if (pet.lv < 20 && pet.st === 0) return fail("يجب أن يصل المستوى 20 (أو نجمة).");
     const c = evoCost(pet);
     if (Res.have(P, id) < c.ess) return fail("تحتاج " + c.ess + " " + D.RES[id].e + " " + D.RES[id].n + ".");
@@ -453,5 +475,5 @@ module.exports = {
     hungerFactor, addXp, makePet, buyEgg, hatch, buyFood, slotPrice, hatchPrice, expandSlots, expandHatch,
     train, play, feed, starCost, upgrade, collect, daily, hunt, breedCost, breedCheck, breed,
     duelPower, duelCheck, duel, setMain, release, clampCoins,
-    elMult, bredEggData, breedPair, evoCost, evolve, givePct, setHunger, feedCrystal, pick, rollRarity, bag, addEggToBag, eggMs, placeEgg, placeAll, hatchAll
+    elMult, bredEggData, breedPair, evoCost, evolve, ELITE_Q, QCAP, POL_MAX, isElite, polishCost, polish, givePct, setHunger, feedCrystal, pick, rollRarity, bag, addEggToBag, eggMs, placeEgg, placeAll, hatchAll
 };
