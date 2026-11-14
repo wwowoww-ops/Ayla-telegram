@@ -86,6 +86,7 @@ function buildState(P, now, quests) {
         fslots: P.fslots, fslotPrice: Fy.slotPrice(P),
         fshop: Fy.shop(P, now).map((o, i) => { const sp = Fy.SPECIES[o.sp]; return { idx: i, sp: sp.id, name: sp.n, emoji: sp.e, rar: sp.r, rankEmoji: Fy.RANK_E[sp.r], rarName: Fy.RARITIES[sp.r], fam: sp.fam, price: o.price, sold: !!o.sold }; }),
         bossMods: Fy.bossMods(P),
+        fairyBuffs: Fy.buffTxt(Fy.buffs(P, now)),
         items: Object.keys(P.items).filter(id => P.items[id] > 0 && D.FOODS[id]).map(id => ({ id, count: P.items[id] })),
         meta: meta(P)
     };

@@ -91,6 +91,8 @@ function teamBuffs(P, b, r) {
     if (fm.hp) lines.push(`🧚 جنياتك: +${pc(fm.hp)} حياة`);
     if (fm.heal) lines.push(`🧚 جنياتك: +${pc(fm.heal)} علاج`);
     if (fm.dr) lines.push(`🧚 جنياتك: −${pc(fm.dr)} ضرر مستلم`);
+    const tot = Fair.buffs(P);
+    if (Object.keys(tot).length) lines.push("🧚 <b>كل بفات جنياتك:</b> " + Fair.buffTxt(tot));
     if (r.boost) lines.push(`💪 تعزيز بالبلورات: +${pc(B.BOOST_ATK)} ضرر`);
     return lines.length ? "\n\n✨ <b>بفاتك الحالية:</b>\n" + lines.join("\n") : "";
 }

@@ -132,6 +132,7 @@ SUBS.fairies = () => {
     const eq = list.filter(f => f.equipped);
     h += `<div class="card dim">الخانات: ${eq.length}/${S.fslots}. تعمل البفات وهي مجهزة فقط.` + (S.fslotPrice ? ` <button class="btn sm" data-fa="slot">➕ خانة ${fmt(S.fslotPrice)}🪙</button>` : "") + `</div>`;
     h += eq.length ? eq.map(card).join("") : `<div class="card dim">لا جنية مجهزة. افتح "جنياتي" وجهّز واحدة.</div>`;
+    if (S.fairyBuffs) h += `<div class="card">✨ <b>مجموع البفات:</b><div class="dim" style="margin-top:4px">${esc(S.fairyBuffs).split(" · ").join("<br>")}</div></div>`;
     const bm = S.bossMods || {};
     if (Object.values(bm).some(v => v)) h += `<div class="card dim">👑 بفات البوس: ${bm.atk ? "ضرر +" + Math.round(bm.atk * 100) + "% " : ""}${bm.heal ? "علاج +" + Math.round(bm.heal * 100) + "% " : ""}${bm.hp ? "حياة +" + Math.round(bm.hp * 100) + "% " : ""}${bm.dr ? "درع " + Math.round(bm.dr * 100) + "%" : ""}</div>`;
   } else if (fyTab === "all") {
@@ -207,6 +208,7 @@ SUBS.boss = () => {
   const m = S.meta, E = m.elements, B = m.beatsAll, bm = S.bossMods || {};
   let h = back + `<h2>👑 الزعماء</h2><div class="card dim">البوس الجماعي يُستدعى ويُقاتل داخل المجموعة بأمر <b>.بوس</b>. الانتظار بين الزعماء 3 ساعات، ويمكن تسريعه أو استدعاؤه فورًا أو بعنصر محدد أو تعزيز فريقك بالموارد 🔷. عند التسجيل يصلك في الخاص ترتيب فريقك وبفاتك الحالية.</div>`;
   const bf = Object.entries({ atk: "ضرر", heal: "علاج", hp: "حياة", dr: "درع" }).filter(([k]) => bm[k]).map(([k, n]) => `${n} +${Math.round(bm[k] * 100)}%`).join(" · ");
+  if (S.fairyBuffs) h += `<div class="card">✨ <b>كل بفات جنياتك:</b><div class="dim" style="margin-top:4px">${esc(S.fairyBuffs).split(" · ").join("<br>")}</div></div>`;
   h += `<div class="card">🧚 بفات جنياتك على البوس: <b>${bf || "لا شيء (جهّز جنيات)"}</b></div>`;
   (m.bossKinds || []).forEach(k => {
     const beat = Object.keys(B).filter(x => B[x].includes(k.el));

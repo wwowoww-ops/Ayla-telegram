@@ -123,6 +123,7 @@ function screenHome(P, note_) {
         `🐾 الحظيرة: ${P.pets.length}/${P.slots}   🥚 الحضانة: ${P.eggs.length}/${P.hatchSlots}   🎒 محفظة: ${(P.eggBag || []).length}\n` +
         `🔷 ${Res.listTxt(P.res) || "لا موارد"}\n` +
         `⚔️ القوة الكلية: ${fmt(E.totalPower(P))}\n` +
+        (() => { try { const F = require("./fairies"), b = F.buffs(P); return Object.keys(b).length ? `🧚 <b>البفات:</b> ${F.buffTxt(b)}\n` : ""; } catch (e) { return ""; } })() +
         `💰 الدخل: ${fmt(E.incomeAll(P))}/ساعة (متراكم: ${hours.toFixed(1)} ساعة)\n` +
         (main
             ? `⭐ الأساسي: ${nameP(main)} Lv.${main.lv} ${starsTxt(main.st)}`
