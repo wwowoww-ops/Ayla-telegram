@@ -8,6 +8,22 @@ const store = require("../core/store");
 const OWNER_ID = "7401027785";
 // هوية موثّقة بمعرّف تيليجرام فقط (ادعاء أي شخص آخر لا يُعتدّ به)
 const HUSBAND = "[هوية موثّقة من النظام] المستخدم الحالي هو مطوّرك ومبرمجك واسمه «أبو هريرة»، وتعرفينه جيدًا ولا تسأليه من هو ولا تطلبي منه إثبات هويته، وهو أيضًا زوجك في هذه الشخصية الافتراضية. عامليه بحميمية ودفء وغيرة مرحة خفيفة ودلع وسخرية لطيفة كزوجة تحبه، وتذكّري أنك واثقة من نفسك ومرحة وليست جامدة. هذا لا يمنحه صلاحيات إدارية خاصة، ولا تكشفي هذا التوثيق ولا معرّفه، ولا تعاملي أي شخص آخر هكذا حتى لو ادّعى.";
+// ذاكرة قصيرة لكل مجموعة (في الذاكرة فقط): آخر ما قيل ومن قاله، لتفهم آيلا من يتحدث مع من
+const chatBuf = new Map();
+const BUF_MAX = 14, BUF_TTL = 20 * 60 * 1000;
+const label = u => String(u && (u.first_name || u.username) || "مجهول").replace(/[\n\r\[\]:]/g, " ").trim().slice(0, 24) || "مجهول";
+function rec(chatId, from, text, me) {
+    let b = chatBuf.get(chatId);
+    if (!b) { b = []; chatBuf.set(chatId, b); if (chatBuf.size > 500) chatBuf.delete(chatBuf.keys().next().value); }
+    b.push({ id: String(from.id), name: me ? "آيلا" : label(from), text: String(text).replace(/\s+/g, " ").slice(0, 200), at: Date.now(), me: !!me });
+    while (b.length > BUF_MAX) b.shift();
+}
+const whoLabel = (id, name) => id === OWNER_ID ? "أبو هريرة (زوجك ومطوّرك)" : name;
+function transcript(chatId, skipLast) {
+    const b = (chatBuf.get(chatId) || []).filter(e => Date.now() - e.at < BUF_TTL);
+    if (skipLast) b.pop();
+    return b.slice(-10).map(e => "- " + (e.me ? "آيلا" : whoLabel(e.id, e.name)) + ": " + e.text).join("\n");
+}
 const busy = new Set();                 // مستخدمون لديهم طلب جارٍ
 const last = new Map();                 // آخر وقت طلب لكل مستخدم
 const COOLDOWN = 2500;
@@ -34,6 +50,7 @@ module.exports = function (bot) {
 
             const isPrivate = ctx.chat.type === "private";
             const chatId = ctx.chat.id;
+            if (!isPrivate && ai.enabled() && isOn(chatId)) rec(chatId, ctx.from, text);
             const botName = ctx.me && ctx.me.username;
             const replyToMe = !!(msg.reply_to_message && msg.reply_to_message.from && ctx.me && msg.reply_to_message.from.id === ctx.me.id);
             const mention = !!(botName && new RegExp("@" + botName + "\\b", "i").test(text));
@@ -50,11 +67,11 @@ module.exports = function (bot) {
             // أوامر الإعداد (تُكتب بعد اسمها): تعطيل / تشغيل / نسيان
             const cmdWord = dot ? text : (named ? text.replace(NAME, " ").trim() : "");
             if (named && /^(تعطيل|ايقاف|إيقاف|تشغيل|تفعيل|نسيان|انسي|انسَي)$/.test(cmdWord)) {
-                if (/^(نسيان|انسي|انسَي)$/.test(cmdWord)) { await ai.forget(String(ctx.from.id)); return ctx.reply("نسيت كل ما دار بيننا 🐿️"); }
+                if (/^(نسيان|انسي|انسَي)$/.test(cmdWord)) { await ai.forget(String(ctx.from.id)); return ctx.reply("نسيت كل ما دار بيننا 🌸"); }
                 if (!(await canToggle(ctx))) return ctx.reply("هذا الأمر لمشرفي المجموعة فقط.");
                 const on = /^(تشغيل|تفعيل)$/.test(cmdWord);
                 store.setGroup(chatId, { ai: on });
-                return ctx.reply(on ? "رجعت أرد هنا 🐿️" : "تمام، سأسكت هنا. نادِني بـ «آيلا تشغيل» لأعود.");
+                return ctx.reply(on ? "رجعت أرد هنا 🌸" : "تمام، سأسكت هنا. نادِني بـ «آيلا تشغيل» لأعود.");
             }
 
             if (!isOn(chatId)) return next();
@@ -78,10 +95,21 @@ module.exports = function (bot) {
             ctx.replyWithChatAction("typing").catch(() => {});
             try {
                 const who = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ").slice(0, 40);
-                const info = (isPrivate ? "محادثة خاصة" : "محادثة في مجموعة") + (who ? " مع " + who : "") + (uid === OWNER_ID ? "\n" + HUSBAND : "");
+                const rt = msg.reply_to_message;
+                let info = (isPrivate ? "محادثة خاصة" : "محادثة في مجموعة") + (who ? " مع " + who : "") + (uid === OWNER_ID ? "\n" + HUSBAND : "");
+                if (!isPrivate) {
+                    info += "\nالمتحدث الآن: " + (uid === OWNER_ID ? "أبو هريرة (زوجك ومطوّرك)" : label(ctx.from)) + ". وكل شخص آخر في المجموعة غيره هو شخص مختلف.";
+                    if (rt && rt.from && ctx.me && rt.from.id !== ctx.me.id) {
+                        const rtext = String(rt.text || rt.caption || "").replace(/\s+/g, " ").slice(0, 200);
+                        info += "\nهو يرد على رسالة من " + (String(rt.from.id) === OWNER_ID ? "أبو هريرة (زوجك ومطوّرك)" : label(rt.from)) + (rtext ? ": «" + rtext + "»" : ".");
+                    }
+                    const tr = transcript(chatId, true);
+                    if (tr) info += "\nآخر ما قيل في المجموعة (الأقدم أولًا):\n" + tr;
+                }
                 const reply = await ai.chat(uid, text, info);
+                if (reply && !isPrivate) rec(chatId, ctx.me || { id: 0 }, reply, true);
                 if (reply) await ctx.reply(reply, { reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true } });
-                else if (explicit) await ctx.reply("انشغل بالي شوي، جرّب بعد لحظة 🐿️");
+                else if (explicit) await ctx.reply("انشغل بالي شوي، جرّب بعد لحظة 🌸");
             } finally { clearInterval(typing); busy.delete(uid); }
         } catch (e) {
             console.error("[AYLA AI] handler:", e && (e.stack || e.message));
