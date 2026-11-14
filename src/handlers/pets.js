@@ -19,9 +19,17 @@ module.exports = function (bot) {
 
             if (r.photo) {
                 // نخزن file_id بعد أول إرسال حتى لا نرفع الصورة كل مرة
-                const src = ui.fileIds[r.photo.spId] || new InputFile(r.photo.file);
+                const a = r.photo.art;
+                let key = r.photo.spId, src;
+                if (a) {
+                    const art = require("../art");
+                    key = ["art", a.sp, art.stageOf(a.lv), a.rarity, (a.els || []).filter(Boolean).join("+")].join("_");
+                    try { src = ui.fileIds[key] || new InputFile(await art.render(a), "pet.jpg"); } catch (e) { src = null; }
+                }
+                if (!src) { key = r.photo.spId; src = ui.fileIds[key] || (r.photo.file && new InputFile(r.photo.file)); }
+                if (!src) return await ctx.reply("لا توجد صورة بعد.");
                 const m = await ctx.replyWithPhoto(src, { caption: r.photo.caption, parse_mode: "HTML" });
-                if (m && m.photo && m.photo.length) ui.fileIds[r.photo.spId] = m.photo[m.photo.length - 1].file_id;
+                if (m && m.photo && m.photo.length) ui.fileIds[key] = m.photo[m.photo.length - 1].file_id;
                 return;
             }
             await ui.show(ctx, r.screen);

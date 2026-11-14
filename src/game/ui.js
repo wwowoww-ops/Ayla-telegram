@@ -805,8 +805,9 @@ function route(P, parts, ctx) {
             if (!pet) return { screen: screenPets(P, 0) };
 
             const f = imageFile(E.spOf(pet).id);
+            const artOk = require("../art").supports(E.spOf(pet).id);
 
-            if (!f) {
+            if (!f && !artOk) {
                 return {
                     error: "لا توجد صورة لهذا النوع بعد (النوع #" + E.spOf(pet).id + ").",
                     screen: screenPet(P, x)
@@ -816,6 +817,7 @@ function route(P, parts, ctx) {
             return {
                 photo: {
                     file: f,
+                    art: artOk ? { sp: E.spOf(pet).id, lv: pet.lv, rarity: E.spOf(pet).r, els: [pet.el || E.spOf(pet).el, pet.el2] } : null,
                     spId: E.spOf(pet).id,
                     caption: frame(cardText(P, pet))
                 },
