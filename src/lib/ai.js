@@ -2,8 +2,9 @@
 // وذاكرة مستقلة لكل مستخدم في PostgreSQL الموجود. المفتاح من متغير البيئة AYLA_AI_KEY فقط (لا يُكتب في الكود).
 const store = require("../core/store");
 
-let cfgFile = {};
-try { cfgFile = require("../../config").ai || {}; } catch (e) { /* لا شيء */ }
+let cfgAll = {};
+try { cfgAll = require("../../config"); } catch (e) { /* لا شيء */ }
+const cfgFile = cfgAll.ai || {};
 
 const URL_ = process.env.AYLA_AI_URL || cfgFile.url || "https://gfcco2htytcmx37orxkzgm67eu0xcrcf.lambda-url.ap-northeast-2.on.aws";
 const MODEL = cfgFile.model || "claude";
@@ -15,7 +16,8 @@ const MAX_IN = 700;             // أقصى طول لرسالة المستخدم
 const MAX_OUT = 1500;           // أقصى طول للرد
 const STOP = ["</s>", "<|end|>", "<|eot_id|>", "<|end_of_text|>", "<|im_end|>", "/autoritetsdata", "<|END_OF_TURN_TOKEN|>", "<|end_of_turn|>", "<|endoftext|>", "<end_of_turn>", "<eos>"];
 
-const key = () => process.env.AYLA_AI_KEY || "";
+// المفتاح: متغير البيئة AYLA_AI_KEY إن وُجد، وإلا aiKey من config.js (ويُتجاهل النص النائب)
+const key = () => { const k = process.env.AYLA_AI_KEY || cfgAll.aiKey || ""; return /ضع_/.test(k) ? "" : k; };
 const enabled = () => !!key();
 
 const PERSONA = `أنت آيلا (AYLA): شخصية أنثوية افتراضية تتحدث مع الناس داخل تيليجرام.
