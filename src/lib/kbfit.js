@@ -26,17 +26,20 @@ function fit(markup) {
     if (!markup) return markup;
     const kb = markup.inline_keyboard || (markup.toJSON && markup.toJSON().inline_keyboard);
     if (!Array.isArray(kb)) return markup;
-    const flat = [].concat(...kb);
     const rows = [];
     let pend = null;
-    for (const b of flat) {
-        if (isLong(b)) {                       // زر طويل: سطر كامل له وحده
-            if (pend) { rows.push([pend]); pend = null; }
-            rows.push([b]);
-        } else if (pend) { rows.push([pend, b]); pend = null; }   // قصيران: جنبًا إلى جنب
+    const flush = () => { if (pend) { rows.push([pend]); pend = null; } };
+    const add = b => {
+        if (isLong(b)) { flush(); rows.push([b]); }        // زر طويل: سطر كامل له وحده
+        else if (pend) { rows.push([pend, b]); pend = null; }   // قصيران: جنبًا إلى جنب
         else pend = b;
+    };
+    for (const row of kb) {
+        // مجموعة كمية (مثل ×1 ×5 ×25 لصنف واحد) تبقى سطرًا واحدًا حتى لا تختلط مع الصنف التالي
+        if (row.length === 3 && row.every(b => Array.from(String(b.text || "")).length <= 8)) { flush(); rows.push(row); continue; }
+        row.forEach(add);
     }
-    if (pend) rows.push([pend]);
+    flush();
     return { inline_keyboard: rows };
 }
 
