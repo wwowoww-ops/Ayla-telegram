@@ -1,4 +1,4 @@
-// ترتيب أزرار الرسائل تلقائيًا: لا نضغط أزرارًا طويلة في سطر واحد (يطبَّق على كل رسالة يرسلها البوت)
+// ترتيب أزرار الرسائل تلقائيًا: كل زرين جنبًا إلى جنب، وما بقي وحده تحته (يطبَّق على كل رسالة يرسلها البوت)
 const LIMIT = 30;       // أقصى "عرض" للسطر (حروف تقريبًا)
 const MAX_LONG = 3;     // أقصى عدد أزرار بسطر عند وجود نصوص طويلة
 const MAX_SHORT = 6;    // أقصى عدد بسطر لأزرار قصيرة (رموز/أرقام)
@@ -24,8 +24,9 @@ function fit(markup) {
     if (!markup) return markup;
     const kb = markup.inline_keyboard || (markup.toJSON && markup.toJSON().inline_keyboard);
     if (!Array.isArray(kb)) return markup;
+    const flat = [].concat(...kb);
     const rows = [];
-    kb.forEach(r => fitRow(r).forEach(x => rows.push(x)));
+    for (let i = 0; i < flat.length; i += 2) rows.push(flat.slice(i, i + 2));   // كل زرين بسطر، والزر الفرد وحده
     return { inline_keyboard: rows };
 }
 
