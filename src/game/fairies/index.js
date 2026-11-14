@@ -18,7 +18,7 @@ const SLOT_START = 1, SLOT_PRICES = [50e9, 5e12, 500e12, 50e15];   // خانات
 const SHOP_BASE = [5e9, 80e9, 1.5e12, 40e12, 1e15];               // سعر الشراء بحسب الندرة
 const SHOP_GROW = 1.6, SHOP_GROW_CAP = 8;                         // ×1.6 لكل جنية تملكها (حتى 8)
 const SHOP_W = [60, 28, 9, 2.5, 0.5];                             // أوزان الندرة في المتجر
-const CATCH_BASE = 0.006, CATCH_ZONE = 0.0006;                    // فرصة اصطياد جنية عند الفوز في الصيد (+ لكل منطقة)
+const CATCH_BASE = 0.012, CATCH_ZONE = 0.0012;                    // فرصة اصطياد جنية عند الفوز في الصيد (+ لكل منطقة)
 const CATCH_W = [[80, 18, 2, 0, 0], [40, 40, 16, 4, 0], [10, 30, 35, 20, 5], [0, 10, 35, 35, 20]];  // أوزان الندرة بحسب المنطقة
 const BOSS_FAIRY_CHANCE = 0.25;                                   // فرصة جنية ملحمية+ لصاحب أعلى ضرر عند هزيمة البوس
 const RARITIES = ["شائعة", "نادرة", "ملحمية", "أسطورية", "خرافية"];
@@ -28,7 +28,7 @@ const RANK_E = ["⚪", "🔵", "🟣", "🟠", "🔴"];
 const FAM = {
     gold:  { n: "ذهب",   fx: { gold: 0.03 } },
     wis:   { n: "حكمة",  fx: { wis: 0.04 } },
-    sat:   { n: "شبع",   fx: { sat: 0.04 } },
+    sat:   { n: "وفرة",  fx: { sat: 0.04 } },
     hatch: { n: "فقس",   fx: { hatch: 0.03, tier: 0.002 } },
     war:   { n: "حرب",   fx: { war: 0.02, warBoss: 0.03 } },
     luck:  { n: "حظ",    fx: { luck: 0.03 } },
@@ -56,7 +56,7 @@ const BY_RARITY = RARITIES.map((_, r) => RAW.filter(x => x[3] === r).map(x => x[
 
 // وصف كل بَف
 const FX_TXT = {
-    gold: v => `+${pc(v)} أرباح وجمع ومكافأة يومية وغنائم`, wis: v => `+${pc(v)} خبرة (تدريب/لعب/طعام/صيد)`, sat: v => `${pc(v)} أقل جوعًا في الأنشطة وطعام أشبع`,
+    gold: v => `+${pc(v)} أرباح وجمع ومكافأة يومية وغنائم`, wis: v => `+${pc(v)} خبرة (تدريب/لعب/طعام/صيد)`, sat: v => `+${pc(v)} بلورات إضافية من الصيد`,
     hatch: v => `-${pc(v)} وقت الفقس`, tier: v => `${pc(v, 1)} فرصة بيضة أعلى فئة`, war: v => `وحوش الصيد أضعف ${pc(v)}`, warBoss: v => `+${pc(v)} ضرر على البوس`,
     luck: v => `+${pc(v)} غنائم صيد وفرصة جنيات`, tax: v => `-${pc(v)} ضريبة الثروة`, dr: v => `-${pc(v)} ضرر البوس عليك`, trade: v => `-${pc(v)} أسعار البيض والطعام والتوسعة`,
     heal: v => `+${pc(v)} علاج في البوس`, hp: v => `+${pc(v)} حياة في البوس`, breed: v => `-${pc(v)} تكلفة التزاوج`, breedCd: v => `-${pc(v)} انتظار التزاوج`, time: v => `-${pc(v)} انتظار التدريب واللعب والصيد`
@@ -173,7 +173,7 @@ function tryCatch(P, zoneIdx, luck, now, rng = Math.random) {
     st(P);
     if (rng() >= (CATCH_BASE + CATCH_ZONE * zoneIdx) * (1 + (luck || 0))) return null;
     if (P.fairies.length >= OWN_CAP) return { full: true };
-    const tier = zoneIdx <= 2 ? 0 : zoneIdx <= 5 ? 1 : zoneIdx <= 8 ? 2 : 3;
+    const tier = zoneIdx <= 3 ? 0 : zoneIdx <= 7 ? 1 : zoneIdx <= 11 ? 2 : 3;
     const f = addFairy(P, pickSpecies(pickRarity(CATCH_W[tier], rng), rng), now);
     if (f && P.stats) P.stats.fcatch = (P.stats.fcatch || 0) + 1;
     return { f };
@@ -226,28 +226,12 @@ function install() {
                 const b = buffs(P), pet = E.getPet(P, petId);
                 if (pet) {
                     if (b.wis && pet.lv < D.C.LV_CAP) E.addXp(pet, E.xpNeed(pet.lv) * pct * b.wis);
-                    if (b.sat) pet.hg = Math.min(100, pet.hg + cost * b.sat);
                     shrink(pet, cd, now, b.time || 0);
                 }
                 if (b.wis) note(r, `+${pc(b.wis)} خبرة`);
             }
             return r;
         });
-    });
-    // الطعام: شبع إضافي
-    wrap(E, "feed", orig => function (P, petId, foodId, now) {
-        const r = orig.call(this, P, petId, foodId, now);
-        if (r && r.ok) {
-            const b = buffs(P), pet = E.getPet(P, petId), f = D.FOODS[foodId];
-            if (pet && f) {
-                if (b.sat) pet.hg = Math.min(100, pet.hg + f.hg * b.sat);
-                if (b.wis && f.xp && pet.lv < D.C.LV_CAP) {
-                    const pct = f.el ? (f.el === pet.el ? 0.4 : 0.1) : f.xp;
-                    E.addXp(pet, E.xpNeed(pet.lv) * pct * b.wis);
-                }
-            }
-        }
-        return r;
     });
     // الصيد: وحوش أضعف، ذهب وخبرة وغنائم، واصطياد جنيات
     wrap(E, "hunt", orig => function (P, zoneIdx, now, rng) {
@@ -258,15 +242,16 @@ function install() {
         try { r = orig.call(this, P, zoneIdx, now, rng); } finally { if (z) z.power = keep; }
         if (r && r.ok) {
             const pet = E.getPet(P, P.main), rn = rng || Math.random;
-            if (pet) { if (b.sat) pet.hg = Math.min(100, pet.hg + 12 * b.sat); shrink(pet, "cdHunt", now, b.time || 0); }
+            if (pet) shrink(pet, "cdHunt", now, b.time || 0);
             if (r.win) {
                 const bits = [];
                 if (b.gold && r.coins) { const x = bonusCoins(P, r.coins, b.gold); if (x) { r.coins += x; bits.push(`+${E.fmt(x)} 🪙`); } }
                 if (b.wis && pet && pet.lv < D.C.LV_CAP) E.addXp(pet, E.xpNeed(pet.lv) * z.xp * b.wis);
                 if (b.luck && rn() < b.luck) {
-                    if (P.eggs.length < P.hatchSlots && rn() < 0.5) { P.eggs.push({ id: ++P.eggSeq, tier: z.egg, readyAt: now + D.EGGS[z.egg].min * 60000 }); bits.push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n); (r.drops = r.drops || []).push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n); }
-                    else { P.items.feast = (P.items.feast || 0) + 1; bits.push("🍗 وليمة"); (r.drops = r.drops || []).push("🍗 وليمة"); }
+                    if (rn() < 0.5) { E.addEggToBag(P, z.egg); bits.push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n); (r.drops = r.drops || []).push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n + " (في المحفظة)"); }
+                    else { const k = 2 + Math.floor(zoneIdx / 2); require("../resources").add(P, "crystal", k); bits.push("🔷 ×" + k); }
                 }
+                if (b.sat) { const k = Math.floor(rn() < (b.sat * 4) % 1 ? (b.sat * 4) + 1 : (b.sat * 4)); if (k > 0) { require("../resources").add(P, "crystal", k); bits.push("🔷 +" + k); } }
                 const c = tryCatch(P, zoneIdx, b.luck, now, rn);
                 if (c && c.f) { bits.push(`🎉 اصطدت جنية: ${label(c.f)}`); r.fairy = c.f; }
                 else if (c && c.full) bits.push("ظهرت جنية لكن حديقتك ممتلئة!");
@@ -285,14 +270,6 @@ function install() {
         });
     });
     // الفقس: وقت أقصر + فرصة فئة أعلى
-    wrap(E, "buyEgg", orig => function (P, tier, now) {
-        const r = orig.call(this, P, tier, now);
-        if (r && r.ok) {
-            const h = buffs(P).hatch, egg = P.eggs[P.eggs.length - 1];
-            if (h && egg) egg.readyAt = now + Math.floor((egg.readyAt - now) * (1 - h));
-        }
-        return r;
-    });
     wrap(E, "hatch", orig => function (P, eggId, now, rng) {
         const egg = P.eggs.find(e => e.id === Number(eggId)), t = buffs(P).tier;
         let up = false;

@@ -144,7 +144,6 @@ function finalize(chatId, parts, rep, now) {
         const part = parts.find(p => p.uid === r.id);
         const P = part.P;
         P.fown = P.fown || {};
-        part.pets.forEach(pet => { pet.hg = Math.max(0, E.hungerNow(pet, now) - HUNGER_COST); pet.hgAt = now; });
         const share = 0.5 + 0.5 * (r.score / top);
         const coins = Math.floor(E.incomeAll(P) * (killed ? 6 : 1.5) * share);
         P.coins = E.clampCoins(P.coins + coins);
@@ -153,9 +152,9 @@ function finalize(chatId, parts, rep, now) {
         const got = [];
         if (killed) {
             P.stats.bossKills = (P.stats.bossKills || 0) + 1;
-            P.items.elixir = (P.items.elixir || 0) + (i < 3 ? 2 : 1);
-            if (i < 3 && P.eggs.length < P.hatchSlots) {
-                P.eggs.push({ id: ++P.eggSeq, tier: 5, readyAt: now + D.EGGS[5].min * 60000 });
+            require("../resources").add(P, "crystal", i < 3 ? 12 : 6);
+            if (i < 3) {
+                E.addEggToBag(P, 5);
                 got.push(D.EGGS[5].e + " " + D.EGGS[5].n);
             }
             if (i === 0) {

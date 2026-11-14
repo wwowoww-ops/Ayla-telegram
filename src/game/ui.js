@@ -4,6 +4,8 @@ const path = require("path");
 const { InlineKeyboard } = require("grammy");
 const D = require("./data");
 const E = require("./engine");
+const Res = require("./resources");
+const Hunt = require("./hunting");
 const store = require("../core/store");
 const { esc, nameOf } = require("../lib/util");
 
@@ -118,7 +120,8 @@ function screenHome(P, note_) {
     const text =
         `🐾 <b>عالم الحيوانات</b> — ${esc(P.name)}\n\n` +
         `🪙 رصيدك: <b>${fmt(P.coins)}</b>\n` +
-        `🐾 الحظيرة: ${P.pets.length}/${P.slots}   🥚 الحضانة: ${P.eggs.length}/${P.hatchSlots}\n` +
+        `🐾 الحظيرة: ${P.pets.length}/${P.slots}   🥚 الحضانة: ${P.eggs.length}/${P.hatchSlots}   🎒 محفظة: ${(P.eggBag || []).length}\n` +
+        `🔷 ${Res.listTxt(P.res) || "لا موارد"}\n` +
         `⚔️ القوة الكلية: ${fmt(E.totalPower(P))}\n` +
         `💰 الدخل: ${fmt(E.incomeAll(P))}/ساعة (متراكم: ${hours.toFixed(1)} ساعة)\n` +
         (main
@@ -219,8 +222,6 @@ function cardText(P, pet) {
     const s = E.spOf(pet);
     const r = rarOf(pet);
     const need = E.xpNeed(pet.lv);
-    const h = E.hungerNow(pet, t);
-
     return (
         `${s.e} <b>${esc(pet.nick || s.n)}</b>${pet.nick ? " (" + s.n + ")" : ""} — ${r.e} ${r.n}${pet.id === P.main ? "  ⭐ الأساسي" : ""}\n` +
         `🧿 العنصر: ${elTxt(pet.el)}\n` +
@@ -230,7 +231,7 @@ function cardText(P, pet) {
             ? `▫️ الخبرة: ${bar(pet.xp / need * 100)} ${Math.floor(pet.xp / need * 100)}%\n`
             : "▫️ وصل الحد الأقصى" +
               (pet.st < D.C.MAX_STARS ? " — جاهز للترقية ⭐" : " 🏆") + "\n") +
-        `🍖 الجوع: ${bar(h)} ${Math.floor(h)}%\n` +
+        (pet.el2 ? `🧿 عنصر ثانوي: ${elTxt(pet.el2)}\n` : "") +
         `⚔️ القوة: <b>${fmt(E.power(pet))}</b>   💰 الدخل: ${fmt(E.incomePerHour(pet))}/ساعة\n` +
         `🏋️ التدريب: ${cdTxt(pet.cdTrain, t)}   🎮 اللعب: ${cdTxt(pet.cdPlay, t)}\n` +
         `🆔 النوع #${s.id}`
@@ -246,7 +247,7 @@ function screenPet(P, petId, note_) {
 
     const b = kbBuilder(P.id);
 
-    b.btn("🍖 إطعام", "feed", pet.id)
+    b.btn("🔷 بلورات", "feed", pet.id)
         .btn("🏋️ تدريب", "train", pet.id)
         .btn("🎮 لعب", "play", pet.id)
         .row();
@@ -272,33 +273,16 @@ function screenPet(P, petId, note_) {
 function screenFeed(P, petId, note_) {
     const pet = E.getPet(P, petId);
     if (!pet) return screenPets(P, 0);
-
-    const owned = Object.keys(P.items).filter(
-        id => P.items[id] > 0 && D.FOODS[id]
-    );
-
+    const have = Res.have(P, "crystal");
     const b = kbBuilder(P.id);
-
-    owned.forEach(id => {
-        const f = D.FOODS[id];
-
-        b.btn(
-            f.e + " " + f.n + " ×" + P.items[id] +
-            (f.el && f.el === pet.el ? " ✨" : ""),
-            "eat",
-            pet.id,
-            id
-        ).row();
-    });
-
-    b.btn("🛒 اشتر طعامًا", "shopfood").row();
+    [1, 5, 25].forEach(n => { if (have >= n) b.btn("🔷 ×" + n, "eat", pet.id, n); });
+    if (have > 25) b.btn("🔷 الكل (" + have + ")", "eat", pet.id, have);
+    b.row();
+    b.btn("🛒 اشتر بلورات", "shopres").row();
     b.back("pet:" + pet.id, "🔙 البطاقة");
-
     const text =
-        `🍖 <b>إطعام ${nameP(pet)}</b>\nالجوع: ${bar(E.hungerNow(pet, now()))} ${Math.floor(E.hungerNow(pet, now()))}%\n` +
-        (owned.length ? "اختر ما تطعمه:" : "لا تملك طعامًا! اشتر من المتجر.") +
-        note(note_);
-
+        `🔷 <b>بلورات لـ ${nameP(pet)}</b>\nكل بلورة = ${Math.round(Res.XP_PER_CRYSTAL * 100)}% من خبرة المستوى.\n` +
+        `عندك: ${have} بلورة` + note(note_);
     return { text, kb: b.kb };
 }
 
@@ -332,42 +316,39 @@ function eggChances(w) {
 function screenEggs(P, note_) {
     const t = now();
     const b = kbBuilder(P.id);
-
-    let text = `🥚 <b>الحضانة</b> (${P.eggs.length}/${P.hatchSlots})\n\n`;
-
-    if (!P.eggs.length) {
-        text += "لا بيض الآن. اشترِ من المتجر 🛒 أو زاوج حيوانين 🧬\n";
-    }
-
+    const bag = P.eggBag || [];
+    let text = `🥚 <b>الحضانة</b> (${P.eggs.length}/${P.hatchSlots})\n`;
+    if (!P.eggs.length) text += "فارغة.\n";
+    let ready = 0;
     P.eggs.forEach(e => {
-        const ready = e.readyAt <= t;
-
-        text += `${eggTxt(e)}${e.bred ? " (من التزاوج)" : ""}: ${ready ? "🐣 جاهزة!" : "⏳ " + E.dur(e.readyAt - t)}\n`;
-
-        if (ready) {
-            b.btn("🐣 افقس " + eggTxt(e), "hatch", e.id).row();
-        }
+        const ok = e.readyAt <= t;
+        if (ok) ready++;
+        text += `${eggTxt(e)}${e.bred ? " (تزاوج)" : ""}: ${ok ? "🐣 جاهزة!" : "⏳ " + E.dur(e.readyAt - t)}\n`;
+        if (ok) b.btn("🐣 " + eggTxt(e), "hatch", e.id).row();
     });
-
-    b.btn("🛒 اشتر بيضًا", "shopeggs").row().back();
-
-    return {
-        text: text + note(note_),
-        kb: b.kb
-    };
+    if (ready > 1) b.btn("🐣 فقس الكل (" + ready + ")", "hatchall").row();
+    text += `\n🎒 <b>محفظة البيض</b> (${bag.length})\n`;
+    if (!bag.length) text += "فارغة. ما تشتريه أو تحصل عليه يأتي هنا لتضعه بنفسك.\n";
+    const shown = [...bag].sort((a, c) => c.tier - a.tier).slice(0, 8);
+    shown.forEach(e => {
+        text += `${eggTxt(e)}${e.bred ? " (تزاوج)" : ""}\n`;
+        b.btn("📥 " + eggTxt(e), "place", e.id).row();
+    });
+    if (bag.length > shown.length) text += `… و${bag.length - shown.length} أخرى\n`;
+    if (bag.length > 1 && P.eggs.length < P.hatchSlots) b.btn("📥 ضع الكل", "placeall").row();
+    b.btn("🛒 اشتر بيضًا", "shopeggs").btn("📊 النسب", "rates", "eggs").row().back();
+    return { text: text + note(note_), kb: b.kb };
 }
 
 function screenShop(P, note_) {
     const b = kbBuilder(P.id);
-
     b.btn("🥚 البيض", "shopeggs")
-        .btn("🍖 الطعام", "shopfood")
+        .btn("🔷 الموارد", "shopres")
         .row()
-        .btn("🍇 فواكه العناصر", "shopfruit")
         .btn("🏠 التوسعات", "shopup")
+        .btn("📊 النسب", "rates", "all")
         .row()
         .back();
-
     return {
         text: `🛒 <b>المتجر</b>\n🪙 رصيدك: <b>${fmt(P.coins)}</b>` + note(note_),
         kb: b.kb
@@ -391,34 +372,34 @@ function screenShopEggs(P, note_) {
     };
 }
 
-function screenShopFood(P, fruit, note_) {
+function screenShopRes(P, note_) {
     const b = kbBuilder(P.id);
-    const list = fruit ? D.FRUIT_FOODS : D.GENERAL_FOODS;
-
-    let text = (fruit ? "🍇 <b>فواكه العناصر</b>" : "🍖 <b>سوق الطعام</b>") +
-        ` — 🪙 ${fmt(P.coins)}\n`;
-
-    text += fruit
-        ? "الفاكهة تعطي 40% خبرة لحيوان من عنصرها (و10% لغيره).\n\n"
-        : "\n";
-
-    list.forEach(id => {
-        const f = D.FOODS[id];
-
-        text += `${f.e} <b>${f.n}</b> — ${fmt(f.price)} 🪙 · جوع +${f.hg}${f.xp && !f.el ? " · خبرة +" + Math.round(f.xp * 100) + "%" : ""}${f.el ? " · " + elTxt(f.el) : ""} (عندك: ${P.items[id] || 0})\n`;
-
-        b.btn(f.e + " ×1", "buyfood", id, 1)
-            .btn("×5", "buyfood", id, 5)
-            .btn("×25", "buyfood", id, 25)
-            .row();
+    let text = `🔷 <b>سوق الموارد</b> — 🪙 ${fmt(P.coins)}\nالسعر يتناسب مع أعلى حيوان عندك.\n\n`;
+    Object.keys(D.RES).forEach(id => {
+        const r = D.RES[id];
+        text += `${r.e} <b>${r.n}</b> — ${fmt(Res.priceOf(P, id))} 🪙 (عندك: ${Res.have(P, id)})\n   ${r.d || ""}\n`;
+        b.btn(r.e + " ×1", "buyres", id, 1).btn("×5", "buyres", id, 5).btn("×25", "buyres", id, 25).row();
     });
-
     b.back("shop");
+    return { text: text + note(note_), kb: b.kb };
+}
 
-    return {
-        text: text + note(note_),
-        kb: b.kb
-    };
+function screenRates(P, kind) {
+    let text = "📊 <b>النسب</b>\n\n";
+    if (kind === "eggs" || kind === "all") {
+        text += "🥚 <b>نسب الفقس</b>\n";
+        D.EGGS.forEach(e => { text += `${e.e} ${e.n}: ${eggChances(e.w)}\n`; });
+        text += "\n🧬 <b>التزاوج</b>: طفرة للفئة الأعلى 12% · عنصر الأبوين 88%\n\n";
+    }
+    if (kind === "hunt" || kind === "all") {
+        text += "⚔️ <b>غنائم الصيد (عند الفوز)</b>\n";
+        text += "🪙 عملات: دائمًا\n🥚 بيضة المنطقة: 8%\n🔷 بلورات: 75%\n💠 جوهرة عنصر الوحش: 40%\n✨ غبار الجنيات: 3% + 0.5% لكل مرحلة (من المرحلة 4)\n";
+        text += "\n🏹 <b>المهارات</b>\n";
+        Object.keys(Hunt.RATES || {}).forEach(k => { text += Hunt.RATES[k] + "\n"; });
+    }
+    const b = kbBuilder(P.id);
+    b.back();
+    return { text, kb: b.kb };
 }
 
 function screenShopUp(P, note_) {
@@ -456,12 +437,12 @@ function screenHunt(P, note_) {
 
         text += `${mark} <b>${i + 1}. ${z.n}</b> — قوة ${fmt(z.power)} · 🪙 ${fmt(z.coins)}\n`;
 
-        b.btn(mark + " " + (i + 1) + ". " + z.n, "go", i);
+        b.btn(mark + " " + (i + 1) + ". " + z.n + (z.elite ? " 👑" : ""), "go", i);
 
         if (i % 2 === 1) b.row();
     });
 
-    b.row().back();
+    b.row().btn("📊 النسب", "rates", "hunt").row().back();
 
     return {
         text: text + note(note_),
@@ -479,11 +460,14 @@ function huntText(res, zone, pet) {
 
     if (res.win) {
         return `🏆 <b>انتصار</b> في ${zone.n}!\n👾 وحش ${mon} (${fmt(res.monPower)}) ${effTxt}\n🪙 +${fmt(res.coins)}` +
+            (Object.keys(res.got || {}).length ? "\n" + Res.listTxt(res.got) : "") +
+            (res.notes && res.notes.length ? "\n" + res.notes.join("\n") : "") +
             (res.levels ? `\n⬆️ ارتقى ${nameP(pet)} إلى المستوى ${pet.lv}` : "") +
             (res.drops.length ? "\n🎁 غنيمة: " + res.drops.join("، ") : "");
     }
 
-    return `💀 <b>خسارة</b> في ${zone.n}\n👾 وحش ${mon} (${fmt(res.monPower)}) ${effTxt}\nقوتك الفعلية ${fmt(res.mine)}. قوِّ حيوانك أو جرّب منطقة أسهل.`;
+    return `💀 <b>خسارة</b> في ${zone.n}\n👾 وحش ${mon} (${fmt(res.monPower)}) ${effTxt}\nقوتك الفعلية ${fmt(res.mine)}. قوِّ حيوانك أو جرّب منطقة أسهل.` +
+        (res.notes && res.notes.length ? "\n" + res.notes.join("\n") : "");
 }
 
 // التزاوج: اختر الأول، ثم الثاني، ثم تأكيد
@@ -717,7 +701,7 @@ function route(P, parts, ctx) {
             return { screen: screenFeed(P, x) };
 
         case "eat":
-            return act(E.feed(P, x, y, t), n => screenFeed(P, x, n));
+            return act(Res.useCrystals(P, x, y), n => screenFeed(P, x, n));
 
         case "train":
             return act(E.train(P, x, t), n => screenPet(P, x, n));
@@ -791,17 +775,27 @@ function route(P, parts, ctx) {
         case "buyegg":
             return act(E.buyEgg(P, Number(x), t), n => screenShopEggs(P, n));
 
-        case "shopfood":
-            return { screen: screenShopFood(P, false) };
+        case "shopres":
+            return { screen: screenShopRes(P) };
 
-        case "shopfruit":
-            return { screen: screenShopFood(P, true) };
+        case "buyres":
+            return act(Res.buy(P, x, y), n => screenShopRes(P, n));
 
-        case "buyfood":
-            return act(
-                E.buyFood(P, x, y),
-                n => screenShopFood(P, /^fruit_/.test(x), n)
-            );
+        case "rates":
+            return { screen: screenRates(P, x || "all") };
+
+        case "place":
+            return act(E.placeEgg(P, x, t), n => screenEggs(P, n));
+
+        case "placeall":
+            return act(E.placeAll(P, t), n => screenEggs(P, n));
+
+        case "hatchall": {
+            const r = E.hatchAll(P, t, rng);
+            if (!r.ok) return { error: r.msg, screen: screenEggs(P) };
+            const lines = r.pets.map(p => `${E.spOf(p).e} ${E.spOf(p).n} ${rarOf(p).e} 🎖${E.grade(p.q)} ${D.ELEMENTS[p.el].e}`).join("\n");
+            return { screen: screenEggs(P, `🎉 ${r.msg}\n${lines}`) };
+        }
 
         case "shopup":
             return { screen: screenShopUp(P) };

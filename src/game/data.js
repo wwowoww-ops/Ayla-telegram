@@ -93,19 +93,38 @@ Object.keys(FRUITS).forEach(el => {
 const GENERAL_FOODS = ["date", "meat", "feast", "cake", "potion", "elixir", "tear"];
 const FRUIT_FOODS = Object.keys(FRUITS).map(el => "fruit_" + el);
 
-// مناطق الصيد: القوة المطلوبة تقريبًا، مكافأة الذهب، نسبة xp، عناصر الوحوش، بيض قد يسقط
+// مناطق الصيد (14 مرحلة): القوة المطلوبة تقريبًا، مكافأة الذهب، نسبة xp، عناصر الوحوش، فئة البيض الساقط
+// المراحل الأخيرة فيها وحوش نخبة (elite) بقدرات خاصة. آخر مرحلة يتجاوزها حيوان خرافي ⭐5 أو سماوي قوي بمهاراته.
 const ZONES = [
-    { n: "غابة الظلال",    power: 8,     coins: 150,     xp: 0.05, els: ["plant", "dark"],  egg: 0 },
-    { n: "الكهوف القديمة", power: 40,    coins: 3e3,  xp: 0.05, els: ["earth", "dark"],  egg: 0 },
-    { n: "صحراء السراب",   power: 200,   coins: 96e3,   xp: 0.06, els: ["fire", "earth"],  egg: 1 },
-    { n: "جبال الجليد",    power: 800,   coins: 3.9e6,  xp: 0.06, els: ["water", "light"], egg: 2 },
-    { n: "فوهة البركان",   power: 3.2e3, coins: 150e6,  xp: 0.07, els: ["fire", "thunder"], egg: 3 },
-    { n: "قلعة العواصف",   power: 12e3,  coins: 6e9,    xp: 0.07, els: ["thunder", "water"], egg: 4 },
-    { n: "هاوية الأرواح",  power: 50e3,  coins: 240e9,  xp: 0.08, els: ["dark", "fire"],   egg: 4 },
-    { n: "جزر السماء",     power: 200e3, coins: 1e12,   xp: 0.08, els: ["light", "thunder"], egg: 5 },
-    { n: "قلب الكون",      power: 800e3, coins: 40e12,  xp: 0.09, els: ["light", "dark"],  egg: 5 },
-    { n: "عرش الآلهة",     power: 3.2e6, coins: 1.5e15, xp: 0.1,  els: ["fire", "water", "plant", "earth", "thunder", "light", "dark"], egg: 6 }
+    { n: "غابة الظلال",     power: 8,      coins: 150,     xp: 0.06, els: ["plant", "dark"],  egg: 0 },
+    { n: "الكهوف القديمة",  power: 40,     coins: 3e3,     xp: 0.06, els: ["earth", "dark"],  egg: 0 },
+    { n: "صحراء السراب",    power: 200,    coins: 60e3,    xp: 0.07, els: ["fire", "earth"],  egg: 1 },
+    { n: "المستنقع السام",  power: 500,    coins: 400e3,   xp: 0.07, els: ["plant", "dark", "water"], egg: 1 },
+    { n: "جبال الجليد",     power: 1.2e3,  coins: 2.5e6,   xp: 0.07, els: ["water", "light"], egg: 2 },
+    { n: "فوهة البركان",    power: 4e3,    coins: 40e6,    xp: 0.08, els: ["fire", "thunder"], egg: 2 },
+    { n: "الغابة المسحورة", power: 10e3,   coins: 250e6,   xp: 0.08, els: ["plant", "light", "earth"], egg: 3 },
+    { n: "قلعة العواصف",    power: 25e3,   coins: 1.5e9,   xp: 0.08, els: ["thunder", "water"], egg: 3 },
+    { n: "هاوية الأرواح",   power: 60e3,   coins: 20e9,    xp: 0.09, els: ["dark", "fire"],   egg: 4, elite: 1 },
+    { n: "المدينة الغارقة", power: 130e3,  coins: 120e9,   xp: 0.09, els: ["water", "dark", "earth"], egg: 4, elite: 1 },
+    { n: "جزر السماء",      power: 270e3,  coins: 600e9,   xp: 0.09, els: ["light", "thunder"], egg: 5, elite: 2 },
+    { n: "قلب الكون",       power: 520e3,  coins: 8e12,    xp: 0.10, els: ["light", "dark"],  egg: 5, elite: 2 },
+    { n: "بوابة الأبعاد",   power: 850e3,  coins: 40e12,   xp: 0.10, els: ["fire", "water", "thunder", "dark", "light"], egg: 6, elite: 3 },
+    { n: "عرش الآلهة",      power: 1.3e6,  coins: 300e12,  xp: 0.12, els: ["fire", "water", "plant", "earth", "thunder", "light", "dark"], egg: 6, elite: 3 }
 ];
+
+// الموارد: تُصطاد وتُستخدم في الترقية السريعة والتطور والتعزيزات (حلّت محل الطعام)
+const RES = {
+    crystal:      { n: "بلورة",         e: "🔷", d: "تمنح حيوانك خبرة، وتُستخدم في تعزيزات الزعيم" },
+    dust:         { n: "غبار الجنيات",  e: "✨", d: "لتدريب الجنيات وتسريع التطور" },
+    ess_fire:     { n: "جوهر النار",    e: "🔥", el: "fire" },
+    ess_water:    { n: "جوهر الماء",    e: "💧", el: "water" },
+    ess_plant:    { n: "جوهر النبات",   e: "🌿", el: "plant" },
+    ess_earth:    { n: "جوهر الأرض",    e: "🪨", el: "earth" },
+    ess_thunder:  { n: "جوهر البرق",    e: "⚡", el: "thunder" },
+    ess_light:    { n: "جوهر النور",    e: "✨", el: "light" },
+    ess_dark:     { n: "جوهر الظلام",   e: "🌑", el: "dark" }
+};
+const RES_KEYS = Object.keys(RES);
 
 const C = {
     LV_CAP: 50,
@@ -113,9 +132,9 @@ const C = {
     MAX_COINS: 9e15,
     HUNGER_MS: 6 * 60 * 1000,       // نقطة جوع كل 6 دقائق
     BASE_SLOTS: 12, BASE_HATCH: 2,
-    TRAIN_CD: 20 * 60 * 1000, PLAY_CD: 10 * 60 * 1000, HUNT_CD: 15 * 60 * 1000,
-    BREED_CD: 8 * 3600 * 1000, BREED_LV: 10, DUEL_CD: 5 * 60 * 1000,
+    TRAIN_CD: 15 * 60 * 1000, PLAY_CD: 10 * 60 * 1000, HUNT_CD: 10 * 60 * 1000,
+    BREED_CD: 6 * 3600 * 1000, BREED_LV: 10, DUEL_CD: 5 * 60 * 1000,
     COLLECT_CAP_H: 12, DAILY_MS: 20 * 3600 * 1000, STREAK_MS: 48 * 3600 * 1000
 };
 
-module.exports = { ELEMENTS, EL_KEYS, BEATS, elementMult, RARITIES, SPECIES, SPECIES_BY_RARITY, EGGS, FOODS, GENERAL_FOODS, FRUIT_FOODS, ZONES, C };
+module.exports = { RES, RES_KEYS, ELEMENTS, EL_KEYS, BEATS, elementMult, RARITIES, SPECIES, SPECIES_BY_RARITY, EGGS, FOODS, GENERAL_FOODS, FRUIT_FOODS, ZONES, C };

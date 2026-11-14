@@ -80,7 +80,7 @@ function screenProfile(P, now) {
         `🪙 الرصيد: <b>${fmt(P.coins)}</b>\n` +
         `⚔️ القوة الكلية: ${fmt(E.totalPower(P))}\n` +
         `💰 الدخل: ${fmt(E.incomeAll(P))}/ساعة\n` +
-        `🐾 الحظيرة: ${P.pets.length}/${P.slots}   🥚 الحضانة: ${P.eggs.length}/${P.hatchSlots}\n` +
+        `🐾 الحظيرة: ${P.pets.length}/${P.slots}   🥚 الحضانة: ${P.eggs.length}/${P.hatchSlots}   🎒 ${(P.eggBag || []).length}\n` +
         `🔥 المواظبة: ${P.streak || 0} يوم\n`;
     if (top) {
         const sp = E.spOf(top), r = D.RARITIES[sp.r];
@@ -95,18 +95,14 @@ function screenProfile(P, now) {
 }
 
 function screenBag(P) {
-    const foods = Object.keys(P.items).filter(id => P.items[id] > 0 && D.FOODS[id]);
-    let text = "🎒 <b>المخزن</b>\n\n";
-    if (!foods.length) text += "فارغ. اشترِ طعامًا من 🛒 المتجر.\n";
-    foods.forEach(id => {
-        const f = D.FOODS[id];
-        const eff = [`جوع +${f.hg}`];
-        if (f.xp && !f.el) eff.push(`خبرة +${Math.round(f.xp * 100)}%`);
-        if (f.el) eff.push(`${D.ELEMENTS[f.el].e} ${D.ELEMENTS[f.el].n}`);
-        text += `${f.e} <b>${f.n}</b> ×${P.items[id]} — ${eff.join(" · ")}\n`;
-    });
+    const Res = require("./resources");
+    let text = "🎒 <b>المخزن</b>\n\n🔷 <b>الموارد</b>\n";
+    const keys = Object.keys(P.res || {}).filter(id => D.RES[id] && P.res[id] > 0);
+    if (!keys.length) text += "فارغ. اصطد أو اشترِ من 🛒 المتجر.\n";
+    keys.forEach(id => { text += `${Res.label(id)} ×${fmt(P.res[id])}\n`; });
     const t = Date.now();
-    text += `\n🥚 <b>البيض</b>\n`;
+    text += `\n🎒 <b>محفظة البيض</b>: ${(P.eggBag || []).length} بيضة\n`;
+    text += `\n🥚 <b>الحضانة</b>\n`;
     if (!P.eggs.length) text += "لا بيض في الحضانة.\n";
     P.eggs.forEach(e => {
         const d = D.EGGS[e.tier];
@@ -119,7 +115,7 @@ function screenGuide(P) {
     const text =
         "📖 <b>دليل سريع</b>\n\n" +
         "1️⃣ افقس بيضتك الأولى من 🥚 الحضانة.\n" +
-        "2️⃣ أطعم حيوانك وجمّع الأرباح 💰 كل فترة.\n" +
+        "2️⃣ استخدم البلورات 🔷 لرفع حيوانك وجمّع الأرباح 💰 كل فترة.\n" +
         "3️⃣ اصطد ⚔️ لتربح ذهبًا وخبرة وبيضًا.\n" +
         "4️⃣ اشترِ بيضًا أغلى لندرة أعلى.\n" +
         "5️⃣ زاوج 🧬 حيوانين لبيضة بجودة أعلى.\n" +
