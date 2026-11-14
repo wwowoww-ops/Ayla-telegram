@@ -96,7 +96,11 @@ function screenProfile(P, now) {
 
 function screenBag(P) {
     const Res = require("./resources");
-    let text = "🎒 <b>المخزن</b>\n\n🔷 <b>الموارد</b>\n";
+    let text = "🎒 <b>المخزن</b>\n\n🍖 <b>الطعام</b>\n";
+    const foods = Object.keys(P.items).filter(id => P.items[id] > 0 && D.FOODS[id] && !/^fruit_/.test(id));
+    if (!foods.length) text += "لا طعام.\n";
+    foods.forEach(id => { const f = D.FOODS[id]; text += `${f.e} <b>${f.n}</b> ×${P.items[id]} — جوع +${f.hg}${f.xp ? " · خبرة +" + Math.round(f.xp * 100) + "%" : ""}\n`; });
+    text += "\n🔷 <b>الموارد</b>\n";
     const keys = Object.keys(P.res || {}).filter(id => D.RES[id] && P.res[id] > 0);
     if (!keys.length) text += "فارغ. اصطد أو اشترِ من 🛒 المتجر.\n";
     keys.forEach(id => { text += `${Res.label(id)} ×${fmt(P.res[id])}\n`; });
@@ -115,7 +119,7 @@ function screenGuide(P) {
     const text =
         "📖 <b>دليل سريع</b>\n\n" +
         "1️⃣ افقس بيضتك الأولى من 🥚 الحضانة.\n" +
-        "2️⃣ استخدم البلورات 🔷 لرفع حيوانك وجمّع الأرباح 💰 كل فترة.\n" +
+        "2️⃣ أطعم حيوانك (أو استخدم البلورات 🔷) وجمّع الأرباح 💰 كل فترة.\n" +
         "3️⃣ اصطد ⚔️ لتربح ذهبًا وخبرة وبيضًا.\n" +
         "4️⃣ اشترِ بيضًا أغلى لندرة أعلى.\n" +
         "5️⃣ زاوج 🧬 حيوانين لبيضة بجودة أعلى.\n" +

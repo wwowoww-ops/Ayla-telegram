@@ -35,7 +35,7 @@ function newPlayer(id, name, now) {
     return {
         id: String(id), name: name || "لاعب", coins: 5000,
         pets: [], petSeq: 0, eggs: [{ id: 1, tier: 0, readyAt: now }], eggSeq: 1,
-        items: {}, res: { crystal: 3 }, rv: 1, eggBag: [], main: null,
+        items: { meat: 3 }, res: { crystal: 3 }, rv: 1, eggBag: [], main: null,
         slots: C.BASE_SLOTS, hatchSlots: C.BASE_HATCH,
         collectAt: now, dailyAt: 0, streak: 0,
         stats: { hunts: 0, wins: 0, duels: 0, duelWins: 0, hatched: 0, bred: 0 },
@@ -46,9 +46,8 @@ const getPet = (P, id) => P.pets.find(p => p.id === Number(id)) || null;
 const spOf = pet => D.SPECIES[pet.sp];
 
 // ---------------- خصائص الحيوان ----------------
-// الجوع أُلغي (حلّت الموارد محل الطعام)
-const hungerNow = () => 100;
-function setHunger(pet, v, now) { pet.hg = 100; pet.hgAt = now; }
+const hungerNow = (pet, now) => Math.max(0, Math.min(100, pet.hg - (now - pet.hgAt) / C.HUNGER_MS));
+function setHunger(pet, v, now) { pet.hg = Math.max(0, Math.min(100, v)); pet.hgAt = now; }
 const xpNeed = lv => floor(50 * Math.pow(lv, 1.55));
 const starMult = st => 1 + 5 * st;
 const lvMult = lv => 1 + 0.09 * (lv - 1);
@@ -61,7 +60,7 @@ function incomePerHour(pet) {
     return D.RARITIES[s.r].inc * s.v * pet.q * (1 + 0.12 * (pet.lv - 1)) * starMult(pet.st);
 }
 function grade(q) { return q < 0.95 ? "C" : q < 1.05 ? "B" : q < 1.15 ? "A" : q < 1.3 ? "S" : q < 1.45 ? "SS" : "SSS"; }
-const hungerFactor = () => 1;
+const hungerFactor = h => (h >= 50 ? 1 : h >= 20 ? 0.75 : h > 0 ? 0.5 : 0.25);
 const totalPower = P => P.pets.reduce((s, p) => s + power(p), 0);
 const incomeAll = P => P.pets.reduce((s, p) => s + incomePerHour(p), 0);
 
@@ -167,7 +166,16 @@ function hatch(P, eggId, now, rng) {
     return { ok: true, pet, msg: "فقست!" };
 }
 
-function buyFood() { return fail("استُبدل الطعام بالموارد 🔷. افتح المتجر ← الموارد."); }
+function buyFood(P, foodId, qty) {
+    const f = D.FOODS[foodId];
+    qty = floor(Number(qty));
+    if (!f || /^fruit_/.test(foodId) || !(qty >= 1 && qty <= 1000)) return fail("طلب غير صالح.");
+    const cost = f.price * qty;
+    if (P.coins < cost) return fail("رصيدك لا يكفي. تحتاج " + fmt(cost) + ".");
+    P.coins -= cost;
+    P.items[foodId] = (P.items[foodId] || 0) + qty;
+    return { ok: true, msg: "اشتريت " + qty + " × " + f.e + " " + f.n + "." };
+}
 
 const slotPrice = P => floor(50e3 * Math.pow(3, (P.slots - C.BASE_SLOTS) / 3));       // كل توسعة +3 أماكن
 const hatchPrice = P => floor(2e6 * Math.pow(6, P.hatchSlots - C.BASE_HATCH));
@@ -186,7 +194,7 @@ function expandHatch(P) {
 }
 
 // ---------------- رعاية ----------------
-function needsFood() { return false; }
+function needsFood(pet, now) { return hungerNow(pet, now) < 10; }
 
 function train(P, petId, now) {
     const pet = getPet(P, petId);
@@ -210,7 +218,32 @@ function play(P, petId, now) {
     const lv = givePct(pet, 0.04);
     return { ok: true, msg: "لعب ممتع! +4% خبرة" + (lv ? " ⬆️ مستوى " + pet.lv : "") };
 }
-function feed() { return fail("استُبدل الطعام بالموارد 🔷. استخدم البلورات من بطاقة الحيوان."); }
+function feed(P, petId, foodId, now) {
+    const pet = getPet(P, petId), f = D.FOODS[foodId];
+    if (!pet || !f) return fail("طلب غير صالح.");
+    if (!(P.items[foodId] > 0)) return fail("لا تملك " + f.n + ".");
+    const h = hungerNow(pet, now);
+    const pct = f.xp ? (f.el ? (f.el === pet.el ? 0.4 : 0.1) : f.xp) : 0;
+    const usefulXp = pct > 0 && pet.lv < C.LV_CAP;
+    if (h >= 99 && !usefulXp) return fail("شبعان ولا يحتاج هذا الآن.");
+    P.items[foodId]--;
+    if (!P.items[foodId]) delete P.items[foodId];
+    setHunger(pet, h + f.hg, now);
+    const lv = usefulXp ? givePct(pet, pct) : 0;
+    return { ok: true, msg: "أكل " + f.e + " " + f.n + (usefulXp ? " (+" + Math.round(pct * 100) + "% خبرة)" : "") + (lv ? " ⬆️ مستوى " + pet.lv : "") };
+}
+// البلورة تُشبع أيضًا: كل بلورة +10 شبع (تحسين: للموارد فائدة ثانية)
+function feedCrystal(P, petId, n, now) {
+    const Res = require("./resources"), pet = getPet(P, petId);
+    n = floor(Number(n));
+    if (!pet) return fail("الحيوان غير موجود.");
+    const h = hungerNow(pet, now);
+    if (h >= 99) return fail("شبعان.");
+    n = Math.min(n, Math.ceil((100 - h) / 10), Res.have(P, "crystal"));
+    if (n < 1 || !Res.take(P, "crystal", n)) return fail("لا تملك بلورات.");
+    setHunger(pet, h + 10 * n, now);
+    return { ok: true, msg: "🔷 أشبعت حيوانك بـ " + n + " بلورة (+" + (10 * n) + " شبع)" };
+}
 
 function starCost(pet) { return Math.floor(D.EGGS[Math.min(6, spOf(pet).r)].price * 1.8 * Math.pow(pet.st + 1, 2)); }
 function upgrade(P, petId) {
@@ -244,10 +277,11 @@ function daily(P, now) {
     const mult = 1 + 0.2 * Math.min(P.streak - 1, 7);
     const reward = clampCoins((2000 + incomeAll(P) * 3) * mult);
     P.coins = clampCoins(P.coins + reward);
+    P.items.meat = (P.items.meat || 0) + 1;
     const gem = 3 + Math.min(P.streak, 7);
     require("./resources").add(P, "crystal", gem);
     P.dailyAt = now;
-    return { ok: true, reward, streak: P.streak, msg: "مكافأتك اليومية: " + fmt(reward) + " 🪙 + 🔷 " + gem + " بلورات\n🔥 أيام متتالية: " + P.streak };
+    return { ok: true, reward, streak: P.streak, msg: "مكافأتك اليومية: " + fmt(reward) + " 🪙 + 🍖 لحمة + 🔷 " + gem + " بلورات\n🔥 أيام متتالية: " + P.streak };
 }
 
 // ---------------- الصيد ----------------
@@ -258,6 +292,8 @@ function hunt(P, zoneIdx, now, rng) {
     if (!zone) return fail("منطقة غير معروفة.");
     if (!pet) return fail("اختر حيوانًا أساسيًا أولًا.");
     if (pet.cdHunt > now) return fail("حيوانك الأساسي يستريح. عد بعد " + dur(pet.cdHunt - now) + ".");
+    if (hungerNow(pet, now) < 12) return fail("حيوانك جائع! أطعمه أولًا.");
+    setHunger(pet, hungerNow(pet, now) - 12, now);
     pet.cdHunt = now + C.HUNT_CD;
     P.stats.hunts++;
     const c = Hunt.prepare(pet, zone, rng, 0);
@@ -277,6 +313,11 @@ function hunt(P, zoneIdx, now, rng) {
         if (rng() < 0.08) {
             addEggToBag(P, zone.egg);
             res.drops.push(D.EGGS[zone.egg].e + " " + D.EGGS[zone.egg].n + " (في المحفظة)");
+        }
+        if (rng() < 0.25) {
+            const fid = pick(["meat", "meat", "feast", "cake"], rng);
+            P.items[fid] = (P.items[fid] || 0) + 1;
+            res.drops.push(D.FOODS[fid].e + " " + D.FOODS[fid].n);
         }
         if (rng() < 0.75) give("crystal", 1 + floor(rng() * (1 + zoneIdx / 2)) + floor(zoneIdx / 4));
         if (rng() < 0.40) give("ess_" + c.monEl, 1 + floor(zoneIdx / 4));
@@ -370,5 +411,5 @@ module.exports = {
     hungerFactor, addXp, makePet, buyEgg, hatch, buyFood, slotPrice, hatchPrice, expandSlots, expandHatch,
     train, play, feed, starCost, upgrade, collect, daily, hunt, breedCost, breedCheck, breed,
     duelPower, duelCheck, duel, setMain, release, clampCoins,
-    givePct, setHunger, pick, rollRarity, bag, addEggToBag, eggMs, placeEgg, placeAll, hatchAll
+    givePct, setHunger, feedCrystal, pick, rollRarity, bag, addEggToBag, eggMs, placeEgg, placeAll, hatchAll
 };

@@ -28,7 +28,7 @@ const RANK_E = ["⚪", "🔵", "🟣", "🟠", "🔴"];
 const FAM = {
     gold:  { n: "ذهب",   fx: { gold: 0.03 } },
     wis:   { n: "حكمة",  fx: { wis: 0.04 } },
-    sat:   { n: "وفرة",  fx: { sat: 0.04 } },
+    sat:   { n: "شبع",   fx: { sat: 0.04 } },
     hatch: { n: "فقس",   fx: { hatch: 0.03, tier: 0.002 } },
     war:   { n: "حرب",   fx: { war: 0.02, warBoss: 0.03 } },
     luck:  { n: "حظ",    fx: { luck: 0.03 } },
@@ -56,7 +56,7 @@ const BY_RARITY = RARITIES.map((_, r) => RAW.filter(x => x[3] === r).map(x => x[
 
 // وصف كل بَف
 const FX_TXT = {
-    gold: v => `+${pc(v)} أرباح وجمع ومكافأة يومية وغنائم`, wis: v => `+${pc(v)} خبرة (تدريب/لعب/طعام/صيد)`, sat: v => `+${pc(v)} بلورات إضافية من الصيد`,
+    gold: v => `+${pc(v)} أرباح وجمع ومكافأة يومية وغنائم`, wis: v => `+${pc(v)} خبرة (تدريب/لعب/طعام/صيد)`, sat: v => `${pc(v)} أقل جوعًا في الأنشطة وطعام أشبع`,
     hatch: v => `-${pc(v)} وقت الفقس`, tier: v => `${pc(v, 1)} فرصة بيضة أعلى فئة`, war: v => `وحوش الصيد أضعف ${pc(v)}`, warBoss: v => `+${pc(v)} ضرر على البوس`,
     luck: v => `+${pc(v)} غنائم صيد وفرصة جنيات`, tax: v => `-${pc(v)} ضريبة الثروة`, dr: v => `-${pc(v)} ضرر البوس عليك`, trade: v => `-${pc(v)} أسعار البيض والطعام والتوسعة`,
     heal: v => `+${pc(v)} علاج في البوس`, hp: v => `+${pc(v)} حياة في البوس`, breed: v => `-${pc(v)} تكلفة التزاوج`, breedCd: v => `-${pc(v)} انتظار التزاوج`, time: v => `-${pc(v)} انتظار التدريب واللعب والصيد`
@@ -226,12 +226,28 @@ function install() {
                 const b = buffs(P), pet = E.getPet(P, petId);
                 if (pet) {
                     if (b.wis && pet.lv < D.C.LV_CAP) E.addXp(pet, E.xpNeed(pet.lv) * pct * b.wis);
+                    if (b.sat) pet.hg = Math.min(100, pet.hg + cost * b.sat);
                     shrink(pet, cd, now, b.time || 0);
                 }
                 if (b.wis) note(r, `+${pc(b.wis)} خبرة`);
             }
             return r;
         });
+    });
+    // الطعام: شبع إضافي
+    wrap(E, "feed", orig => function (P, petId, foodId, now) {
+        const r = orig.call(this, P, petId, foodId, now);
+        if (r && r.ok) {
+            const b = buffs(P), pet = E.getPet(P, petId), f = D.FOODS[foodId];
+            if (pet && f) {
+                if (b.sat) pet.hg = Math.min(100, pet.hg + f.hg * b.sat);
+                if (b.wis && f.xp && pet.lv < D.C.LV_CAP) {
+                    const pct = f.el ? (f.el === pet.el ? 0.4 : 0.1) : f.xp;
+                    E.addXp(pet, E.xpNeed(pet.lv) * pct * b.wis);
+                }
+            }
+        }
+        return r;
     });
     // الصيد: وحوش أضعف، ذهب وخبرة وغنائم، واصطياد جنيات
     wrap(E, "hunt", orig => function (P, zoneIdx, now, rng) {
@@ -242,7 +258,7 @@ function install() {
         try { r = orig.call(this, P, zoneIdx, now, rng); } finally { if (z) z.power = keep; }
         if (r && r.ok) {
             const pet = E.getPet(P, P.main), rn = rng || Math.random;
-            if (pet) shrink(pet, "cdHunt", now, b.time || 0);
+            if (pet) { if (b.sat) pet.hg = Math.min(100, pet.hg + 12 * b.sat); shrink(pet, "cdHunt", now, b.time || 0); }
             if (r.win) {
                 const bits = [];
                 if (b.gold && r.coins) { const x = bonusCoins(P, r.coins, b.gold); if (x) { r.coins += x; bits.push(`+${E.fmt(x)} 🪙`); } }
@@ -251,7 +267,6 @@ function install() {
                     if (rn() < 0.5) { E.addEggToBag(P, z.egg); bits.push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n); (r.drops = r.drops || []).push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n + " (في المحفظة)"); }
                     else { const k = 2 + Math.floor(zoneIdx / 2); require("../resources").add(P, "crystal", k); bits.push("🔷 ×" + k); }
                 }
-                if (b.sat) { const k = Math.floor(rn() < (b.sat * 4) % 1 ? (b.sat * 4) + 1 : (b.sat * 4)); if (k > 0) { require("../resources").add(P, "crystal", k); bits.push("🔷 +" + k); } }
                 const c = tryCatch(P, zoneIdx, b.luck, now, rn);
                 if (c && c.f) { bits.push(`🎉 اصطدت جنية: ${label(c.f)}`); r.fairy = c.f; }
                 else if (c && c.full) bits.push("ظهرت جنية لكن حديقتك ممتلئة!");

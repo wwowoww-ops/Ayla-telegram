@@ -222,6 +222,8 @@ function cardText(P, pet) {
     const s = E.spOf(pet);
     const r = rarOf(pet);
     const need = E.xpNeed(pet.lv);
+    const h = E.hungerNow(pet, t);
+
     return (
         `${s.e} <b>${esc(pet.nick || s.n)}</b>${pet.nick ? " (" + s.n + ")" : ""} — ${r.e} ${r.n}${pet.id === P.main ? "  ⭐ الأساسي" : ""}\n` +
         `🧿 العنصر: ${elTxt(pet.el)}\n` +
@@ -231,6 +233,7 @@ function cardText(P, pet) {
             ? `▫️ الخبرة: ${bar(pet.xp / need * 100)} ${Math.floor(pet.xp / need * 100)}%\n`
             : "▫️ وصل الحد الأقصى" +
               (pet.st < D.C.MAX_STARS ? " — جاهز للترقية ⭐" : " 🏆") + "\n") +
+        `🍖 الجوع: ${bar(h)} ${Math.floor(h)}%\n` +
         (pet.el2 ? `🧿 عنصر ثانوي: ${elTxt(pet.el2)}\n` : "") +
         `⚔️ القوة: <b>${fmt(E.power(pet))}</b>   💰 الدخل: ${fmt(E.incomePerHour(pet))}/ساعة\n` +
         `🏋️ التدريب: ${cdTxt(pet.cdTrain, t)}   🎮 اللعب: ${cdTxt(pet.cdPlay, t)}\n` +
@@ -247,7 +250,7 @@ function screenPet(P, petId, note_) {
 
     const b = kbBuilder(P.id);
 
-    b.btn("🔷 بلورات", "feed", pet.id)
+    b.btn("🍖 إطعام", "feed", pet.id)
         .btn("🏋️ تدريب", "train", pet.id)
         .btn("🎮 لعب", "play", pet.id)
         .row();
@@ -273,16 +276,31 @@ function screenPet(P, petId, note_) {
 function screenFeed(P, petId, note_) {
     const pet = E.getPet(P, petId);
     if (!pet) return screenPets(P, 0);
+
+    const owned = Object.keys(P.items).filter(
+        id => P.items[id] > 0 && D.FOODS[id] && !/^fruit_/.test(id)
+    );
     const have = Res.have(P, "crystal");
     const b = kbBuilder(P.id);
-    [1, 5, 25].forEach(n => { if (have >= n) b.btn("🔷 ×" + n, "eat", pet.id, n); });
-    if (have > 25) b.btn("🔷 الكل (" + have + ")", "eat", pet.id, have);
-    b.row();
-    b.btn("🛒 اشتر بلورات", "shopres").row();
+
+    owned.forEach(id => {
+        const f = D.FOODS[id];
+        b.btn(f.e + " " + f.n + " ×" + P.items[id], "eat", pet.id, id).row();
+    });
+
+    if (have > 0) {
+        b.btn("🔷 بلورة → خبرة", "crx", pet.id, 1).btn("×5", "crx", pet.id, 5).btn("×25", "crx", pet.id, 25).row();
+        b.btn("🔷 بلورة → شبع (+10)", "crh", pet.id, 1).btn("×5", "crh", pet.id, 5).row();
+    }
+    b.btn("🛒 اشتر طعامًا", "shopfood").btn("🔷 موارد", "shopres").row();
     b.back("pet:" + pet.id, "🔙 البطاقة");
+
     const text =
-        `🔷 <b>بلورات لـ ${nameP(pet)}</b>\nكل بلورة = ${Math.round(Res.XP_PER_CRYSTAL * 100)}% من خبرة المستوى.\n` +
-        `عندك: ${have} بلورة` + note(note_);
+        `🍖 <b>إطعام ${nameP(pet)}</b>\nالجوع: ${bar(E.hungerNow(pet, now()))} ${Math.floor(E.hungerNow(pet, now()))}%\n` +
+        `🔷 بلورات: ${have} (كل بلورة = ${Math.round(Res.XP_PER_CRYSTAL * 100)}% خبرة أو +10 شبع)\n` +
+        (owned.length || have ? "اختر ما تستخدمه:" : "لا تملك طعامًا ولا بلورات! اشتر من المتجر.") +
+        note(note_);
+
     return { text, kb: b.kb };
 }
 
@@ -343,9 +361,11 @@ function screenEggs(P, note_) {
 function screenShop(P, note_) {
     const b = kbBuilder(P.id);
     b.btn("🥚 البيض", "shopeggs")
-        .btn("🔷 الموارد", "shopres")
+        .btn("🍖 الطعام", "shopfood")
         .row()
+        .btn("🔷 الموارد", "shopres")
         .btn("🏠 التوسعات", "shopup")
+        .row()
         .btn("📊 النسب", "rates", "all")
         .row()
         .back();
@@ -370,6 +390,19 @@ function screenShopEggs(P, note_) {
         text: text + note(note_),
         kb: b.kb
     };
+}
+
+function screenShopFood(P, note_) {
+    const b = kbBuilder(P.id);
+    let text = `🍖 <b>سوق الطعام</b> — 🪙 ${fmt(P.coins)}\n\n`;
+    D.GENERAL_FOODS.forEach(id => {
+        const f = D.FOODS[id];
+        text += `${f.e} <b>${f.n}</b> — ${fmt(f.price)} 🪙 · جوع +${f.hg}${f.xp ? " · خبرة +" + Math.round(f.xp * 100) + "%" : ""} (عندك: ${P.items[id] || 0})\n`;
+        b.btn(f.e + " ×1", "buyfood", id, 1).btn("×5", "buyfood", id, 5).btn("×25", "buyfood", id, 25).row();
+    });
+    text += "\n💠 فواكه العناصر أُزيلت: صارت جواهر عناصر 🔥💧🌿 تُصطاد وتُستعمل في التطور.";
+    b.back("shop");
+    return { text: text + note(note_), kb: b.kb };
 }
 
 function screenShopRes(P, note_) {
@@ -701,7 +734,7 @@ function route(P, parts, ctx) {
             return { screen: screenFeed(P, x) };
 
         case "eat":
-            return act(Res.useCrystals(P, x, y), n => screenFeed(P, x, n));
+            return act(E.feed(P, x, y, t), n => screenFeed(P, x, n));
 
         case "train":
             return act(E.train(P, x, t), n => screenPet(P, x, n));
@@ -774,6 +807,18 @@ function route(P, parts, ctx) {
 
         case "buyegg":
             return act(E.buyEgg(P, Number(x), t), n => screenShopEggs(P, n));
+
+        case "shopfood":
+            return { screen: screenShopFood(P) };
+
+        case "buyfood":
+            return act(E.buyFood(P, x, y), n => screenShopFood(P, n));
+
+        case "crx":
+            return act(Res.useCrystals(P, x, y), n => screenFeed(P, x, n));
+
+        case "crh":
+            return act(E.feedCrystal(P, x, y, t), n => screenFeed(P, x, n));
 
         case "shopres":
             return { screen: screenShopRes(P) };

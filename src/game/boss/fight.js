@@ -8,14 +8,14 @@ const Fair = require("../fairies");
 // ---------- الإعدادات (عدّل من هنا) ----------
 const ROUNDS = 15;        // أقصى عدد جولات
 const HP_MULT = 10;       // حياة الحيوان في القتال = قوته × هذا الرقم
-const BOSS_HPK = 4.3;     // حياة الزعيم = مجموع قوى المشاركين × الجولات × هذا الرقم (أصغر = أسهل)
+const BOSS_HPK = 2.3;     // حياة الزعيم = مجموع قوى المشاركين × الجولات × هذا الرقم (أصغر = أسهل)
 const BOSS_HIT = 0.40;    // ضربة الزعيم الفردية = هذه النسبة من متوسط حياة الحيوانات
 const BOSS_AOE = 0.07;    // ضربته الجماعية (كل 3 جولات)
 const RAGE_AT = 0.5;      // يغضب إذا نزلت حياته عن هذه النسبة
 const RAGE_MULT = 1.35;
 const CRIT = 0.10;
-const GROW_HIT = 1.08;    // يقوى هجومه 8% لكل مستوى
-const GROW_HP = 1.25;     // وتزيد حياته 25% لكل مستوى
+const GROW_HIT = 1.05;    // يقوى هجومه 5% لكل مستوى
+const GROW_HP = 1.12;     // وتزيد حياته 12% لكل مستوى
 
 const floor = Math.floor;
 
@@ -24,7 +24,7 @@ function create(parts, boss, now, rng = Math.random) {
     const units = [];
     parts.forEach(p => p.pets.forEach(pet => {
         const fm = (p.P && Fair.bossMods(p.P)) || { atk: 0, heal: 0, hp: 0, dr: 0 };
-        const pw0 = E.power(pet);
+        const pw0 = E.power(pet) * E.hungerFactor(E.hungerNow(pet, now));
         const pw = pw0 * (1 + fm.atk);
         const maxHp = Math.max(1, floor(E.power(pet) * HP_MULT * (1 + fm.hp)));
         units.push({

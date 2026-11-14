@@ -104,6 +104,4 @@ function tick(P, now) {
     return { meals, emptied };
 }
 
-// الأكل أُلغي: الأوعية لم تعد تُطعم شيئًا (تُرحَّل إلى موارد عند الترحيل)
-const tickOff = () => ({ meals: 0 });
-module.exports = { MAX_BOWLS, CAP, FOODS, price, bowls, isPlaced, penName, penOk, buy, placeMany, refill, remove, tick: tickOff };
+module.exports = { MAX_BOWLS, CAP, FOODS, price, bowls, isPlaced, penName, penOk, buy, placeMany, refill, remove, tick };

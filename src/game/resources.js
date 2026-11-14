@@ -28,7 +28,7 @@ const listTxt = (map) => Object.keys(map || {}).filter(id => D.RES[id] && map[id
 // ---------- تحويل الأطعمة القديمة ----------
 const FOOD_TO_CRYSTAL = { date: 0, meat: 1, feast: 2, cake: 6, potion: 25, elixir: 80, tear: 300 };
 function foodValue(id) {
-    if (id in FOOD_TO_CRYSTAL) return { id: "crystal", n: FOOD_TO_CRYSTAL[id] };
+    if (!/^fruit_/.test(id) && id in FOOD_TO_CRYSTAL) return { id: "crystal", n: FOOD_TO_CRYSTAL[id] };
     const m = /^fruit_(\w+)$/.exec(id);
     if (m && D.RES["ess_" + m[1]]) return { id: "ess_" + m[1], n: 2 };
     return null;
@@ -49,12 +49,11 @@ function migrate(P) {
     P.rv = 1;
     P.res = P.res || {};
     const items = P.items || {};
-    for (const id of Object.keys(items)) {
+    for (const id of Object.keys(items)) {   // فواكه العناصر فقط تتحول إلى جواهر
+        if (!/^fruit_/.test(id)) continue;
         const v = foodValue(id);
         if (v) { add(P, v.id, v.n * items[id]); delete items[id]; }
     }
-    // أوعية الأكل القديمة: يُرجَع طعامها بلورات
-    for (const b of (P.bowls || [])) { const v = b.food && b.qty > 0 ? foodValue(b.food) : null; if (v) add(P, v.id, v.n * b.qty); b.qty = 0; }
     if (!(P.res.crystal > 0)) add(P, "crystal", 2);
     return true;
 }

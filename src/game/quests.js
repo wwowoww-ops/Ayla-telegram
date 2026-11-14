@@ -60,10 +60,10 @@ const missionText = mission => MISSION_POOL.find(m => m.id === mission.id).text(
 
 // مكافأة المهمة: ذهب ثابت + ما يعادل نصف ساعة من دخلك + طعام
 function missionReward(P) {
-    return { coins: E.clampCoins(2000 + E.incomeAll(P) * 0.5), items: { meat: 3 } };
+    return { coins: E.clampCoins(2000 + E.incomeAll(P) * 0.5), items: { meat: 1 } };
 }
 function bonusReward(P) {
-    return { coins: E.clampCoins(10000 + E.incomeAll(P) * 3), items: { cake: 2 } };
+    return { coins: E.clampCoins(10000 + E.incomeAll(P) * 3), items: { cake: 2, potion: 1 } };
 }
 
 // ---------- الإنجازات ----------
@@ -90,9 +90,9 @@ const TIER_ITEMS = [{ meat: 2 }, { feast: 2 }, { cake: 2 }, { potion: 1 }];
 // ---------- منح المكافآت ----------
 function give(P, reward) {
     P.coins = E.clampCoins(P.coins + reward.coins);
-    require("./resources").grantItems(P, reward.items);
+    for (const id of Object.keys(reward.items || {})) P.items[id] = (P.items[id] || 0) + reward.items[id];
 }
-const itemsTxt = items => { const R = require("./resources"), tmp = { res: {} }; return R.listTxt(R.grantItems(tmp, items)); };
+const itemsTxt = items => Object.keys(items || {}).map(id => `${D.FOODS[id].e}×${items[id]}`).join(" ");
 
 // يفحص ما أنجزه اللاعب ويمنحه تلقائيًا. يرجع قائمة بما تحقق الآن (للإشعار).
 function settle(P, now) {

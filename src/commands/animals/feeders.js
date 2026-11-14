@@ -7,6 +7,10 @@ const FM = require("../../game/feeders/menu");
 
 module.exports = function (bot) {
     cmd(bot, ["اماكن الاكل", "أماكن الأكل", "مغذيات", "اوعية", "أوعية", "وعاء"], async ctx => {
-        await ctx.reply("🔷 استُبدل الطعام وأماكن الأكل بـ<b>الموارد</b>: بلورات لرفع الحيوانات وجواهر العناصر للتطور. افتحها من 🛒 المتجر ← الموارد.", { parse_mode: "HTML" });
+        const P = ui.ensure(ctx.from);
+        F.tick(P, Date.now());
+        store.touch(P.id);
+        const scr = FM.screenMain(P);
+        await ctx.reply(scr.text, { parse_mode: "HTML", reply_markup: scr.kb });
     }, { menu: "أماكن الأكل", category: "animals" });
 };

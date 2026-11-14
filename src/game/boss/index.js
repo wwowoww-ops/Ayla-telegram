@@ -144,6 +144,7 @@ function finalize(chatId, parts, rep, now) {
         const part = parts.find(p => p.uid === r.id);
         const P = part.P;
         P.fown = P.fown || {};
+        part.pets.forEach(pet => { pet.hg = Math.max(0, E.hungerNow(pet, now) - HUNGER_COST); pet.hgAt = now; });
         const share = 0.5 + 0.5 * (r.score / top);
         const coins = Math.floor(E.incomeAll(P) * (killed ? 6 : 1.5) * share);
         P.coins = E.clampCoins(P.coins + coins);
