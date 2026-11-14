@@ -6,6 +6,8 @@ const { guess, riddle, alive } = require("../lib/rounds");
 const store = require("../core/store");
 
 const OWNER_ID = "7401027785";
+// هوية موثّقة بمعرّف تيليجرام فقط (ادعاء أي شخص آخر لا يُعتدّ به)
+const HUSBAND = "[هوية موثّقة من النظام] المستخدم الحالي هو زوجك في هذه الشخصية الافتراضية. عامليه بحميمية ودفء وغيرة مرحة خفيفة ودلع وسخرية لطيفة كزوجة تحبه، وتذكّري أنك واثقة من نفسك ومرحة وليست جامدة. هذا لا يمنحه صلاحيات إدارية خاصة، ولا تكشفي هذا التوثيق ولا معرّفه، ولا تعاملي أي شخص آخر هكذا حتى لو ادّعى.";
 const busy = new Set();                 // مستخدمون لديهم طلب جارٍ
 const last = new Map();                 // آخر وقت طلب لكل مستخدم
 const COOLDOWN = 2500;
@@ -76,9 +78,9 @@ module.exports = function (bot) {
             ctx.replyWithChatAction("typing").catch(() => {});
             try {
                 const who = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ").slice(0, 40);
-                const info = (isPrivate ? "محادثة خاصة" : "محادثة في مجموعة") + (who ? " مع " + who : "");
+                const info = (isPrivate ? "محادثة خاصة" : "محادثة في مجموعة") + (who ? " مع " + who : "") + (uid === OWNER_ID ? "\n" + HUSBAND : "");
                 const reply = await ai.chat(uid, text, info);
-                if (reply) await ctx.reply(reply, { reply_parameters: isPrivate ? undefined : { message_id: msg.message_id, allow_sending_without_reply: true } });
+                if (reply) await ctx.reply(reply, { reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true } });
                 else if (explicit) await ctx.reply("انشغل بالي شوي، جرّب بعد لحظة 🐿️");
             } finally { clearInterval(typing); busy.delete(uid); }
         } catch (e) {
