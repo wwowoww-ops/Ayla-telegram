@@ -31,6 +31,7 @@ function openPet(id) {
     <div class="grid2" style="margin:12px 0"><div class="card" style="margin:0">⚔️ القوة<br><b>${fmt(p.power)}</b></div><div class="card" style="margin:0">💰 الدخل<br><b>${fmt(p.income)}/س</b></div></div>
     <div class="dim" style="margin-bottom:6px">إطعام</div>
     <div class="scroll-x">${foods.length ? foods.map(f => { const m = S.meta.foods.find(x => x.id === f.id); return `<button class="pick" data-feed="${f.id}"><span class="em">${m.emoji}</span>${esc(m.name)}<br>×${f.count}${m.el && m.el === p.el ? " ✨" : ""}</button>`; }).join("") : `<span class="dim">لا طعام. اشترِ من المتجر.</span>`}</div>
+    ${petExtras(p)}
     <div class="dim" style="margin:12px 0 6px">الحظيرة</div>
     <div class="scroll-x">${[{ id: 0, name: "🏡 الكبرى" }].concat(S.pens).map(x => `<button class="pick ${penOf(p) === x.id ? "on" : ""}" data-pen="${x.id}">${esc(x.name)}</button>`).join("")}</div>
     ${p.fx != null ? `<div class="dim" style="margin-top:6px">📌 مثبّت في مكان محدد</div>` : ""}
@@ -48,6 +49,7 @@ function openPet(id) {
   </div>`;
   $("#sheet").classList.remove("hidden");
   const panel = $("#sheet .panel");
+  petExtrasBind(panel, p, id);
   panel.querySelectorAll("[data-feed]").forEach(b => b.onclick = () => { buzz(); run("feed", { id, food: b.dataset.feed }); });
   panel.querySelectorAll("[data-pen]").forEach(b => b.onclick = () => { if (Number(b.dataset.pen) !== penOf(p)) { buzz(); run("movePet", { id, pen: Number(b.dataset.pen) }); } });
   panel.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {

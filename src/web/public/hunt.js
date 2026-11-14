@@ -16,7 +16,7 @@ VIEWS.hunt = () => {
   S.meta.zones.forEach(z => {
     const ratio = main ? main.power / z.power : 0;
     const cls = ratio >= 1.2 ? "easy" : ratio >= 0.8 ? "mid" : "hard";
-    h += `<div class="node ${cls}"><div class="card" data-z="${z.i}"><div class="mon">${MONSTERS[z.i]}</div><div class="grow"><b>${z.i + 1}. ${esc(z.name)}</b><div class="dim">قوة ${fmt(z.power)} · 🪙 ${fmt(z.coins)}</div>` +
+    h += `<div class="node ${cls}"><div class="card" data-z="${z.i}"><div class="mon">${MONSTERS[z.i]}</div><div class="grow"><b>${z.i + 1}. ${esc(z.name)}${z.elite ? " 👑" : ""}</b><div class="dim">قوة ${fmt(z.power)} · 🪙 ${fmt(z.coins)}</div>` +
       `<div>${z.els.slice(0, 4).map(e => S.meta.elements[e].e).join(" ")}</div></div><div>${ratio >= 1.2 ? "🟢" : ratio >= 0.8 ? "🟡" : "🔴"}</div></div></div>`;
   });
   h += `</div>`;
@@ -107,7 +107,9 @@ async function battle(b) {
   const res = [];
   if (b.win) res.push(`🪙 +${fmt(b.coins)}`);
   if (b.levels) res.push(`⬆️ ارتقى المستوى`);
+  Object.keys(b.got || {}).forEach(k => res.push(`${resMeta(k).emoji} ${esc(resMeta(k).name)} ×${b.got[k]}`));
   (b.drops || []).forEach(d => res.push("🎁 " + esc(d)));
+  (b.notes || []).forEach(n => res.push(esc(n)));
   $("#bres").innerHTML = `<div class="card">${res.length ? res.join("<br>") : "حاول مجددًا بحيوان أقوى أو منطقة أسهل."}</div><button class="btn" id="okB">تمام</button>`;
   b.win ? buzz("medium") : 0;
   $("#okB").onclick = () => { o.classList.add("hidden"); o.innerHTML = ""; update(); };

@@ -32,8 +32,8 @@ function dur(ms) {
 }
 
 const RAR_COLOR = ["#cbd5e1", "#4ade80", "#60a5fa", "#c084fc", "#fb923c", "#f87171", "#67e8f9"];
-const EL_COLOR = { fire: "#ff6b35", water: "#38bdf8", plant: "#4ade80", earth: "#b08968", thunder: "#facc15", light: "#fff3b0", dark: "#8b5cf6" };
-const MONSTERS = ["🧟", "🦇", "🦂", "⛄", "🌋", "🌩️", "💀", "👼", "👾", "👹"];
+const EL_COLOR = { fire: "#ff6b35", water: "#38bdf8", plant: "#4ade80", earth: "#b08968", thunder: "#facc15", light: "#fff3b0", dark: "#8b5cf6", ice: "#a5f3fc", wind: "#86efac", poison: "#a3e635", metal: "#94a3b8" };
+const MONSTERS = ["🧟", "🦇", "🦂", "⛄", "🌋", "🌩️", "💀", "👼", "👾", "👹", "🧊", "🌪️", "☄️", "👑"];
 
 // صور الأنواع (اختيارية): /img/<رقم النوع>. إن لم توجد نستعمل الرمز التعبيري.
 const imgs = {};

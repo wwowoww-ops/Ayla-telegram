@@ -9,7 +9,7 @@ VIEWS.shop = () => {
   const seg = [
     ["eggs", "🥚 بيض"],
     ["food", "🍖 طعام"],
-    ["fruit", "🍇 فواكه"],
+    ["res", "🔷 موارد"],
     ["up", "🏠 توسعات"]
   ];
 
@@ -26,8 +26,14 @@ VIEWS.shop = () => {
         `<button class="btn sm ${coins < e.price ? "off" : ""}" data-egg="${e.tier}">${fmt(e.price)} 🪙</button></div>`;
     });
 
-  } else if (shopTab === "food" || shopTab === "fruit") {
-    m.foods.filter(f => (shopTab === "fruit") === !!f.el).forEach(f => {
+  } else if (shopTab === "res") {
+    m.resources.forEach(r => {
+      h += `<div class="card row"><div style="font-size:34px">${r.emoji}</div><div class="grow"><b>${esc(r.name)}</b> <span class="dim">(عندك ${(S.res || {})[r.id] || 0})</span><div class="dim">${esc(r.desc || "")}</div></div>` +
+        `<div class="row" style="gap:5px">${[1, 5, 25].map(q => `<button class="btn sm sec ${coins < r.price * q ? "off" : ""}" data-res="${r.id}" data-q="${q}">×${q}<br><span class="dim">${fmt(r.price * q)}</span></button>`).join("")}</div></div>`;
+    });
+
+  } else if (shopTab === "food") {
+    m.foods.filter(f => !f.el).forEach(f => {
       const own = (S.items.find(i => i.id === f.id) || {}).count || 0;
 
       h += `<div class="card row"><div style="font-size:36px">${f.emoji}</div><div class="grow"><b>${esc(f.name)}</b> <span class="dim">(عندك ${own})</span>` +
@@ -73,6 +79,10 @@ VIEWS.shop = () => {
         qty: Number(b.dataset.q)
       });
     }
+  );
+
+  view.querySelectorAll("[data-res]").forEach(b =>
+    b.onclick = () => { buzz(); run("buyRes", { id: b.dataset.res, qty: Number(b.dataset.q) }); }
   );
 
   view.querySelectorAll("[data-up]").forEach(b =>

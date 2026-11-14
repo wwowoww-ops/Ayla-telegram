@@ -7,6 +7,9 @@ const D = require("../game/data");
 const E = require("../game/engine");
 const store = require("../core/store");
 const F = require("../game/feeders");
+const Res = require("../game/resources");
+const Fy = require("../game/fairies");
+const Mk = require("../game/market");
 const { nameOf } = require("../lib/util");
 const { validateInitData } = require("./auth");
 const { buildState, petView } = require("./state");
@@ -43,6 +46,7 @@ function ensurePlayer(user, now) {
     let P = store.get(user.id);
     if (!P) { P = E.newPlayer(user.id, nameOf(user), now); store.set(user.id, P); }
     else if (P.name !== nameOf(user)) { P.name = nameOf(user); store.touch(P.id); }
+    try { if (Res.migrate(P)) store.touch(P.id); } catch (e) { /* لا شيء */ }
     return P;
 }
 
@@ -79,8 +83,47 @@ const ACTIONS = {
         const before = petView(P, pet, now);
         const r = E.hunt(P, int(a.zone), now, rng);
         if (!r.ok) return r;
-        return { ok: true, battle: { win: r.win, monEl: r.monEl, eff: r.eff, monPower: r.monPower, mine: r.mine, coins: r.coins || 0, levels: r.levels || 0, drops: r.drops, pet: before, zone: int(a.zone) } };
+        return { ok: true, battle: { win: r.win, monEl: r.monEl, eff: r.eff, monPower: r.monPower, mine: r.mine, coins: r.coins || 0, levels: r.levels || 0, drops: r.drops, got: r.got || {}, notes: r.notes || [], elite: !!r.elite, pet: before, zone: int(a.zone) } };
     },
+
+    // ----- الموارد والصقل والتطور -----
+    buyRes: (P, a) => (D.RES[a.id] ? Res.buy(P, a.id, int(a.qty)) : { ok: false, msg: "مورد غير معروف." }),
+    crystal: (P, a) => Res.useCrystals(P, int(a.id), int(a.n)),
+    polish: (P, a) => E.polish(P, int(a.id)),
+    evolve: (P, a) => E.evolve(P, int(a.id), String(a.el)),
+
+    // ----- محفظة البيض -----
+    placeEgg: (P, a, now) => E.placeEgg(P, int(a.id), now),
+    placeAll: (P, a, now) => E.placeAll(P, now),
+    hatchAll(P, a, now) {
+        const r = E.hatchAll(P, now, rng);
+        return r.ok ? { ok: true, msg: r.msg, reveals: r.pets.map(p => petView(P, p, now)) } : r;
+    },
+
+    // ----- الجنيات -----
+    fToggle: (P, a) => Fy.toggle(P, int(a.id)),
+    fHab: (P, a, now) => Fy.setHabitat(P, int(a.id), String(a.hab), now),
+    fUnhab: (P, a, now) => Fy.removeHabitat(P, int(a.id), now),
+    fDust: (P, a, now) => Fy.useDust(P, int(a.id), int(a.n), now),
+    fName: (P, a) => Fy.rename(P, int(a.id), String(a.name || "")),
+    fRelease: (P, a) => Fy.release(P, int(a.id)),
+    fSlot: P => Fy.buySlot(P),
+    fBuy: (P, a, now) => Fy.buy(P, int(a.idx), now),
+
+    // ----- سوق اللاعبين -----
+    mList(P, a, now) {
+        return { ok: true, market: Mk.all(now).map(l => ({ id: l.id, by: l.sname, mine: String(l.seller) === String(P.id), kind: Mk.kindOf(l), desc: Mk.describe(l), price: l.price, left: Math.max(0, l.at + Mk.TTL - now) })), tax: Mk.TAX };
+    },
+    mSell(P, a, now) {
+        const k = String(a.kind);
+        if (!["f", "e", "r"].includes(k)) return { ok: false, msg: "نوع غير صالح." };
+        const ref = k === "r" ? String(a.ref) : int(a.ref), qty = k === "r" ? int(a.qty) : 1;
+        if (k === "r" && !(qty >= 1)) return { ok: false, msg: "كمية غير صالحة." };
+        const price = Number(a.price) > 0 ? Number(a.price) : Mk.suggest(P, k, ref, qty);
+        return Mk.sell(P, P.name, k, ref, qty, price, now);
+    },
+    mCancel: (P, a, now) => Mk.cancel(P, int(a.id), now),
+    mBuy: (P, a, now) => Mk.buy(P, int(a.id), now),
 
     // ----- أوعية الطعام -----
     buyBowl: P => F.buy(P),
