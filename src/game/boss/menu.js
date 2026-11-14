@@ -53,9 +53,46 @@ function screenBoss(chatId, now, note) {
     }
     t += cool ? "⏳ الزعيم القادم يظهر بعد " + E.dur(G.bossNextAt - now) + "." : "لا يوجد زعيم الآن. استدعِ واحدًا ليسجّل الجميع ويقاتلوه معًا!";
     if (G.bossKills) t += `\n\n🏆 زعماء هُزموا في هذه المجموعة: ${G.bossKills}`;
+    const Gx = G;
     if (!cool) kb.text("🔥 استدعاء الزعيم", "bs:spawn").row();
+    else kb.text(`⏩ تسريع ساعة (${B.SPEED_COST}🔷)`, "bs:sp").text(`⚡ استدعاء فوري (${B.nowCost(Gx)}🔷)`, "bs:sn").row();
+    kb.text("🎯 اختر الزعيم", "bs:gl").row();
     if (b && b.report) kb.text("📋 تفاصيل آخر قتال", "bs:det:0");
     return { text: frame(t), kb };
+}
+
+// اختيار نوع الزعيم بالموارد
+function screenGuided(chatId) {
+    const kb = new InlineKeyboard();
+    let t = `🎯 <b>استدعاء موجّه</b>\nيظهر الزعيم الذي تختاره فورًا (يتجاوز الانتظار).\nالتكلفة: ${B.GUIDE_CRYSTALS} 🔷 + ${B.GUIDE_ESS} جواهر من عنصره.\n`;
+    B.KINDS.forEach((k, i) => {
+        const r = D.RES["ess_" + k.el];
+        t += `\n${k.e} ${k.n} — ${r.e} ${r.n}`;
+        kb.text(`${k.e} ${k.n}`, `bs:gd:${i}`);
+        if (i % 2) kb.row();
+    });
+    kb.row().text("🔙 رجوع", "bs:ref");
+    return { text: frame(t), kb };
+}
+
+// بفات فريقك في هذا القتال
+function teamBuffs(P, b, r) {
+    const Fair = require("../fairies"), fm = Fair.bossMods(P), k = B.kindOf(b);
+    const pc = x => Math.round(x * 100) + "%";
+    const lines = [];
+    const pets = (r.pets || []).map(id => P.pets.find(p => p.id === id)).filter(Boolean);
+    const adv = pets.filter(p => D.elementMult(p.el, k.el) > 1).length, weak = pets.filter(p => D.elementMult(p.el, k.el) < 1).length;
+    if (adv) lines.push(`⬆️ ${adv} حيوان يتفوق عنصره على ${k.n}`);
+    if (weak) lines.push(`⬇️ ${weak} حيوان عنصره ضعيف أمامه`);
+    const aura = pets.filter(p => p.el === "light").length, heal = pets.filter(p => p.el === "water" || p.el === "light").length;
+    if (aura) lines.push(`🌟 هالة النور: +ضرر للجميع`);
+    if (!heal) lines.push("⚠️ لا معالج في فريقك (ماء/نور)");
+    if (fm.atk) lines.push(`🧚 جنياتك: +${pc(fm.atk)} ضرر على البوس`);
+    if (fm.hp) lines.push(`🧚 جنياتك: +${pc(fm.hp)} حياة`);
+    if (fm.heal) lines.push(`🧚 جنياتك: +${pc(fm.heal)} علاج`);
+    if (fm.dr) lines.push(`🧚 جنياتك: −${pc(fm.dr)} ضرر مستلم`);
+    if (r.boost) lines.push(`💪 تعزيز بالبلورات: +${pc(B.BOOST_ATK)} ضرر`);
+    return lines.length ? "\n\n✨ <b>بفاتك الحالية:</b>\n" + lines.join("\n") : "";
 }
 
 // ---------- واجهة اختيار الحيوانات (لكل لاعب) ----------
@@ -75,6 +112,7 @@ function screenPick(P, chatId, page, note) {
     t += sel.length ? sel.map(skillLines).join("\n\n") : "لم تختر شيئًا بعد.";
     t += `\n\n🕹️ النمط: <b>${r.mode === "manual" ? "🎮 يدوي (تختار المهارات كل جولة)" : "🤖 أوتو (القتال تلقائي)"}</b>`;
     t += `\n${r.ready ? "✅ أنت جاهز" : "⏳ لم تضغط جاهز بعد"}`;
+    t += teamBuffs(P, b, r);
     const kb = new InlineKeyboard();
     const slice = all.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
     slice.forEach((p, i) => {
@@ -89,6 +127,7 @@ function screenPick(P, chatId, page, note) {
         kb.row();
     }
     kb.text(r.mode === "manual" ? "🎮 يدوي ← تحويل إلى أوتو 🤖" : "🤖 أوتو ← تحويل إلى يدوي 🎮", `bs:md:${P.id}:${page}`).row();
+    if (!r.boost && !r.ready) kb.text(`💪 تعزيز +${Math.round(B.BOOST_ATK * 100)}% (${B.BOOST_COST}🔷)`, `bs:bo:${P.id}:${page}`).row();
     if (r.ready) kb.text("↩️ إلغاء الجاهزية", `bs:nr:${P.id}:${page}`);
     else kb.text("✔️ جاهز للقتال", `bs:rd:${P.id}:${page}`);
     kb.row().text("🚪 انسحاب", `bs:lv:${P.id}`).text("🔙 إغلاق", `bs:cl:${P.id}`);
@@ -194,4 +233,4 @@ function screenDetails(chatId, page) {
     return { text: frame(cut(t)), kb: tabs(page) };
 }
 
-module.exports = { screenBoss, screenPick, screenLive, screenPanel, screenDetails, resultText, resultKb, esc };
+module.exports = { screenGuided, teamBuffs, screenBoss, screenPick, screenLive, screenPanel, screenDetails, resultText, resultKb, esc };

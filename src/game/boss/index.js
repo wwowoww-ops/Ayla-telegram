@@ -9,7 +9,11 @@ const Fight = require("./fight");
 // ---------- الإعدادات (عدّل من هنا) ----------
 const MIN = 60e3, HOUR = 3600e3;
 const REG_TIME = 15 * MIN;       // مهلة التسجيل
-const COOLDOWN = 8 * HOUR;       // الانتظار بعد القتال قبل زعيم جديد
+const COOLDOWN = 3 * HOUR;       // الانتظار بعد القتال قبل زعيم جديد (يمكن تسريعه بالموارد)
+const SPEED_COST = 15;           // بلورات لتقصير ساعة من الانتظار
+const NOW_BASE = 30;             // استدعاء فوري: 30 بلورة + 10 لكل مستوى (حتى 10)
+const GUIDE_CRYSTALS = 20, GUIDE_ESS = 10;   // اختيار نوع الزعيم: بلورات + جواهر عنصره
+const BOOST_COST = 5, BOOST_ATK = 0.15;      // تعزيز شخصي: +15% ضرر لحيواناتك في هذا القتال
 const TEAM = 3;                  // عدد الحيوانات لكل لاعب
 const MIN_AUTO = 2;              // أقل عدد لاعبين ليبدأ القتال تلقائيًا عند استعداد الجميع
 const HUNGER_COST = 12;          // جوع كل حيوان بعد القتال
@@ -37,14 +41,14 @@ const ranked = P => [...P.pets].sort((a, b) => E.power(b) - E.power(a));
 const defaultTeam = P => ranked(P).slice(0, TEAM).map(p => p.id);
 
 // ---------- الاستدعاء والتسجيل ----------
-function spawn(chatId, now, uid, name) {
+function spawn(chatId, now, uid, name, opt = {}) {
     const G = store.getGroup(chatId);
     const old = G.boss;
     if (open(old)) return fail("هناك تسجيل مفتوح بالفعل.");
     if (old && !old.done && old.phase === "live") return fail("القتال جارٍ الآن.");
-    if (G.bossNextAt && now < G.bossNextAt) return fail("الزعيم القادم يظهر بعد " + E.dur(G.bossNextAt - now) + ".");
+    if (!opt.force && G.bossNextAt && now < G.bossNextAt) return fail("الزعيم القادم يظهر بعد " + E.dur(G.bossNextAt - now) + ".");
     const kills = G.bossKills || 0, level = G.bossLevel || 0;
-    const kind = KINDS[kills % KINDS.length];
+    const kind = (opt.kindId && KINDS.find(k => k.id === opt.kindId)) || KINDS[kills % KINDS.length];
     const boss = {
         id: (old ? old.id : 0) + 1, kind: kind.id, level, phase: "reg", by: String(uid || ""), byName: name || "",
         startAt: now, regEnd: now + REG_TIME, reg: {}, done: false
@@ -59,7 +63,7 @@ function join(chatId, P, name, now) {
     if (!open(b)) return fail("لا يوجد تسجيل مفتوح.");
     if (now >= b.regEnd) return fail("انتهت مهلة التسجيل.");
     if (!P.pets.length) return fail("لا تملك حيوانات.");
-    const r = b.reg[P.id] || (b.reg[P.id] = { n: name, pets: defaultTeam(P), ready: false, mode: "auto" });
+    const r = b.reg[P.id] || (b.reg[P.id] = { n: name, pets: defaultTeam(P), ready: false, mode: "auto", boost: false });
     r.n = name;
     save(chatId, b);
     return { ok: true, boss: b, entry: r };
@@ -105,6 +109,42 @@ function leave(chatId, uid) {
     return { ok: true, boss: b };
 }
 
+// ---------- الموارد: تسريع واستدعاء وتعزيز ----------
+const Res = () => require("../resources");
+const nowCost = G => NOW_BASE + 10 * Math.min(10, G.bossLevel || 0);
+function speedUp(chatId, P, now) {
+    const G = store.getGroup(chatId);
+    if (!(G.bossNextAt && now < G.bossNextAt)) return fail("لا انتظار حاليًا.");
+    if (!Res().take(P, "crystal", SPEED_COST)) return fail("تحتاج " + SPEED_COST + " 🔷 بلورة.");
+    store.setGroup(chatId, { bossNextAt: Math.max(now, G.bossNextAt - HOUR) });
+    return { ok: true, msg: "⏩ قُصّر الانتظار ساعة (−" + SPEED_COST + " 🔷)" };
+}
+function summonNow(chatId, P, now, name, kindId) {
+    const G = store.getGroup(chatId);
+    const cost = kindId ? GUIDE_CRYSTALS : nowCost(G);
+    const k = kindId && KINDS.find(x => x.id === kindId);
+    if (kindId && !k) return fail("زعيم غير معروف.");
+    const ess = kindId ? "ess_" + k.el : null;
+    if (open(G.boss) || (G.boss && !G.boss.done && G.boss.phase === "live")) return fail("هناك زعيم الآن.");
+    if (Res().have(P, "crystal") < cost) return fail("تحتاج " + cost + " 🔷 بلورة.");
+    if (ess && Res().have(P, ess) < GUIDE_ESS) return fail("تحتاج " + GUIDE_ESS + " من " + require("../data").RES[ess].e + " " + require("../data").RES[ess].n + ".");
+    const r = spawn(chatId, now, P.id, name, { force: true, kindId });
+    if (!r.ok) return r;
+    Res().take(P, "crystal", cost);
+    if (ess) Res().take(P, ess, GUIDE_ESS);
+    return { ok: true, boss: r.boss, msg: "🔥 استدعاء " + (k ? "موجّه" : "فوري") + " (−" + cost + " 🔷" + (ess ? " و−" + GUIDE_ESS + " جوهر" : "") + ")" };
+}
+function boost(chatId, P) {
+    const b = get(chatId), r = open(b) && b.reg[P.id];
+    if (!r) return fail("سجّل أولًا.");
+    if (r.ready) return fail("ألغِ الجاهزية أولًا.");
+    if (r.boost) return fail("التعزيز مفعّل بالفعل.");
+    if (!Res().take(P, "crystal", BOOST_COST)) return fail("تحتاج " + BOOST_COST + " 🔷 بلورة.");
+    r.boost = true;
+    save(chatId, b);
+    return { ok: true, msg: "💪 تعزيز مفعّل: +" + Math.round(BOOST_ATK * 100) + "% ضرر (−" + BOOST_COST + " 🔷)" };
+}
+
 // ---------- القتال والنتائج ----------
 const liveOpen = b => !!(b && !b.done && (b.phase === "reg" || b.phase === "live"));
 
@@ -117,7 +157,7 @@ function prepare(chatId, now) {
         const P = store.get(uid);
         if (!P) return;
         const pets = r.pets.map(id => P.pets.find(p => p.id === id)).filter(Boolean);
-        if (pets.length) parts.push({ uid, name: r.n, pets, P, mode: r.mode === "manual" ? "manual" : "auto" });
+        if (pets.length) parts.push({ uid, name: r.n, pets, P, mode: r.mode === "manual" ? "manual" : "auto", boost: r.boost ? BOOST_ATK : 0 });
     });
     if (!parts.length) {
         b.done = true; b.phase = "done"; b.canceled = true;
@@ -228,6 +268,6 @@ async function tickAll(now, announce, hasLive) {
 }
 
 module.exports = {
-    KINDS, REG_TIME, COOLDOWN, TEAM, MIN_AUTO, kindOf, open, ranked, defaultTeam,
+    KINDS, REG_TIME, COOLDOWN, TEAM, MIN_AUTO, SPEED_COST, GUIDE_CRYSTALS, GUIDE_ESS, BOOST_COST, BOOST_ATK, nowCost, speedUp, summonNow, boost, kindOf, open, ranked, defaultTeam,
     get, spawn, join, toggle, setMode, setReady, leave, prepare, finalize, start, begin, liveOpen, chats, loadActive, tickAll
 };
