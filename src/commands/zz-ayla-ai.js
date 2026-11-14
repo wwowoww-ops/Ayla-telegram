@@ -24,6 +24,21 @@ function transcript(chatId, skipLast) {
     if (skipLast) b.pop();
     return b.slice(-10).map(e => "- " + (e.me ? "آيلا" : whoLabel(e.id, e.name)) + ": " + e.text).join("\n");
 }
+// تنزيل صورة تيليجرام وتصغيرها (حتى 1024px و JPEG) قبل إرسالها للمزوّد
+const MAX_FILE = 8 * 1024 * 1024;
+async function fetchImage(ctx, sizes) {
+    try {
+        const pick = [...sizes].reverse().find(x => !x.file_size || x.file_size <= MAX_FILE);
+        if (!pick) return null;
+        const f = await ctx.api.getFile(pick.file_id);
+        if (!f.file_path) return null;
+        const res = await fetch("https://api.telegram.org/file/bot" + ctx.api.token + "/" + f.file_path, { signal: AbortSignal.timeout(20000) });
+        if (!res.ok) return null;
+        const buf = Buffer.from(await res.arrayBuffer());
+        const out = await require("sharp")(buf).resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer();
+        return "data:image/jpeg;base64," + out.toString("base64");
+    } catch (e) { console.error("[AYLA AI] image:", e && e.message); return null; }
+}
 const busy = new Set();                 // مستخدمون لديهم طلب جارٍ
 const last = new Map();                 // آخر وقت طلب لكل مستخدم
 const COOLDOWN = 2500;
@@ -41,16 +56,17 @@ async function canToggle(ctx) {
 }
 
 module.exports = function (bot) {
-    bot.on("message:text", async (ctx, next) => {
+    bot.on(["message:text", "message:photo"], async (ctx, next) => {
         try {
             const msg = ctx.message;
             if (!ctx.from || ctx.from.is_bot || msg.via_bot || msg.forward_origin) return next();
-            let text = (msg.text || "").trim();
-            if (!text || text.startsWith("/")) return next();
+            const hasPhoto = !!(msg.photo && msg.photo.length);
+            let text = (msg.text || msg.caption || "").trim();
+            if ((!text && !hasPhoto) || text.startsWith("/")) return next();
 
             const isPrivate = ctx.chat.type === "private";
             const chatId = ctx.chat.id;
-            if (!isPrivate && ai.enabled() && isOn(chatId)) rec(chatId, ctx.from, text);
+            if (!isPrivate && ai.enabled() && isOn(chatId)) rec(chatId, ctx.from, text || "[أرسل صورة]");
             const botName = ctx.me && ctx.me.username;
             const replyToMe = !!(msg.reply_to_message && msg.reply_to_message.from && ctx.me && msg.reply_to_message.from.id === ctx.me.id);
             const mention = !!(botName && new RegExp("@" + botName + "\\b", "i").test(text));
@@ -83,7 +99,8 @@ module.exports = function (bot) {
             if (!isPrivate && !explicit) return next();
             if (!isPrivate) { const p = getPrefix(chatId); if (p && !dot && !named && !replyToMe && !mention && text.startsWith(p)) return next(); }
 
-            if (!text) text = "مرحبا";                      // نودِيت بالاسم فقط
+            const rtPhoto = !!(msg.reply_to_message && msg.reply_to_message.photo && msg.reply_to_message.photo.length);
+            if (!text) text = hasPhoto || rtPhoto ? "(أرسل صورة بلا تعليق)" : "مرحبا";                      // نودِيت بالاسم فقط
             const uid = String(ctx.from.id);
             if (busy.has(uid)) return;                       // طلب جارٍ لنفس المستخدم
             if (Date.now() - (last.get(uid) || 0) < COOLDOWN) return;
@@ -106,7 +123,14 @@ module.exports = function (bot) {
                     const tr = transcript(chatId, true);
                     if (tr) info += "\nآخر ما قيل في المجموعة (الأقدم أولًا):\n" + tr;
                 }
-                const reply = await ai.chat(uid, text, info);
+                let images = [];
+                const src = hasPhoto ? msg.photo : (rtPhoto ? msg.reply_to_message.photo : null);
+                if (src) {
+                    const img = await fetchImage(ctx, src);
+                    if (img) images = [img];
+                    else return await ctx.reply("ما قدرت أفتح الصورة، جرّب ترسلها مرة ثانية 🌸", { reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true } });
+                }
+                const reply = await ai.chat(uid, text, info, images);
                 if (reply && !isPrivate) rec(chatId, ctx.me || { id: 0 }, reply, true);
                 if (reply) await ctx.reply(reply, { reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true } });
                 else if (explicit) await ctx.reply("انشغل بالي شوي، جرّب بعد لحظة 🌸");
