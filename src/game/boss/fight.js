@@ -42,7 +42,7 @@ function create(parts, boss, now, rng = Math.random) {
         kind, level, units, maxHp, hp: maxHp, rng, round: 0, done: false, killed: false, raged: false,
         hitBase: avgHp * BOSS_HIT * Math.pow(GROW_HIT, level),
         aoeBase: avgHp * BOSS_AOE * Math.pow(GROW_HIT, level),
-        stun: 0, curse: { n: 0, m: 0 }, burn: { n: 0, d: 0 }, wall: { n: 0, m: 0 }, buff: { n: 0, m: 0 },
+        stun: 0, stunImm: 0, venom: { n: 0, d: 0 }, curse: { n: 0, m: 0 }, burn: { n: 0, d: 0 }, wall: { n: 0, m: 0 }, buff: { n: 0, m: 0 },
         events: []
     };
 }
@@ -60,11 +60,16 @@ function useful(st, u, i) {
         case "light1": return dead || need;
         case "light2": return dead || need || true;
         case "fire1": return st.burn.n <= 0;
-        case "thunder1": case "thunder2": return st.stun <= 0 || i === 2;
+        case "thunder1": case "thunder2": return st.stunImm <= 0;
         case "dark1": return st.curse.n <= 1;
         case "earth1": return !al.some(x => x.taunt > 0);
         case "earth2": return st.wall.n <= 0;
         case "plant2": return !al.some(x => x.hot.n > 0);
+        case "ice1": return st.stunImm <= 0;
+        case "ice2": return st.wall.n <= 0;
+        case "poison1": case "poison2": return st.venom.n <= 1;
+        case "wind2": return need || st.buff.n <= 0;
+        case "metal1": return al.some(x => x.shield < x.maxHp * 0.05);
         default: return true;
     }
 }
@@ -81,6 +86,8 @@ function step(st, cmds = {}) {
     const lowest = () => aliveOf(st).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     let crit = false;
 
+    // الشلل: بعده مناعة جولتين حتى لا يُشلّ الزعيم بلا توقف
+    function stunBoss() { if (st.stunImm > 0 || st.stun > 0) return; st.stun = 1; st.stunImm = 3; }
     function heal(u, t, amount) {
         if (!t || t.hp <= 0 || amount <= 0) return 0;
         amount *= 1 + (u.healM || 0);
@@ -127,8 +134,8 @@ function step(st, cmds = {}) {
             case "earth1": { u.taunt = 2; log(`${tag} يجذب هجمات الزعيم`); break; }
             case "earth2": { st.wall = { n: 2, m: Math.min(0.6, 0.30 + 0.04 * m) }; u.taunt = 2; const d = hitBoss(u, 1.5); log(`${tag} حماية للفريق + ${E.fmt(d)}`); break; }
             case "thunder0": { const d = hitBoss(u, 1.7 + 0.1 * m); log(`${tag} ${E.fmt(d)}${crit ? " 💥" : ""}`); break; }
-            case "thunder1": { const d = hitBoss(u, 1.8 + 0.1 * m); st.stun = Math.max(st.stun, 1); log(`${tag} ${E.fmt(d)} وشلّ الزعيم`); break; }
-            case "thunder2": { let d = 0; for (let k = 0; k < 3 && st.hp > 0; k++) d += hitBoss(u, 1.3 + 0.05 * m); st.stun = Math.max(st.stun, 1); log(`${tag} ${E.fmt(d)} وشلّ الزعيم`); break; }
+            case "thunder1": { const d = hitBoss(u, 1.8 + 0.1 * m); stunBoss(); log(`${tag} ${E.fmt(d)} وشلّ الزعيم`); break; }
+            case "thunder2": { let d = 0; for (let k = 0; k < 3 && st.hp > 0; k++) d += hitBoss(u, 1.3 + 0.05 * m); stunBoss(); log(`${tag} ${E.fmt(d)} وشلّ الزعيم`); break; }
             case "light0": { const t = lowest(); const g = heal(u, t, t.maxHp * 0.15 * m); log(`${tag} ← ${t.e}${t.owner} (+${E.fmt(g)})`); break; }
             case "light1": {
                 const d = st.units.find(x => x.hp <= 0);
@@ -143,6 +150,18 @@ function step(st, cmds = {}) {
                 log(`${tag} ${n ? "أحيا " + n + " و" : ""}عالج الفريق ورفع ضررهم`);
                 break;
             }
+            case "ice0": { const d = hitBoss(u, 1.7 + 0.1 * m); log(`${tag} ${E.fmt(d)}${crit ? " 💥" : ""}`); break; }
+            case "ice1": { const d = hitBoss(u, 1.4 + 0.1 * m); stunBoss(); log(`${tag} ${E.fmt(d)} وجمّد الزعيم`); break; }
+            case "ice2": { const d = hitBoss(u, 2.4 + 0.15 * m); st.wall = { n: 2, m: Math.min(0.5, 0.25 + 0.03 * m) }; log(`${tag} ${E.fmt(d)} + حماية جليدية للفريق`); break; }
+            case "wind0": { let d = 0; for (let k = 0; k < 2 && st.hp > 0; k++) d += hitBoss(u, 0.9 + 0.05 * m); log(`${tag} ${E.fmt(d)}`); break; }
+            case "wind1": { let d = 0; for (let k = 0; k < 3 && st.hp > 0; k++) d += hitBoss(u, 0.8 + 0.05 * m); log(`${tag} ${E.fmt(d)}`); break; }
+            case "wind2": { let tot = 0; al.forEach(x => { tot += heal(u, x, x.maxHp * 0.12 * m); }); st.buff = { n: 3, m: Math.max(st.buff.m, 0.20) }; log(`${tag} عالج الفريق (+${E.fmt(tot)}) ورفع ضررهم`); break; }
+            case "poison0": { const d = hitBoss(u, 1.7 + 0.1 * m); log(`${tag} ${E.fmt(d)}${crit ? " 💥" : ""}`); break; }
+            case "poison1": { const d = hitBoss(u, 1.0); st.venom = { n: 4, d: u.pw * (0.4 + 0.05 * m) * D.elementMult(u.el, kind.el) }; log(`${tag} ${E.fmt(d)} + تسميم`); break; }
+            case "poison2": { const d = hitBoss(u, 2.4 + 0.15 * m); st.venom = { n: 4, d: u.pw * (0.4 + 0.05 * m) * D.elementMult(u.el, kind.el) }; st.curse = { n: 3, m: Math.max(st.curse.m, Math.min(0.5, 0.2 + 0.02 * m)) }; log(`${tag} ${E.fmt(d)} + وباء ولعنة`); break; }
+            case "metal0": { const d = hitBoss(u, 1.8 + 0.1 * m); log(`${tag} ${E.fmt(d)}`); break; }
+            case "metal1": { al.forEach(x => { x.shield += x.maxHp * 0.07 * m; }); log(`${tag} درع معدني للفريق`); break; }
+            case "metal2": { const d = hitBoss(u, 3.5 + 0.2 * m); u.taunt = 2; log(`${tag} ${E.fmt(d)} ويجذب هجمات الزعيم`); break; }
             case "dark0": { const d = hitBoss(u, 1.6 + 0.1 * m); heal(u, u, d * 0.4); log(`${tag} ${E.fmt(d)}`); break; }
             case "dark1": { st.curse = { n: 3, m: Math.max(st.curse.m, Math.min(0.8, 0.2 + 0.03 * m)) }; log(`${tag} لعنة على الزعيم`); break; }
             case "dark2": { const d = hitBoss(u, 3.2 + 0.2 * m); heal(u, u, d * 0.3); st.curse = { n: 4, m: Math.max(st.curse.m, Math.min(0.8, 0.3 + 0.03 * m)) }; log(`${tag} ${E.fmt(d)} + لعنة`); break; }
@@ -156,6 +175,10 @@ function step(st, cmds = {}) {
         if (u.el === "water") { const t = lowest(); if (t && t.hp < t.maxHp) heal(u, t, t.maxHp * 0.03 * u.m); }
         if (u.hot.n > 0) { heal(u, u, u.maxHp * u.hot.p); u.hot.n--; }
     }
+    for (const u of aliveOf(st)) if (u.el === "metal") u.shield += u.maxHp * 0.02 * u.m;
+    const pois = aliveOf(st).filter(u => u.el === "poison");
+    if (pois.length) { const d = floor(Math.min(0.012, pois.reduce((a, u) => a + 0.001 * u.m, 0)) * st.maxHp); st.hp = Math.max(0, st.hp - d); pois[0].st.dmg += d; log(`☣️ سمّ الزعيم (${E.fmt(d)})`); }
+    if (st.venom.n > 0) { const d = floor(st.venom.d); st.hp = Math.max(0, st.hp - d); st.venom.n--; log(`🧪 التسمم يصيب الزعيم (${E.fmt(d)})`); }
     if (st.burn.n > 0) { const d = floor(st.burn.d); st.hp = Math.max(0, st.hp - d); st.burn.n--; log(`♨️ الحرق يصيب الزعيم (${E.fmt(d)})`); }
 
     // 2) أفعال الحيوانات
@@ -174,7 +197,10 @@ function step(st, cmds = {}) {
     const rage = st.hp < st.maxHp * RAGE_AT, k = rage ? RAGE_MULT : 1;
     if (rage && !st.raged) { st.raged = true; log(`😡 ${kind.n} غضب!`); }
     const hurt = (u, base) => {
+        if (u.el === "wind" && rng() < Math.min(0.4, 0.07 * u.m)) { log(`🌪️ ${u.e}${u.owner} تفادى الهجوم`); return; }
         let d = base * k * (0.9 + 0.2 * rng()) * (1 - Math.min(0.6, u.dr || 0));
+        const iceDr = Math.min(0.3, aliveOf(st).filter(x => x.el === "ice").reduce((a, x) => a + 0.03 * x.m, 0));
+        if (iceDr) d *= 1 - iceDr;
         if (u.el === "earth") d *= 1 - Math.min(0.6, 0.08 * u.m);
         if (u.taunt > 0) d *= 1 - Math.min(0.7, 0.35 + 0.05 * u.m);
         if (st.wall.n > 0) d *= 1 - st.wall.m;
@@ -194,6 +220,7 @@ function step(st, cmds = {}) {
     st.units.forEach(u => { for (let i = 0; i < 3; i++) if (u.cd[i] > 0) u.cd[i]--; if (u.taunt > 0) u.taunt--; });
     if (st.curse.n > 0 && !--st.curse.n) st.curse.m = 0;
     if (st.wall.n > 0) st.wall.n--;
+    if (st.stunImm > 0) st.stunImm--;
     if (st.buff.n > 0) st.buff.n--;
     if (!aliveOf(st).length || r >= ROUNDS) { st.done = true; if (!aliveOf(st).length) log("💀 سقط كل الفريق"); }
     return lines;

@@ -26,7 +26,11 @@ const KINDS = [
     { id: "earth",   n: "جبل الحجر الحي",     e: "⛰️", el: "earth" },
     { id: "thunder", n: "سيّد العواصف",       e: "⛈️", el: "thunder" },
     { id: "light",   n: "حارس الفجر",         e: "🌟", el: "light" },
-    { id: "dark",    n: "ملك الظلام",         e: "👁️", el: "dark" }
+    { id: "dark",    n: "ملك الظلام",         e: "👁️", el: "dark" },
+    { id: "ice",     n: "ملكة الصقيع",        e: "🧊", el: "ice" },
+    { id: "wind",    n: "عنقاء الأعاصير",     e: "🌪️", el: "wind" },
+    { id: "poison",  n: "الأفعى الوبائية",    e: "🐍", el: "poison" },
+    { id: "metal",   n: "العملاق الفولاذي",   e: "🤖", el: "metal" }
 ];
 const kindOf = b => KINDS.find(k => k.id === b.kind) || KINDS[0];
 

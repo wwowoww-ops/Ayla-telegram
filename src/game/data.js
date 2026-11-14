@@ -7,15 +7,21 @@ const ELEMENTS = {
     earth:   { n: "أرض",   e: "🪨" },
     thunder: { n: "برق",   e: "⚡" },
     light:   { n: "نور",   e: "✨" },
-    dark:    { n: "ظلام",  e: "🌑" }
+    dark:    { n: "ظلام",  e: "🌑" },
+    ice:     { n: "ثلج",   e: "❄️" },
+    wind:    { n: "رياح",  e: "🌪️" },
+    poison:  { n: "سم",    e: "☣️" },
+    metal:   { n: "حديد",  e: "⚙️" }
 };
 const EL_KEYS = Object.keys(ELEMENTS);
 // دائرة التفوق: النار تغلب النبات، النبات الأرض، الأرض البرق، البرق الماء، الماء النار. والنور والظلام يتفوق كل منهما على الآخر
 const BEATS = { fire: "plant", plant: "earth", earth: "thunder", thunder: "water", water: "fire", light: "dark", dark: "light" };
-// النظام الجديد: كل عنصر من الخمسة الأساسية يتفوق على عنصرين ويضعف أمام عنصرين، والنور والظلام يتفوق كل منهما على الآخر
+// نظام العناصر (11 عنصرًا): لكل عنصر عدد مختلف من الأعداء الذين يتفوق عليهم والذين يضعف أمامهم
 const BEATS_ALL = {
-    fire: ["plant", "earth"], plant: ["earth", "thunder"], earth: ["thunder", "water"],
-    thunder: ["water", "fire"], water: ["fire", "plant"], light: ["dark"], dark: ["light"]
+    fire: ["plant", "ice", "metal"], water: ["fire", "earth"], plant: ["water", "earth"],
+    earth: ["thunder", "poison"], thunder: ["water", "metal", "wind"], ice: ["plant", "wind", "earth"],
+    wind: ["poison", "fire"], poison: ["plant", "water"], metal: ["ice", "wind"],
+    light: ["dark", "poison"], dark: ["light", "metal"]
 };
 const beatenBy = el => Object.keys(BEATS_ALL).filter(k => BEATS_ALL[k].includes(el));
 function elementMult(att, def) {
@@ -42,32 +48,24 @@ const RAW = [
     [3, "أرنب", "🐰", 0, 0.9, ["plant", "earth"]], [4, "هامستر", "🐹", 0, 0.8, ["earth", "plant"]],
     [5, "سنجاب", "🐿️", 0, 1.0, ["plant", "earth"]], [6, "فراشة", "🦋", 0, 0.7, ["plant", "light"]],
     [7, "حلزون", "🐌", 0, 0.6, ["earth", "water"]], [8, "سمكة", "🐟", 0, 0.8, ["water"]],
-    [38, "قنفذ", "🦔", 0, 1.3, ["earth", "plant"]],
+    [38, "قنفذ", "🦔", 0, 1.3, ["poison", "earth"]],
     [9, "ثعلب", "🦊", 1, 1.0, ["fire", "earth"]], [10, "باندا", "🐼", 1, 1.15, ["plant", "earth"]],
-    [11, "ببغاء", "🦜", 1, 1.05, ["thunder", "plant"]], [12, "سلحفاة", "🐢", 1, 0.95, ["water", "earth"]],
-    [13, "بطريق", "🐧", 1, 0.9, ["water"]], [14, "كوالا", "🐨", 1, 0.95, ["plant"]],
-    [15, "غراب", "🐦‍⬛", 1, 1.2, ["dark", "thunder"]],
-    [16, "ذئب", "🐺", 2, 1.0, ["dark", "earth"]], [17, "حصان", "🐴", 2, 1.1, ["earth", "thunder"]],
+    [11, "ببغاء", "🦜", 1, 1.05, ["wind", "plant"]], [12, "سلحفاة", "🐢", 1, 0.95, ["water", "metal"]],
+    [13, "بطريق", "🐧", 1, 0.9, ["ice", "water"]], [14, "كوالا", "🐨", 1, 0.95, ["plant"]],
+    [15, "غراب", "🐦‍⬛", 1, 1.2, ["dark", "wind"]],
+    [16, "ذئب", "🐺", 2, 1.0, ["dark", "earth"]], [17, "حصان", "🐴", 2, 1.1, ["metal", "thunder"]],
     [18, "نمر", "🐯", 2, 1.15, ["fire", "thunder"]], [19, "أسد", "🦁", 2, 1.25, ["fire", "light"]],
-    [20, "دب", "🐻", 2, 1.3, ["earth", "plant"]],
-    [21, "غزال", "🦌", 3, 0.9, ["plant", "light"]], [22, "نسر", "🦅", 3, 1.1, ["thunder", "light"]],
+    [20, "دب", "🐻", 2, 1.3, ["ice", "earth"]],
+    [21, "غزال", "🦌", 3, 0.9, ["plant", "light"]], [22, "نسر", "🦅", 3, 1.1, ["wind", "light"]],
     [23, "بومة", "🦉", 3, 1.0, ["dark", "light"]], [24, "غوريلا", "🦍", 3, 1.25, ["earth"]],
-    [25, "فهد", "🐆", 3, 1.2, ["thunder", "dark"]], [26, "تمساح", "🐊", 3, 1.15, ["water", "earth"]],
-    [27, "قرش", "🦈", 3, 1.2, ["water", "dark"]], [28, "حوت", "🐋", 3, 1.35, ["water", "light"]],
+    [25, "فهد", "🐆", 3, 1.2, ["thunder", "dark"]], [26, "تمساح", "🐊", 3, 1.15, ["poison", "water"]],
+    [27, "قرش", "🦈", 3, 1.2, ["water", "dark"]], [28, "حوت", "🐋", 3, 1.35, ["water", "ice"]],
     [29, "زرافة", "🦒", 3, 0.95, ["plant", "earth"]], [30, "شمبانزي", "🐒", 3, 0.9, ["plant", "thunder"]],
-    [31, "وحيد القرن", "🦏", 4, 1.0, ["earth"]], [32, "فيل", "🐘", 4, 1.15, ["earth", "water"]],
-    [33, "صقر", "🦅", 4, 0.9, ["thunder", "light"]], [34, "وحش أسطوري", "👹", 4, 1.4, ["dark", "fire"]],
-    [36, "يونيكورن", "🦄", 5, 1.0, ["light"]], [37, "كراكن", "🐙", 5, 1.2, ["water", "dark"]],
-    [40, "ماموث خرافي", "🦣", 5, 1.3, ["earth", "water"]],
-    [35, "تنين", "🐉", 6, 1.0, ["fire", "thunder"]], [39, "عنقاء", "🐦‍🔥", 6, 1.2, ["fire", "light"]],
-    // أنواع جديدة (ضع صورها في images/<الرقم>.jpg إن أردت)
-    [41, "فأر", "🐭", 0, 0.85, ["earth", "plant"]], [42, "بطة", "🦆", 0, 0.8, ["water", "plant"]],
-    [43, "ضفدع", "🐸", 1, 0.95, ["water", "plant"]], [44, "خفاش", "🦇", 1, 1.15, ["dark", "thunder"]],
-    [45, "ثور", "🐂", 2, 1.2, ["earth", "fire"]], [46, "قندس", "🦫", 2, 0.95, ["water", "earth"]],
-    [47, "عقرب", "🦂", 3, 1.15, ["dark", "earth"]], [48, "طاووس", "🦚", 3, 1.0, ["light", "plant"]],
-    [49, "دب قطبي", "🐻‍❄️", 4, 1.2, ["water", "light"]], [50, "أفعى ملكية", "🐍", 4, 1.1, ["dark", "earth"]],
-    [51, "ديناصور", "🦕", 5, 1.25, ["earth", "thunder"]], [52, "حبّار عملاق", "🦑", 5, 1.1, ["water", "thunder"]],
-    [53, "تنين الجليد", "🐲", 6, 1.1, ["water", "light"]], [54, "حارس الأبعاد", "👾", 6, 1.3, ["dark", "light"]]
+    [31, "وحيد القرن", "🦏", 4, 1.0, ["metal", "earth"]], [32, "فيل", "🐘", 4, 1.15, ["metal", "water"]],
+    [33, "صقر", "🦅", 4, 0.9, ["wind", "thunder"]], [34, "وحش أسطوري", "👹", 4, 1.4, ["dark", "poison"]],
+    [36, "يونيكورن", "🦄", 5, 1.0, ["light"]], [37, "كراكن", "🐙", 5, 1.2, ["water", "poison"]],
+    [40, "ماموث خرافي", "🦣", 5, 1.3, ["ice", "earth"]],
+    [35, "تنين", "🐉", 6, 1.0, ["fire", "thunder"]], [39, "عنقاء", "🐦‍🔥", 6, 1.2, ["fire", "light"]]
 ];
 const SPECIES = {};
 RAW.forEach(([id, n, e, r, v, els]) => { SPECIES[id] = { id, n, e, r, v, els }; });
@@ -113,17 +111,17 @@ const ZONES = [
     { n: "غابة الظلال",     power: 8,      coins: 150,     xp: 0.06, els: ["plant", "dark"],  egg: 0 },
     { n: "الكهوف القديمة",  power: 40,     coins: 3e3,     xp: 0.06, els: ["earth", "dark"],  egg: 0 },
     { n: "صحراء السراب",    power: 200,    coins: 60e3,    xp: 0.07, els: ["fire", "earth"],  egg: 1 },
-    { n: "المستنقع السام",  power: 500,    coins: 400e3,   xp: 0.07, els: ["plant", "dark", "water"], egg: 1 },
-    { n: "جبال الجليد",     power: 1.2e3,  coins: 2.5e6,   xp: 0.07, els: ["water", "light"], egg: 2 },
-    { n: "فوهة البركان",    power: 4e3,    coins: 40e6,    xp: 0.08, els: ["fire", "thunder"], egg: 2 },
+    { n: "المستنقع السام",  power: 500,    coins: 400e3,   xp: 0.07, els: ["poison", "plant", "dark"], egg: 1 },
+    { n: "جبال الجليد",     power: 1.2e3,  coins: 2.5e6,   xp: 0.07, els: ["ice", "water", "light"], egg: 2 },
+    { n: "فوهة البركان",    power: 4e3,    coins: 40e6,    xp: 0.08, els: ["fire", "metal", "thunder"], egg: 2 },
     { n: "الغابة المسحورة", power: 10e3,   coins: 250e6,   xp: 0.08, els: ["plant", "light", "earth"], egg: 3 },
-    { n: "قلعة العواصف",    power: 25e3,   coins: 1.5e9,   xp: 0.08, els: ["thunder", "water"], egg: 3 },
+    { n: "قلعة العواصف",    power: 25e3,   coins: 1.5e9,   xp: 0.08, els: ["thunder", "wind", "water"], egg: 3 },
     { n: "هاوية الأرواح",   power: 60e3,   coins: 20e9,    xp: 0.09, els: ["dark", "fire"],   egg: 4, elite: 1 },
-    { n: "المدينة الغارقة", power: 130e3,  coins: 120e9,   xp: 0.09, els: ["water", "dark", "earth"], egg: 4, elite: 1 },
-    { n: "جزر السماء",      power: 270e3,  coins: 600e9,   xp: 0.09, els: ["light", "thunder"], egg: 5, elite: 2 },
+    { n: "المدينة الغارقة", power: 130e3,  coins: 120e9,   xp: 0.09, els: ["water", "poison", "dark"], egg: 4, elite: 1 },
+    { n: "جزر السماء",      power: 270e3,  coins: 600e9,   xp: 0.09, els: ["wind", "light", "thunder"], egg: 5, elite: 2 },
     { n: "قلب الكون",       power: 520e3,  coins: 8e12,    xp: 0.10, els: ["light", "dark"],  egg: 5, elite: 2 },
-    { n: "بوابة الأبعاد",   power: 850e3,  coins: 40e12,   xp: 0.10, els: ["fire", "water", "thunder", "dark", "light"], egg: 6, elite: 3 },
-    { n: "عرش الآلهة",      power: 1.3e6,  coins: 300e12,  xp: 0.12, els: ["fire", "water", "plant", "earth", "thunder", "light", "dark"], egg: 6, elite: 3 }
+    { n: "بوابة الأبعاد",   power: 850e3,  coins: 40e12,   xp: 0.10, els: ["fire", "water", "thunder", "dark", "light", "ice", "metal"], egg: 6, elite: 3 },
+    { n: "عرش الآلهة",      power: 1.3e6,  coins: 300e12,  xp: 0.12, els: ["fire", "water", "plant", "earth", "thunder", "light", "dark", "ice", "wind", "poison", "metal"], egg: 6, elite: 3 }
 ];
 
 // الموارد: تُصطاد وتُستخدم في الترقية السريعة والتطور والتعزيزات (حلّت محل الطعام)
@@ -136,7 +134,11 @@ const RES = {
     ess_earth:    { n: "جوهر الأرض",    e: "🪨", el: "earth" },
     ess_thunder:  { n: "جوهر البرق",    e: "⚡", el: "thunder" },
     ess_light:    { n: "جوهر النور",    e: "✨", el: "light" },
-    ess_dark:     { n: "جوهر الظلام",   e: "🌑", el: "dark" }
+    ess_dark:     { n: "جوهر الظلام",   e: "🌑", el: "dark" },
+    ess_ice:      { n: "جوهر الثلج",    e: "❄️", el: "ice" },
+    ess_wind:     { n: "جوهر الرياح",   e: "🌪️", el: "wind" },
+    ess_poison:   { n: "جوهر السم",     e: "☣️", el: "poison" },
+    ess_metal:    { n: "جوهر الحديد",   e: "⚙️", el: "metal" }
 };
 const RES_KEYS = Object.keys(RES);
 

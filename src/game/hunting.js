@@ -17,6 +17,10 @@ function passive(pet) {
         if (el === "dark")    { o.atk *= 1 + 0.06 * m * w; }
         if (el === "water")   { o.lo = Math.min(1, o.lo + 0.03 * m * w); }
         if (el === "earth")   { o.foe *= 1 - Math.min(0.3, 0.06 * m * w); }
+        if (el === "ice")     { o.foe *= 1 - Math.min(0.2, 0.04 * m * w); }
+        if (el === "wind")    { o.lo = Math.min(1, o.lo + 0.04 * m * w); }
+        if (el === "poison")  { o.atk *= 1 + 0.06 * m * w; }
+        if (el === "metal")   { o.foe *= 1 - Math.min(0.3, 0.06 * m * w); }
         if (el === "thunder") { o.double = Math.max(o.double, Math.min(0.5, 0.10 * m * w)); }
         o.lines.push(p.e + " " + p.n);
     });
