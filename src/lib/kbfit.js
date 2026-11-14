@@ -3,6 +3,8 @@ const LIMIT = 30;       // أقصى "عرض" للسطر (حروف تقريبًا
 const MAX_LONG = 3;     // أقصى عدد أزرار بسطر عند وجود نصوص طويلة
 const MAX_SHORT = 6;    // أقصى عدد بسطر لأزرار قصيرة (رموز/أرقام)
 
+const HALF = 17;        // أطول نص يتّسع لنصف السطر؛ ما زاد عنه يأخذ سطرًا كاملًا
+const isLong = b => Array.from(String(b.text || "")).length > HALF;
 const width = b => Array.from(String(b.text || "")).length + 3;
 const short = b => Array.from(String(b.text || "")).length <= 5;
 
@@ -26,7 +28,15 @@ function fit(markup) {
     if (!Array.isArray(kb)) return markup;
     const flat = [].concat(...kb);
     const rows = [];
-    for (let i = 0; i < flat.length; i += 2) rows.push(flat.slice(i, i + 2));   // كل زرين بسطر، والزر الفرد وحده
+    let pend = null;
+    for (const b of flat) {
+        if (isLong(b)) {                       // زر طويل: سطر كامل له وحده
+            if (pend) { rows.push([pend]); pend = null; }
+            rows.push([b]);
+        } else if (pend) { rows.push([pend, b]); pend = null; }   // قصيران: جنبًا إلى جنب
+        else pend = b;
+    }
+    if (pend) rows.push([pend]);
     return { inline_keyboard: rows };
 }
 
