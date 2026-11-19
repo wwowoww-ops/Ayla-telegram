@@ -83,13 +83,25 @@ function st(P) {
     POST_IDS.forEach(id => {
         const a = Array.isArray(P.posts[id]) ? P.posts[id] : [];
         P.posts[id] = a.filter(pid => {
-            const ok = !seen.has(pid) && pid !== P.main && P.pets.some(p => p.id === pid);
+            const pet = P.pets.find(p => p.id === pid);
+            const ok = !seen.has(pid) && pid !== P.main && pet && eligible(pet.sp, id);
             if (ok) seen.add(pid);
             return ok;
         }).slice(0, POSTS[id].slots);
     });
     return P.posts;
 }
+// الأهلية: لا يُعيَّن في وظيفة إلا النوع الذي يصلح لها (بحسب وسوم الأنواع). حرس الزعيم: أي نوع مقاتل أو متين أو معالج.
+const BOSS_TAGS = ["striker", "tank", "healer"];
+const eligible = (spId, postId) => {
+    const d = POSTS[postId];
+    if (!d) return false;
+    return postId === "boss" ? BOSS_TAGS.some(t => hasTag(spId, t)) : hasTag(spId, d.tag);
+};
+const eligibleNames = postId => {
+    const ids = new Set(postId === "boss" ? [].concat(...BOSS_TAGS.map(t => TAGS[t])) : TAGS[POSTS[postId].tag]);
+    return [...ids].filter(id => D.SPECIES[id]).sort((a, b) => a - b).map(id => D.SPECIES[id].e + " " + D.SPECIES[id].n);
+};
 const postOf = (P, petId) => POST_IDS.find(id => st(P)[id].includes(Number(petId))) || null;
 const isPosted = (P, petId) => !!postOf(P, petId);
 const peek = P => (P.posts ? st(P) : null);
@@ -127,7 +139,7 @@ function total(P) {
 }
 const buffs = P => { const t = total(P), o = {}; Object.keys(t).forEach(k => { if (!EXTRA.includes(k)) o[k] = t[k]; }); return o; };
 const extra = P => { const t = total(P); return { warmMax: Math.floor(t.warmMax || 0), warmCd: t.warmCd || 0, mut: t.mut || 0 }; };
-const fitList = pet => POST_IDS.filter(id => aptitude(pet, id) > 1 || (id === "boss" && Object.keys(BOSS_FX[pet.el] || {}).some(k => hasTag(pet.sp, BOSS_KEY_TAG[k]))));
+const fitList = pet => POST_IDS.filter(id => eligible(pet.sp, id));
 
 // ---------- التعيين ----------
 const fail = msg => ({ ok: false, msg });
@@ -136,6 +148,7 @@ function assign(P, postId, petId) {
     if (!def) return fail("وظيفة غير معروفة.");
     if (!pet) return fail("الحيوان غير موجود.");
     if (pet.id === P.main) return fail("لا يمكن تعيين حيوانك الأساسي في وظيفة.");
+    if (!eligible(pet.sp, postId)) return fail(E.spOf(pet).e + " " + E.spOf(pet).n + " لا يصلح لوظيفة " + def.n + ". الأنواع المناسبة: " + eligibleNames(postId).join("، "));
     const s = st(P), cur = postOf(P, pet.id);
     if (cur === postId) return fail("هو في هذه الوظيفة بالفعل.");
     if (s[postId].length >= def.slots) return fail("وظيفة " + def.n + " ممتلئة (" + def.slots + "). أزل حيوانًا منها أولًا.");
@@ -155,9 +168,9 @@ function unassign(P, petId) {
 // مرشّحون لوظيفة: الأنسب أولًا ثم الأقوى أثرًا
 function candidates(P, postId) {
     const s = st(P), here = s[postId] || [];
-    return P.pets.filter(p => p.id !== P.main && !here.includes(p.id))
-        .map(p => ({ p, a: postId === "boss" ? (fitList(p).includes("boss") ? FIT : 1) : aptitude(p, postId), sc: scale(p) }))
+    return P.pets.filter(p => p.id !== P.main && !here.includes(p.id) && eligible(p.sp, postId))
+        .map(p => ({ p, a: postId === "boss" ? FIT : aptitude(p, postId), sc: scale(p) }))
         .sort((x, y) => y.a * y.sc - x.a * x.sc).map(x => x.p);
 }
 
-module.exports = { POSTS, POST_IDS, TAGS, CAPS, st, postOf, isPosted, aptitude, petFx, total, buffs, extra, fitList, assign, unassign, candidates, fxText, scale, hasTag };
+module.exports = { eligible, eligibleNames, POSTS, POST_IDS, TAGS, CAPS, st, postOf, isPosted, aptitude, petFx, total, buffs, extra, fitList, assign, unassign, candidates, fxText, scale, hasTag };

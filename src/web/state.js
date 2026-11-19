@@ -58,7 +58,7 @@ function meta(P) {
         habitats: Object.keys(Fy.HABITATS).map(id => ({ id, ...Fy.HABITATS[id] })),
         fairyFam: Object.fromEntries(Object.keys(Fy.FAM).map(k => [k, Fy.FAM[k].n])),
         fairyRates: Fy.ratesTxt(), fairyOwnCap: Fy.OWN_CAP, fairyMaxLv: Fy.MAX_LV,
-        posts: Po.POST_IDS.map(id => ({ id, n: Po.POSTS[id].n, e: Po.POSTS[id].e, slots: Po.POSTS[id].slots, d: Po.POSTS[id].d })),
+        posts: Po.POST_IDS.map(id => ({ id, n: Po.POSTS[id].n, e: Po.POSTS[id].e, slots: Po.POSTS[id].slots, d: Po.POSTS[id].d, names: Po.eligibleNames(id) })),
         penMax: 8, slotPrice: E.slotPrice(P), hatchPrice: P.hatchSlots < 10 ? E.hatchPrice(P) : 0,
         bowlPrice: F.price(P), bowlMax: F.MAX_BOWLS, bowlCap: F.CAP, bowlFoods: F.FOODS,
         breedLv: D.C.BREED_LV, lvCap: D.C.LV_CAP, maxStars: D.C.MAX_STARS
