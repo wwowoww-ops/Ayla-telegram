@@ -11,7 +11,8 @@ const RMP = [1, 1.3, 1.7, 2.2, 2.8, 3.5, 4.4, 5.5, 7];   // مضاعف الند�
 const LV_STEP = 0.02;                                     // كل مستوى +2%
 const ST_STEP = 0.10;                                     // كل نجمة +10%
 const FIT = 1.5;                                          // نوع مناسب للوظيفة
-const HEN = 2.5;                                          // الدجاجة في الحضانة
+const BASE = 1.5;                                         // قوة الأثر الأساسية لأي نوع مؤهل (لا يظهر كمضاعف)
+const HEN = 2.5 / BASE;                                   // الدجاجة في الحضانة: أقوى حاضنة (×1.67 على غيرها)
 
 const POSTS = {
     hatch: { n: "الحضانة",        e: "🪺", slots: 1, tag: "brood",    d: "حاضن يزيد قوة العسل ويقصّر انتظار التدفئة، والأنواع الحاضنة تزيد عدد التدفئات" },
@@ -111,7 +112,7 @@ const scale = pet => RMP[Math.min(RMP.length - 1, E.spOf(pet).r)] * (1 + LV_STEP
 function aptitude(pet, postId) {
     const tag = POSTS[postId].tag;
     if (postId === "hatch" && pet.sp === 58) return HEN;
-    return tag && hasTag(pet.sp, tag) ? FIT : 1;
+    return 1;   // كل نوع مؤهل متساوٍ، والتفاضل بالندرة والمستوى والنجوم
 }
 // بفات حيوان واحد في وظيفة (قبل السقف)
 function petFx(pet, postId) {
@@ -121,9 +122,9 @@ function petFx(pet, postId) {
         if (pet.elb) Object.entries(BOSS_FX[pet.elb] || {}).forEach(([k, v]) => { o[k] = (o[k] || 0) + v * s * 0.5 * (hasTag(pet.sp, BOSS_KEY_TAG[k]) ? FIT : 1); });
         return o;
     }
-    const a = aptitude(pet, postId), u = s * a;
+    const a = aptitude(pet, postId), u = s * a * BASE;
     Object.entries(FX[postId] || {}).forEach(([k, v]) => { o[k] = v * u; });
-    if (postId === "hatch") o.warmMax = (a > 1 ? 1 : 0) + (u >= 12 ? 1 : 0);
+    if (postId === "hatch") o.warmMax = 1 + (u >= 12 ? 1 : 0);
     return o;
 }
 // مجموع كل الوظائف بعد السقوف
@@ -155,7 +156,7 @@ function assign(P, postId, petId) {
     if (cur) s[cur] = s[cur].filter(id => id !== pet.id);
     s[postId].push(pet.id);
     const fx = petFx(pet, postId), a = aptitude(pet, postId);
-    return ok2(def.e + " عُيِّن " + E.spOf(pet).e + " " + (pet.nick || E.spOf(pet).n) + " في " + def.n + (a > 1 ? " (مناسب جدًا ×" + a + ")" : "") + (Object.keys(fx).length ? "\n↳ " + fxText(fx) : ""));
+    return ok2(def.e + " عُيِّن " + E.spOf(pet).e + " " + (pet.nick || E.spOf(pet).n) + " في " + def.n + (a > 1 ? " (أفضل حاضنة ×" + a.toFixed(1) + ")" : "") + (Object.keys(fx).length ? "\n↳ " + fxText(fx) : ""));
 }
 const ok2 = msg => ({ ok: true, msg });
 function unassign(P, petId) {
