@@ -4,7 +4,7 @@ const D = require("./data");
 const S = require("./boss/skills");
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-const els = pet => [pet.el, pet.el2].filter(Boolean);
+const els = pet => [pet.el, pet.elb, pet.el2].filter(Boolean);
 
 // مضاعف الهجوم والتأثيرات من السلبية. العنصر الثانوي يعمل بنصف القوة.
 function passive(pet) {

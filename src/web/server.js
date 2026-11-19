@@ -10,6 +10,8 @@ const F = require("../game/feeders");
 const Res = require("../game/resources");
 const Fy = require("../game/fairies");
 const Mk = require("../game/market");
+const X = require("../game/extras");
+const Se = require("../game/season");
 const { nameOf } = require("../lib/util");
 const { validateInitData } = require("./auth");
 const { buildState, petView } = require("./state");
@@ -75,7 +77,13 @@ const ACTIONS = {
     daily: (P, a, now) => E.daily(P, now),
     expandSlots: P => E.expandSlots(P),
     expandHatch: P => E.expandHatch(P),
-    breed: (P, a, now) => E.breed(P, int(a.a), int(a.b), now, rng),
+    breed: (P, a, now) => E.breed(P, int(a.a), int(a.b), now, rng, !!a.stone),
+    // ----- متجر النوادر والتدفئة والتدوير -----
+    warm: (P, a, now) => X.warm(P, int(a.id), now),
+    nBuy: (P, a) => X.buy(P, String(a.id), int(a.qty) || 1),
+    nOpen: P => X.openBox(P, rng),
+    recycle: (P, a) => (Array.isArray(a.ids) && a.ids.length <= 60 ? X.recycle(P, a.ids.map(int).filter(Number.isInteger)) : { ok: false, msg: "اختيار غير صالح." }),
+    recycleBulk: (P, a) => (Number.isInteger(a.r) && a.r >= 0 && a.r <= 3 ? X.recycleBulk(P, a.r, 25) : { ok: false, msg: "اختيار غير صالح." }),
     hunt(P, a, now) {
         const zone = D.ZONES[int(a.zone)];
         const pet = E.getPet(P, P.main);
@@ -269,6 +277,7 @@ function createServer(botToken, opts = {}) {
                 const now = Date.now();
                 const P = ensurePlayer(user, now);
                 if (Q) Q.ensureMissions(P, now);
+                try { Se.ensure(P, now); } catch (e) { /* لا شيء */ }
 
                 F.tick(P, now); // تشغيل التغذية التلقائية من الأوعية
 

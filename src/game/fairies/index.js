@@ -50,8 +50,18 @@ const RAW = [
     [18, "جنية الفجر", "🌅", 3, "dawn"], [19, "جنية الغابة", "🌳", 3, "heal"], [20, "جنية الكنز", "💎", 3, "gold"], [21, "جنية الساعة", "⌛", 3, "time"],
     [22, "جنية النجوم", "🌟", 4, "dawn"], [23, "جنية الأبدية", "♾️", 4, "trade"], [24, "جنية العرش", "👑", 4, "gold"]
 ];
+// بَف فريد لكل جنية (يتقدّم على عائلتها). المفاتيح الجديدة: collectG جمع الأرباح فقط، dailyG المكافأة اليومية فقط، huntG ذهب الصيد فقط،
+// huntXp خبرة الصيد فقط، trainXp خبرة التدريب فقط، feedXp خبرة الطعام فقط، recycle عوائد تدوير الحيوانات، warm قوة التدفئة في الحضانة
+const UNIQUE_FX = {
+    1: { collectG: 0.05 }, 2: { trainXp: 0.06 }, 3: { sat: 0.05 }, 4: { hatch: 0.03, tier: 0.002 }, 5: { luck: 0.04 }, 6: { time: 0.03 },
+    7: { trade: 0.025, dailyG: 0.02 }, 8: { war: 0.02, huntXp: 0.03 }, 9: { tax: 0.03 }, 10: { heal: 0.04 }, 11: { breed: 0.03, warm: 0.03 }, 12: { dailyG: 0.04, luck: 0.01 },
+    13: { time: 0.025, huntG: 0.025 }, 14: { feedXp: 0.06, wis: 0.01 }, 15: { luck: 0.03, recycle: 0.05 }, 16: { dr: 0.03, hp: 0.02 }, 17: { warBoss: 0.04, war: 0.015 },
+    18: { collectG: 0.02, trainXp: 0.02, huntXp: 0.02 }, 19: { heal: 0.03, hp: 0.03, sat: 0.02 }, 20: { huntG: 0.04, collectG: 0.03 }, 21: { time: 0.04, warm: 0.04 },
+    22: { gold: 0.01, wis: 0.01, luck: 0.01, recycle: 0.03, warm: 0.02 }, 23: { trade: 0.04, tax: 0.03, recycle: 0.04 }, 24: { gold: 0.025, dailyG: 0.03, huntG: 0.03 }
+};
 const SPECIES = {};
-RAW.forEach(([id, n, e, r, fam]) => { SPECIES[id] = { id, n, e, r, fam }; });
+RAW.forEach(([id, n, e, r, fam]) => { SPECIES[id] = { id, n, e, r, fam, fx: UNIQUE_FX[id] || null }; });
+const fxOf = s => s.fx || FAM[s.fam].fx;
 const BY_RARITY = RARITIES.map((_, r) => RAW.filter(x => x[3] === r).map(x => x[0]));
 
 // وصف كل بَف
@@ -61,6 +71,11 @@ const FX_TXT = {
     luck: v => `+${pc(v)} غنائم صيد وفرصة جنيات`, tax: v => `-${pc(v)} ضريبة الثروة`, dr: v => `-${pc(v)} ضرر البوس عليك`, trade: v => `-${pc(v)} أسعار البيض والطعام والتوسعة`,
     heal: v => `+${pc(v)} علاج في البوس`, hp: v => `+${pc(v)} حياة في البوس`, breed: v => `-${pc(v)} تكلفة التزاوج`, breedCd: v => `-${pc(v)} انتظار التزاوج`, time: v => `-${pc(v)} انتظار التدريب واللعب والصيد`
 };
+Object.assign(FX_TXT, {
+    collectG: v => `+${pc(v)} أرباح عند جمع الأرباح`, dailyG: v => `+${pc(v)} المكافأة اليومية`, huntG: v => `+${pc(v)} ذهب الصيد`,
+    huntXp: v => `+${pc(v)} خبرة الصيد`, trainXp: v => `+${pc(v)} خبرة التدريب`, feedXp: v => `+${pc(v)} خبرة الطعام`,
+    recycle: v => `+${pc(v)} عوائد تدوير الحيوانات`, warm: v => `+${pc(v)} قوة التدفئة في الحضانة`
+});
 function pc(v, d = 0) { return (v * 100).toFixed(d).replace(/\.0+$/, "") + "%"; }
 
 // ---------- حالة اللاعب ----------
@@ -134,7 +149,7 @@ const scale = (f, now) => RM[sp(f).r] * (1 + LV_SCALE * (lvOf(f, now) - 1));
 
 function buffOf(f, now) {
     const s = scale(f, now), o = {};
-    Object.entries(FAM[sp(f).fam].fx).forEach(([k, v]) => { o[k] = Math.min(k === "tier" ? 0.05 : CAP, v * s); });
+    Object.entries(fxOf(sp(f))).forEach(([k, v]) => { o[k] = Math.min(k === "tier" ? 0.05 : CAP, v * s); });
     return o;
 }
 // مجموع بفات الجنيات المجهزة
@@ -150,7 +165,7 @@ function buffs(P, now = Date.now()) {
     return b;
 }
 const buffTxt = o => Object.entries(o).map(([k, v]) => FX_TXT[k](v)).join(" · ");
-const famTxt = (fam, r, lv) => buffTxt(Object.fromEntries(Object.entries(FAM[fam].fx).map(([k, v]) => [k, Math.min(k === "tier" ? 0.05 : CAP, v * RM[r] * (1 + LV_SCALE * (lv - 1)))])));
+const famTxt = (fam, r, lv) => buffTxt(Object.fromEntries(Object.entries(typeof fam === "object" ? fxOf(fam) : FAM[fam].fx).map(([k, v]) => [k, Math.min(k === "tier" ? 0.05 : CAP, v * RM[r] * (1 + LV_SCALE * (lv - 1)))])));
 
 // ---------- الإضافة والتجهيز والشراء ----------
 function addFairy(P, spId, now = Date.now()) {
@@ -273,13 +288,13 @@ function install() {
     // أرباح الجمع: بف الذهب
     wrap(E, "collect", orig => function (P, now) {
         const r = orig.call(this, P, now);
-        if (r && r.ok) { const g = buffs(P).gold; if (g) { const x = bonusCoins(P, r.total, g); if (x) { r.total += x; note(r, `+${E.fmt(x)} 🪙 (ذهب)`); } } }
+        if (r && r.ok) { const bb = buffs(P), g = (bb.gold || 0) + (bb.collectG || 0); if (g) { const x = bonusCoins(P, r.total, g); if (x) { r.total += x; note(r, `+${E.fmt(x)} 🪙 (ذهب)`); } } }
         return r;
     });
     // المكافأة اليومية: ذهب
     wrap(E, "daily", orig => function (P, now) {
         const r = orig.call(this, P, now);
-        if (r && r.ok) { const g = buffs(P, now).gold, x = g ? bonusCoins(P, r.reward, g) : 0; if (x) { r.reward += x; note(r, `+${E.fmt(x)} 🪙`); } }
+        if (r && r.ok) { const bd = buffs(P, now), g = (bd.gold || 0) + (bd.dailyG || 0), x = g ? bonusCoins(P, r.reward, g) : 0; if (x) { r.reward += x; note(r, `+${E.fmt(x)} 🪙`); } }
         return r;
     });
     // التدريب واللعب: خبرة + شبع + وقت
@@ -289,11 +304,12 @@ function install() {
             if (r && r.ok) {
                 const b = buffs(P), pet = E.getPet(P, petId);
                 if (pet) {
-                    if (b.wis && pet.lv < D.C.LV_CAP) E.addXp(pet, E.xpNeed(pet.lv) * pct * b.wis);
+                    const wx = (b.wis || 0) + (name === "train" ? (b.trainXp || 0) : 0);
+                    if (wx && pet.lv < D.C.LV_CAP) E.addXp(pet, E.xpNeed(pet.lv) * pct * wx);
                     if (b.sat) pet.hg = Math.min(100, pet.hg + cost * b.sat);
                     shrink(pet, cd, now, b.time || 0);
                 }
-                if (b.wis) note(r, `+${pc(b.wis)} خبرة`);
+                if (b.wis || b.trainXp) note(r, `+${pc((b.wis || 0) + (name === "train" ? (b.trainXp || 0) : 0))} خبرة`);
             }
             return r;
         });
@@ -305,9 +321,10 @@ function install() {
             const b = buffs(P), pet = E.getPet(P, petId), f = D.FOODS[foodId];
             if (pet && f) {
                 if (b.sat) pet.hg = Math.min(100, pet.hg + f.hg * b.sat);
-                if (b.wis && f.xp && pet.lv < D.C.LV_CAP) {
+                const fw = (b.wis || 0) + (b.feedXp || 0);
+                if (fw && f.xp && pet.lv < D.C.LV_CAP) {
                     const pct = f.el ? (f.el === pet.el ? 0.4 : 0.1) : f.xp;
-                    E.addXp(pet, E.xpNeed(pet.lv) * pct * b.wis);
+                    E.addXp(pet, E.xpNeed(pet.lv) * pct * fw);
                 }
             }
         }
@@ -325,8 +342,8 @@ function install() {
             if (pet) { if (b.sat) pet.hg = Math.min(100, pet.hg + 12 * b.sat); shrink(pet, "cdHunt", now, b.time || 0); }
             if (r.win) {
                 const bits = [];
-                if (b.gold && r.coins) { const x = bonusCoins(P, r.coins, b.gold); if (x) { r.coins += x; bits.push(`+${E.fmt(x)} 🪙`); } }
-                if (b.wis && pet && pet.lv < D.C.LV_CAP) E.addXp(pet, E.xpNeed(pet.lv) * z.xp * b.wis);
+                if ((b.gold || b.huntG) && r.coins) { const x = bonusCoins(P, r.coins, (b.gold || 0) + (b.huntG || 0)); if (x) { r.coins += x; bits.push(`+${E.fmt(x)} 🪙`); } }
+                if ((b.wis || b.huntXp) && pet && pet.lv < D.C.LV_CAP) E.addXp(pet, E.xpNeed(pet.lv) * z.xp * ((b.wis || 0) + (b.huntXp || 0)));
                 if (b.luck && rn() < b.luck) {
                     if (rn() < 0.5) { E.addEggToBag(P, z.egg); bits.push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n); (r.drops = r.drops || []).push(D.EGGS[z.egg].e + " " + D.EGGS[z.egg].n + " (في المحفظة)"); }
                     else { const k = 2 + Math.floor(zoneIdx / 2); require("../resources").add(P, "crystal", k); bits.push("🔷 ×" + k); }

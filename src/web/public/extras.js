@@ -53,11 +53,12 @@ function petExtras(p) {
   h += `<div class="dim" style="margin:12px 0 6px">🎖 الجودة ${p.grade} (${Number(p.q).toFixed(3)})${p.elite ? " 👑 نخبة" : ""} · الصقل ${p.pol}/${p.polMax}</div>`;
   const es = (S.res || {})["ess_" + p.el] || 0;
   h += `<button class="btn sec ${p.canPolish && cr >= c.crystal && es >= c.ess && S.player.coins >= c.coins ? "" : "off"}" data-polish="1" style="width:100%">💎 صقل: ${c.crystal}🔷 + ${c.ess}${resMeta("ess_" + p.el).emoji} + ${fmt(c.coins)}🪙</button>`;
+  if (p.elb) h += `<div class="dim" style="margin-top:8px">🧬 عنصر أساسي ثانٍ (طفرة): ${p.elbEmoji} ${esc(p.elbName)} — يعمل بكامل أثره</div>`;
   if (p.el2) h += `<div class="dim" style="margin-top:8px">🧿 العنصر الثانوي: ${p.el2Emoji} ${esc(p.el2Name)} (واحد فقط لكل حيوان)</div>`;
   else if (p.lv >= 20 || p.st > 0) {
     const e = p.evoCost;
     h += `<div class="dim" style="margin:10px 0 6px">🧬 تطور: عنصر ثانوي (${e.ess} جوهر + ${fmt(e.coins)}🪙) — مرة واحدة</div><div class="scroll-x">` +
-      Object.keys(M.elements).filter(k => k !== p.el).map(k => `<button class="pick ${(S.res || {})["ess_" + k] >= e.ess && S.player.coins >= e.coins ? "" : "off"}" data-evo="${k}"><span class="em">${M.elements[k].e}</span>${esc(M.elements[k].n)}<br>×${(S.res || {})["ess_" + k] || 0}</button>`).join("") + `</div>`;
+      Object.keys(M.elements).filter(k => k !== p.el && k !== p.elb).map(k => `<button class="pick ${(S.res || {})["ess_" + k] >= e.ess && S.player.coins >= e.coins ? "" : "off"}" data-evo="${k}"><span class="em">${M.elements[k].e}</span>${esc(M.elements[k].n)}<br>×${(S.res || {})["ess_" + k] || 0}</button>`).join("") + `</div>`;
   } else h += `<div class="dim" style="margin-top:8px">🧬 التطور (عنصر ثانوي) من المستوى 20.</div>`;
   return h;
 }
@@ -138,7 +139,7 @@ SUBS.fairies = () => {
   } else if (fyTab === "all") {
     h += list.length ? list.map(card).join("") : `<div class="card dim">لا تملك جنيات. اصطدها أو اشترها من المتجر.</div>`;
   } else {
-    h += `<div class="dim" style="margin-bottom:8px">3 عروض تتجدد يوميًا.</div>` + S.fshop.map(o => `<div class="card row"><div style="font-size:38px">${o.emoji}</div><div class="grow"><b>${esc(o.name)}</b> ${o.rankEmoji}<div class="dim">${esc(o.rarName)} · ${esc(m.fairyFam[o.fam] || "")}</div></div>${o.sold ? `<span class="dim">بيعت</span>` : `<button class="btn sm ${S.player.coins >= o.price ? "" : "off"}" data-fb="${o.idx}">${fmt(o.price)}🪙</button>`}</div>`).join("");
+    h += `<div class="dim" style="margin-bottom:8px">3 عروض تتجدد يوميًا.</div>` + S.fshop.map(o => `<div class="card row"><div style="font-size:38px">${o.emoji}</div><div class="grow"><b>${esc(o.name)}</b> ${o.rankEmoji}<div class="dim">${esc(o.rarName)} · ${esc(m.fairyFam[o.fam] || "")}</div><div class="dim" style="font-size:12px">${esc(o.buff || "")}</div></div>${o.sold ? `<span class="dim">بيعت</span>` : `<button class="btn sm ${S.player.coins >= o.price ? "" : "off"}" data-fb="${o.idx}">${fmt(o.price)}🪙</button>`}</div>`).join("");
   }
   view.innerHTML = h; bindBack();
   view.querySelectorAll("[data-ft]").forEach(b => b.onclick = () => { fyTab = b.dataset.ft; fyEdit = null; SUBS.fairies(); });

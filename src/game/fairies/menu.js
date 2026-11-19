@@ -76,7 +76,7 @@ function screenCard(P, id, note) {
     kb.text("🤝 بيع في السوق", `mk:${P.id}:sf:${f.id}`).text("🕊️ إطلاق", cb(P, "ra", f.id)).row();
     kb.text("🔙 جنياتي", cb(P, "my", 0));
     const t = (note ? note + "\n\n" : "") + `🆔 رقم الجنية: <b>${f.id}</b>\n` + line(P, f) + (f.hab ? "\n" + habLine(P, f) : "") +
-        `\n\n🔼 ينمو إلى: ${F.famTxt(F.sp(f).fam, F.sp(f).r, F.MAX_LV)}`;
+        `\n\n🔼 ينمو إلى: ${F.famTxt(F.sp(f), F.sp(f).r, F.MAX_LV)}`;
     return { text: frame(t), kb };
 }
 
@@ -123,7 +123,7 @@ function screenShop(P, note) {
     const kb = new InlineKeyboard();
     offers.forEach((o, i) => {
         const s = F.SPECIES[o.sp];
-        t += `\n${o.sold ? "❌ بيعت" : "🆕"} ${s.e} <b>${s.n}</b> ${F.RANK_E[s.r]} ${F.RARITIES[s.r]}\n    ↳ ${F.famTxt(s.fam, s.r, 1)} (ينمو إلى ${F.famTxt(s.fam, s.r, F.MAX_LV)})\n    🪙 ${E.fmt(o.price)}\n`;
+        t += `\n${o.sold ? "❌ بيعت" : "🆕"} ${s.e} <b>${s.n}</b> ${F.RANK_E[s.r]} ${F.RARITIES[s.r]}\n    ↳ ${F.famTxt(s, s.r, 1)} (ينمو إلى ${F.famTxt(s.fam, s.r, F.MAX_LV)})\n    🪙 ${E.fmt(o.price)}\n`;
         if (!o.sold) kb.text(`🛒 ${s.e} ${E.fmt(o.price)}`, `fy:${P.id}:buy:${i}`).row();
     });
     kb.text("📊 النسب", cb(P, "rt")).text("🔙 رجوع", `fy:${P.id}:main`);
@@ -141,7 +141,7 @@ function screenGuide(P) {
     let t = "📖 <b>دليل الجنيات</b>\n• <b>الحصول:</b> اصطدها عند الفوز في الصيد (فرصة صغيرة جدًا، وأفضل في المناطق العالية وبجنيات الحظ)، أو اشترها من المتجر اليومي، أو بجائزة البوس لصاحب أعلى ضرر.\n• <b>المستوى (التلفيل):</b> ضع جنية واحدة في 🌿 البيئة فتتلفل بلا وقت محدد، وانزعها متى شئت. البيئة المناسبة ×1.5، والغبار ✨ يسرّع. الأندر تنمو أبطأ.\n• <b>الخانات:</b> تعمل بفات الجنيات المجهزة فقط.\n\n";
     F.RARITIES.forEach((rn, r) => {
         t += `${F.RANK_E[r]} <b>${rn}</b> — مستوى كل ${F.HOURS_PER_LV[r]} ساعة تلفيل\n`;
-        Object.values(F.SPECIES).filter(s => s.r === r).forEach(s => { t += `   ${s.e} ${s.n}: ${F.famTxt(s.fam, r, 1)}\n`; });
+        Object.values(F.SPECIES).filter(s => s.r === r).forEach(s => { t += `   ${s.e} ${s.n}: ${F.famTxt(s, r, 1)}\n`; });
     });
     return { text: frame(t.slice(0, 3900)), kb: new InlineKeyboard().text("🔙 رجوع", `fy:${P.id}:main`) };
 }

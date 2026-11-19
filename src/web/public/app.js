@@ -410,10 +410,13 @@ VIEWS.hatch = () => {
     const left = e.readyIn - t, ready = left <= 0;
     h += `<div class="card egg ${ready ? "ready" : ""}"><div class="e">${e.emoji}</div><div style="font-weight:700">${esc(e.name)}</div>` +
       `<div class="dim">${e.bred ? "من التزاوج · " : ""}${ready ? "جاهزة!" : `<span data-ts="${ts(left)}">${dur(left)}</span>`}</div>` +
-      `<button class="btn sm ${ready ? "" : "off"}" style="margin-top:8px" data-h="${e.id}">${ready ? "🐣 افقس" : "⏳ انتظر"}</button></div>`;
+      (!ready && e.warm ? `<div class="dim">🍯 ${e.warm}/${M.warmMax}</div>` : "") +
+      `<button class="btn sm ${ready ? "" : "off"}" style="margin-top:8px" data-h="${e.id}">${ready ? "🐣 افقس" : "⏳ انتظر"}</button>` +
+      (!ready && (S.nov || {}).honey > 0 && e.warm < M.warmMax && e.warmWait - t <= 0 ? `<button class="btn sm sec" style="margin-top:6px" data-warm="${e.id}">🍯 دفّئ (-10%)</button>` : "") + `</div>`;
   });
   h += `</div><button class="btn sec" style="width:100%" id="goShop">🛒 اشترِ بيضًا</button>`;
   view.innerHTML = h;
+  view.querySelectorAll("[data-warm]").forEach(b => b.onclick = async () => { buzz(); await run("warm", { id: Number(b.dataset.warm) }); });
   view.querySelectorAll("[data-h]").forEach(b => b.onclick = async () => {
     if (b.classList.contains("off")) return;
     buzz("medium");

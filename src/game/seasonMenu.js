@@ -20,7 +20,7 @@ const left = ms => { const m = Math.max(0, Math.floor(ms / 60000)), d = Math.flo
 function screen(P, now, msg) {
     const id = S.idAt(now), rows = S.ranking(id), mine = S.pointsOf(P, id);
     const pos = rows.findIndex(r => r.id === String(P.id)) + 1;
-    let t = "🏆 <b>الموسم الأسبوعي</b>\n━━━━━━━━━━━━━━━━━━\n⏳ ينتهي بعد <b>" + left(S.endOf(id) - now) + "</b>\n";
+    let t = "🏆 <b>الموسم الأسبوعي رقم " + S.numOf(id) + "</b>\n━━━━━━━━━━━━━━━━━━\n⏳ ينتهي بعد <b>" + left(S.endOf(id) - now) + "</b>\n";
     t += "⭐ نقاطك: <b>" + fmt(mine) + "</b>" + (pos ? " — المركز <b>" + pos + "</b> من " + rows.length : " — لم تسجّل نقاطًا بعد") + "\n";
     if (mine > 0 && pos > 0) { const pr = S.prizeFor(pos, mine); if (pr) t += "🎁 جائزتك الحالية: " + prizeTxt(pr) + "\n"; }
     t += "\n<b>🔝 المتصدرون</b>\n";
@@ -34,9 +34,9 @@ function screen(P, now, msg) {
 function oldScreen(P) {
     const h = S.hist().slice().reverse();
     let t = "📜 <b>المواسم السابقة</b>\n━━━━━━━━━━━━━━━━━━\n";
-    t += h.length ? h.map(s => "<b>الموسم " + (s.id + 1) + "</b> (" + s.total + " لاعب)\n" + s.rows.slice(0, 3).map((r, i) => MEDAL[i] + " " + esc(r.name) + " — " + fmt(r.pts)).join("\n")).join("\n\n") : "لم ينتهِ أي موسم بعد.";
+    t += h.length ? h.map(s => "<b>الموسم " + S.numOf(s.id) + "</b> (" + s.total + " لاعب)\n" + s.rows.slice(0, 3).map((r, i) => MEDAL[i] + " " + esc(r.name) + " — " + fmt(r.pts)).join("\n")).join("\n\n") : "لم ينتهِ أي موسم بعد.";
     const won = (P.seasonWon || []).slice(-5).reverse();
-    if (won.length) t += "\n\n<b>🏅 سجلّك</b>\n" + won.map(w => "الموسم " + (w.id + 1) + ": المركز " + w.rank + " (" + fmt(w.pts) + " نقطة)").join("\n");
+    if (won.length) t += "\n\n<b>🏅 سجلّك</b>\n" + won.map(w => "الموسم " + S.numOf(w.id) + ": المركز " + w.rank + " (" + fmt(w.pts) + " نقطة)").join("\n");
     return { text: t, kb: new InlineKeyboard().text("⬅️ الموسم الحالي", "ss:" + P.id + ":cur") };
 }
 module.exports = { screen, oldScreen, prizeTxt };

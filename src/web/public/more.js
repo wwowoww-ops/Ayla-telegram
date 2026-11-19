@@ -4,7 +4,7 @@
 // ======================================================
 VIEWS.more = () => {
   if (sub) return SUBS[sub]();
-  const tiles = [["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "الدليل"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"]];
+  const tiles = [["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "الدليل"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"]];
   view.innerHTML = `<h2>☰ المزيد</h2><div class="grid3">${tiles.map(t => `<button class="tile" data-sub="${t[0]}"><span>${t[1]}</span>${t[2]}</button>`).join("")}</div>`;
   view.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { buzz(); sub = b.dataset.sub; SUBS[sub](); });
 };
@@ -24,10 +24,12 @@ SUBS.breed = () => {
   if (breedA && breedB) {
     const a = S.pets.find(p => p.id === breedA), b = S.pets.find(p => p.id === breedB);
     const cost = m.eggs[Math.min(6, Math.max(a.rar, b.rar))].price * 2;
-    h += `<div class="card" style="margin-top:10px"><div class="row" style="justify-content:center;font-size:44px">${a.emoji} ✖️ ${b.emoji}</div><div class="dim" style="text-align:center">التكلفة: <b style="color:var(--gold)">${fmt(cost)}</b> 🪙</div></div><button class="btn ${S.player.coins < cost ? "off" : ""}" style="width:100%" id="goBreed">🧬 زاوج</button>`;
+    h += `<div class="card" style="margin-top:10px"><div class="row" style="justify-content:center;font-size:44px">${a.emoji} ✖️ ${b.emoji}</div><div class="dim" style="text-align:center">التكلفة: <b style="color:var(--gold)">${fmt(cost)}</b> 🪙</div></div><button class="btn ${S.player.coins < cost ? "off" : ""}" style="width:100%" id="goBreed">🧬 زاوج</button>` + ((S.nov || {}).stone > 0 && a.el !== b.el ? `<button class="btn sec" style="width:100%;margin-top:8px" id="goBreedS">🧿 زاوج بحجر الطفرة (${S.nov.stone})</button>` : "") + `<div class="dim" style="margin-top:6px">🧬 إن اختلف عنصرا الأبوين فقد تظهر طفرة بعنصرين أساسيين.</div>`;
   }
   view.innerHTML = h; bindBack();
   view.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { if (b.classList.contains("off")) return; const [k, id] = b.dataset.p.split(":"); if (k === "a") breedA = Number(id); else breedB = Number(id); SUBS.breed(); });
+  const gs = $("#goBreedS");
+  if (gs) gs.onclick = async () => { buzz("medium"); const j = await run("breed", { a: breedA, b: breedB, stone: true }); if (j && j.ok) { breedA = breedB = null; sub = null; go("hatch"); } };
   const g = $("#goBreed");
   if (g) g.onclick = async () => { buzz("medium"); const j = await run("breed", { a: breedA, b: breedB }); if (j && j.ok) { breedA = breedB = null; sub = null; go("hatch"); } };
 };

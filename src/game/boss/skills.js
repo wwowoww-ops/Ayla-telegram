@@ -3,7 +3,7 @@
 // تقوى كلها مع ندرة الحيوان (المضاعف RM) ويقلّ انتظارها (الكولداون) كلما ارتفعت الندرة.
 const D = require("../data");
 
-const RM = [1, 1.25, 1.6, 2, 2.5, 3.1, 4];
+const RM = [1, 1.25, 1.6, 2, 2.5, 3.1, 4, 5, 6.2];
 
 const rarityOf = pet => D.SPECIES[pet.sp].r;
 const rm = pet => RM[rarityOf(pet)] || 1;

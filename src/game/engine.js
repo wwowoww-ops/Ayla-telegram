@@ -53,11 +53,12 @@ const starMult = st => 1 + 5 * st;
 const lvMult = lv => 1 + 0.09 * (lv - 1);
 function power(pet) {
     const s = spOf(pet);
-    return floor(D.RARITIES[s.r].pow * s.v * pet.q * lvMult(pet.lv) * starMult(pet.st) * (pet.el2 ? 1.08 : 1));
+    return floor(D.RARITIES[s.r].pow * s.v * pet.q * lvMult(pet.lv) * starMult(pet.st) * (pet.el2 ? 1.08 : 1) * (pet.elb ? 1.12 : 1));
 }
 // أفضل مضاعف عنصر: الأساسي كاملًا، والثانوي بنصف أثره
 function elMult(pet, foeEl) {
-    const a = D.elementMult(pet.el, foeEl);
+    let a = D.elementMult(pet.el, foeEl);
+    if (pet.elb) a = Math.max(a, D.elementMult(pet.elb, foeEl));   // عنصر أساسي ثانٍ (طفرة): بكامل أثره
     return pet.el2 ? Math.max(a, 1 + (D.elementMult(pet.el2, foeEl) - 1) * 0.5) : a;
 }
 function incomePerHour(pet) {
@@ -157,8 +158,8 @@ function hatch(P, eggId, now, rng) {
     const egg = P.eggs[i];
     if (egg.readyAt > now) return fail("لم تفقس بعد. تبقى " + dur(egg.readyAt - now) + ".");
     if (P.pets.length >= P.slots) return fail("الحظيرة ممتلئة (" + P.slots + "). وسّعها أو بع حيوانًا.");
-    let spId, el, q, gen = 0;
-    if (egg.pre) { ({ sp: spId, el, q, gen } = egg.pre); }
+    let spId, el, q, gen = 0, elb = null;
+    if (egg.pre) { ({ sp: spId, el, q, gen } = egg.pre); elb = egg.pre.elb || null; }
     else {
         const r = rollRarity(D.EGGS[egg.tier].w, rng);
         spId = pick(D.SPECIES_BY_RARITY[r], rng);
@@ -167,6 +168,7 @@ function hatch(P, eggId, now, rng) {
     }
     P.eggs.splice(i, 1);
     const pet = makePet(P, spId, el, q, now, gen);
+    if (elb && elb !== el && D.ELEMENTS[elb]) pet.elb = elb;
     P.stats.hatched++;
     return { ok: true, pet, msg: "فقست!" };
 }
@@ -368,19 +370,23 @@ function breedCheck(P, aId, bId, now) {
     return { ok: true, a, b, cost: breedCost(a, b) };
 }
 // بيانات بيضة التزاوج من أبوين (مشتركة بين التزاوج العادي والمشترك)
-function bredEggData(a, b, rng) {
+function bredEggData(a, b, rng, boost = 0) {
     let spId = rng() < 0.5 ? a.sp : b.sp;
     let mutated = false;
     const r = D.SPECIES[spId].r;
     const elite = a.q >= ELITE_Q && b.q >= ELITE_Q;
-    if (r < 6 && rng() < (elite ? 0.2 : 0.12)) { spId = pick(D.SPECIES_BY_RARITY[r + 1], rng); mutated = true; }
+    if (r < D.RARITIES.length - 1 && rng() < (elite ? 0.2 : 0.12)) { spId = pick(D.SPECIES_BY_RARITY[r + 1], rng); mutated = true; }
     const el = rng() < 0.88 ? (rng() < 0.5 ? a.el : b.el) : pick(D.EL_KEYS, rng);
+    // طفرة عنصرية: عنصر أساسي ثانٍ من عناصر الأبوين (يشترط اختلاف العناصر)
+    let elb = null;
+    const others = [a.el, a.elb, b.el, b.elb].filter(x => x && x !== el);
+    if (others.length && rng() < (elite ? 0.16 : 0.10) + boost) elb = pick(others, rng);
     // التزاوج يعطي جودة أقوى من الفقس العادي: متوسط الأبوين + مكافأة، ويزداد مع الجيل
     const gen0 = Math.min(5, Math.max(a.gen || 0, b.gen || 0));
     const q = Math.min(QCAP, Math.max(0.9, Math.round((((a.q + b.q) / 2) + 0.04 + 0.01 * gen0) * (1 + rng() * 0.09) * 1000) / 1000));
     const rr = D.SPECIES[spId].r;
     const gen = Math.max(a.gen || 0, b.gen || 0) + 1;
-    return { tier: Math.min(6, rr), pre: { sp: spId, el, q, gen }, mutated };
+    return { tier: Math.min(D.EGGS.length - 1, rr), pre: Object.assign({ sp: spId, el, q, gen }, elb ? { elb } : {}), mutated, elMut: !!elb };
 }
 // تزاوج مشترك بين لاعبين: حيوانا الطرفين يرتاحان، والبيضة تذهب لمن يُحدَّد
 function breedPair(PA, a, PB, b, costA, costB, eggTo, now, rng) {
@@ -396,7 +402,7 @@ function breedPair(PA, a, PB, b, costA, costB, eggTo, now, rng) {
     addEggToBag(W, d.tier, { pre: d.pre, bred: true });
     a.cdBreed = b.cdBreed = now + C.BREED_CD;
     PA.stats.bred++; PB.stats.bred++;
-    return { ok: true, winner: W, mutated: d.mutated, tier: d.tier };
+    return { ok: true, winner: W, mutated: d.mutated, elMut: d.elMut, tier: d.tier };
 }
 // تطور: عنصر ثانوي لحيوان بجواهر العنصر (يمكن تغييره بتكلفة جديدة)
 const evoCost = pet => ({ ess: 6 + 4 * spOf(pet).r, coins: floor(D.EGGS[Math.min(6, spOf(pet).r)].price * 0.5) });
@@ -404,7 +410,7 @@ function evolve(P, petId, el) {
     const Res = require("./resources"), pet = getPet(P, petId), id = "ess_" + el;
     if (!pet) return fail("الحيوان غير موجود.");
     if (!D.RES[id]) return fail("عنصر غير معروف.");
-    if (el === pet.el) return fail("هذا عنصره الأساسي.");
+    if (el === pet.el || el === pet.elb) return fail("هذا أحد عنصريه الأساسيين.");
     if (pet.el2) return fail("لديه عنصر ثانوي بالفعل (" + D.ELEMENTS[pet.el2].n + "). يُركَّب عنصر ثانوي واحد فقط.");
     if (pet.lv < 20 && pet.st === 0) return fail("يجب أن يصل المستوى 20 (أو نجمة).");
     const c = evoCost(pet);
@@ -415,17 +421,22 @@ function evolve(P, petId, el) {
     return { ok: true, msg: "🧬 تطور! صار عنصره الثانوي " + D.ELEMENTS[el].e + " " + D.ELEMENTS[el].n + " (+8% قوة، ومهارات الصيد منه)" };
 }
 
-function breed(P, aId, bId, now, rng) {
+function breed(P, aId, bId, now, rng, useStone) {
     const chk = breedCheck(P, aId, bId, now);
     if (!chk.ok) return chk;
     const { a, b, cost } = chk;
     if (P.coins < cost) return fail("تحتاج " + fmt(cost) + ".");
+    let boost = 0;
+    if (useStone) {
+        if (!P.nov || !(P.nov.stone > 0)) return fail("لا تملك حجر الطفرة 🧿.");
+        P.nov.stone--; boost = 0.15;
+    }
     P.coins -= cost;
-    const d = bredEggData(a, b, rng), mutated = d.mutated;
+    const d = bredEggData(a, b, rng, boost), mutated = d.mutated;
     addEggToBag(P, d.tier, { pre: d.pre, bred: true });
     a.cdBreed = b.cdBreed = now + C.BREED_CD;
     P.stats.bred++;
-    return { ok: true, mutated, cost, msg: "بيضة جديدة 🎒 في محفظتك" + (mutated ? " ✨ (طفرة نادرة!)" : "") + ". ضعها في الحضانة لتفقس." };
+    return { ok: true, mutated, elMut: d.elMut, cost, msg: "بيضة جديدة 🎒 في محفظتك" + (mutated ? " ✨ (طفرة نادرة!)" : "") + (d.elMut ? " 🧬 (طفرة عنصرية: عنصران أساسيان!)" : "") + ". ضعها في الحضانة لتفقس." };
 }
 
 // ---------------- المبارزة ----------------

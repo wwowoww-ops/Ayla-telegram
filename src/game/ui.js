@@ -5,6 +5,7 @@ const { InlineKeyboard } = require("grammy");
 const D = require("./data");
 const E = require("./engine");
 const Res = require("./resources");
+const X = require("./extras");
 const Hunt = require("./hunting");
 const store = require("../core/store");
 const { esc, nameOf } = require("../lib/util");
@@ -141,6 +142,7 @@ b.btn("🥚 الحضانة", "eggs").btn("🛒 المتجر", "shop").row()
  .btn("🧬 تزاوج", "bra", 0).btn("🎁 يومي", "daily").row()
  .btn("🏆 ترتيب", "top").btn("🧿 العناصر", "elems").row()
  .btn("📚 المزيد من القوائم", "more");
+b.kb.row().text("🏆 الموسم", `ss:${P.id}:cur`).text("🛍️ نوادر", `xn:${P.id}:main`);
 
 return { text, kb: b.kb };
 }
@@ -164,6 +166,11 @@ function screenMore(P) {
         .row()
         .text("🤝 سوق اللاعبين", `mk:${uid}:main`)
         .text("📊 النسب", `g:${uid}:rates:all`)
+        .row()
+        .text("🏆 الموسم الأسبوعي", `ss:${uid}:cur`)
+        .text("🛍️ متجر النوادر", `xn:${uid}:main`)
+        .row()
+        .text("♻️ تدوير الحيوانات", `xr:${uid}:main`)
         .row()
         .text("🏠 القائمة الرئيسية", `g:${uid}:home`);
 
@@ -238,6 +245,7 @@ function cardText(P, pet) {
             : "▫️ وصل الحد الأقصى" +
               (pet.st < D.C.MAX_STARS ? " — جاهز للترقية ⭐" : " 🏆") + "\n") +
         `🍖 الجوع: ${bar(h)} ${Math.floor(h)}%\n` +
+        (pet.elb ? `🧬 عنصر أساسي ثانٍ (طفرة): ${elTxt(pet.elb)}\n` : "") +
         (pet.el2 ? `🧿 عنصر ثانوي: ${elTxt(pet.el2)}\n` : "") +
         `⚔️ القوة: <b>${fmt(E.power(pet))}</b>   💰 الدخل: ${fmt(E.incomePerHour(pet))}/ساعة\n` +
         `🏋️ التدريب: ${cdTxt(pet.cdTrain, t)}   🎮 اللعب: ${cdTxt(pet.cdPlay, t)}\n` +
@@ -317,7 +325,7 @@ function screenEvo(P, petId, note_) {
     let text = `🧬 <b>تطور ${nameP(pet)}</b>\nركّب عنصرًا ثانويًا: +8% قوة، تفوق عنصري بنصف الأثر، ومهارات الصيد منه.\n` +
         `التكلفة: ${c.ess} جوهر العنصر + ${fmt(c.coins)} 🪙 · يشترط المستوى 20 أو نجمة.\n` +
         `الحالي: ${elTxt(pet.el)}${pet.el2 ? " + " + elTxt(pet.el2) : " (بلا ثانوي)"}\n\n`;
-    D.EL_KEYS.filter(k => k !== pet.el && k !== pet.el2).forEach(k => {
+    D.EL_KEYS.filter(k => k !== pet.el && k !== pet.elb && k !== pet.el2).forEach(k => {
         const r = D.RES["ess_" + k];
         text += `${r.e} ${r.n}: ${Res.have(P, "ess_" + k)}/${c.ess}\n`;
         b.btn(r.e + " " + D.ELEMENTS[k].n, "evgo", pet.id, k);
@@ -375,10 +383,13 @@ function screenEggs(P, note_) {
     P.eggs.forEach(e => {
         const ok = e.readyAt <= t;
         if (ok) ready++;
-        text += `${eggTxt(e)}${e.bred ? " (تزاوج)" : ""}: ${ok ? "🐣 جاهزة!" : "⏳ " + E.dur(e.readyAt - t)}\n`;
+        const wi = X.warmInfo(P, e, t);
+        text += `${eggTxt(e)}${e.bred ? " (تزاوج)" : ""}: ${ok ? "🐣 جاهزة!" : "⏳ " + E.dur(e.readyAt - t)}${!ok && wi.n ? " 🍯" + wi.n + "/" + wi.max : ""}\n`;
         if (ok) b.btn("🐣 " + eggTxt(e), "hatch", e.id).row();
+        else if (wi.canWarm && X.have(P, "honey") > 0) b.btn("🍯 دفّئ " + eggTxt(e) + " (-10%)", "warm", e.id).row();
     });
     if (ready > 1) b.btn("🐣 فقس الكل (" + ready + ")", "hatchall").row();
+    if (!ready || P.eggs.length) text += X.have(P, "honey") > 0 ? `\n🍯 عسل الحضانة: ${X.have(P, "honey")} (يقصّر 10% حتى 3 مرات لكل بيضة)\n` : `\n💡 الفقس طويل؟ 🍯 عسل الحضانة من .نوادر يقصّر 10% (حتى 3 مرات لكل بيضة) — وستصلك رسالة عندما تجهز.\n`;
     text += `\n🎒 <b>محفظة البيض</b> (${bag.length})\n`;
     if (!bag.length) text += "فارغة. ما تشتريه أو تحصل عليه يأتي هنا لتضعه بنفسك.\n";
     const shown = [...bag].sort((a, c) => c.tier - a.tier).slice(0, 8);
@@ -630,12 +641,13 @@ function screenBreedC(P, aId, bId) {
     const kb = kbBuilder(P.id);
 
     kb.btn("✅ تزاوج (" + fmt(cost) + ")", "brgo", a.id, b.id)
-        .row()
-        .back("bra:0");
+        .row();
+    if (X.have(P, "stone") > 0 && a.el !== b.el) kb.btn("🧿 تزاوج بحجر الطفرة (" + X.have(P, "stone") + ")", "brgos", a.id, b.id).row();
+    kb.back("bra:0");
 
     return {
         text: `🧬 <b>تأكيد التزاوج</b>\n${nameP(a)} ${elTxt(a.el)} ${E.grade(a.q)}\n  ✖️\n${nameP(b)} ${elTxt(b.el)} ${E.grade(b.q)}\n\n` +
-            `💰 التكلفة: <b>${fmt(cost)}</b> (رصيدك ${fmt(P.coins)})\n🥚 النوع: أحد الأبوين، والعنصر موروث غالبًا\n✨ احتمال طفرة (ندرة أعلى): 12%\n🎖 الجودة: متوسط الأبوين تقريبًا`,
+            `💰 التكلفة: <b>${fmt(cost)}</b> (رصيدك ${fmt(P.coins)})\n🥚 النوع: أحد الأبوين، والعنصر موروث غالبًا\n🧬 إذا اختلف عنصرا الأبوين فقد تظهر طفرة بعنصرين أساسيين\n✨ احتمال طفرة (ندرة أعلى): 12%\n🎖 الجودة: متوسط الأبوين تقريبًا`,
         kb: kb.kb
     };
 }
@@ -817,7 +829,7 @@ function route(P, parts, ctx) {
             return {
                 photo: {
                     file: f,
-                    art: artOk ? { sp: E.spOf(pet).id, lv: pet.lv, rarity: E.spOf(pet).r, els: [pet.el || E.spOf(pet).el, pet.el2] } : null,
+                    art: artOk ? { sp: E.spOf(pet).id, lv: pet.lv, rarity: E.spOf(pet).r, els: [pet.el || E.spOf(pet).el, pet.elb || pet.el2] } : null,
                     spId: E.spOf(pet).id,
                     caption: frame(cardText(P, pet))
                 },
@@ -880,6 +892,9 @@ function route(P, parts, ctx) {
         case "place":
             return act(E.placeEgg(P, x, t), n => screenEggs(P, n));
 
+        case "warm":
+            return act(X.warm(P, x, t), n => screenEggs(P, n));
+
         case "placeall":
             return act(E.placeAll(P, t), n => screenEggs(P, n));
 
@@ -931,6 +946,12 @@ function route(P, parts, ctx) {
 
         case "brc":
             return { screen: screenBreedC(P, x, y) };
+
+        case "brgos": {
+            const r = E.breed(P, x, y, t, rng, true);
+            if (!r.ok) return { error: r.msg, screen: screenBreedC(P, x, y) };
+            return { screen: screenEggs(P, "🧬 " + r.msg) };
+        }
 
         case "brgo": {
             const r = E.breed(P, x, y, t, rng);

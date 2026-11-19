@@ -25,6 +25,7 @@ const PART = { res: { crystal: 15 }, egg: 1 };     // كل من وصل الحد 
 const idAt = now => Math.floor((now - EPOCH) / WEEK);
 const startOf = id => EPOCH + id * WEEK;
 const endOf = id => startOf(id + 1);
+const numOf = id => { const f = state().first; return typeof f === "number" ? Math.max(1, id - f + 1) : 1; };   // رقم الموسم المعروض (يبدأ من 1 عند أول تشغيل)
 
 const snap = P => { const s = P.stats || {}, o = {}; POINTS.forEach(([k]) => { o[k] = Number(s[k]) || 0; }); return o; };
 // يضمن وجود لقطة الأسبوع الحالي للاعب (تُؤخذ عند أول نشاط له في الأسبوع)
@@ -61,7 +62,7 @@ function give(P, prize, rng) {
 // ينهي الموسم المنتهي (الأحدث فقط) مرة واحدة ويوزّع الجوائز؛ يُرجع قائمة الفائزين للإشعار
 function settle(now, rng = Math.random) {
     const G = state(), cur = idAt(now);
-    if (typeof G.settled !== "number") { store.setGroup("__season", { settled: cur - 1, hist: hist() }); return []; }
+    if (typeof G.settled !== "number") { store.setGroup("__season", { settled: cur - 1, first: cur, hist: hist() }); return []; }
     const target = cur - 1;
     if (G.settled >= target) return [];
     const rows = ranking(target), won = [];
@@ -74,7 +75,7 @@ function settle(now, rng = Math.random) {
         won.push({ uid: r.id, name: r.name, rank, pts: r.pts, got });
     });
     const h = hist().concat([{ id: target, at: endOf(target), rows: rows.slice(0, 10), total: rows.length }]).slice(-4);
-    store.setGroup("__season", { settled: target, hist: h });
+    store.setGroup("__season", { settled: target, first: G.first, hist: h });
     return won;
 }
-module.exports = { WEEK, MIN_PTS, POINTS, PRIZES, TOP10, PART, idAt, startOf, endOf, ensure, pointsOf, ranking, hist, settle, prizeFor, state };
+module.exports = { numOf, WEEK, MIN_PTS, POINTS, PRIZES, TOP10, PART, idAt, startOf, endOf, ensure, pointsOf, ranking, hist, settle, prizeFor, state };
