@@ -145,7 +145,7 @@ function hatchAll(P, now, rng) {
     for (const egg of [...P.eggs]) {
         if (egg.readyAt > now) continue;
         if (P.pets.length >= P.slots) { full = true; break; }
-        const r = hatch(P, egg.id, now, rng);
+        const r = module.exports.hatch(P, egg.id, now, rng);   // عبر module.exports لتعمل بفات الجنيات المغلِّفة
         if (r.ok) out.push(r.pet);
     }
     if (!out.length) return fail(full ? "الحظيرة ممتلئة (" + P.slots + ")." : "لا بيض جاهز للفقس الآن.");

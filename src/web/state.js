@@ -118,6 +118,7 @@ function buildState(P, now, quests) {
         nov: Object.fromEntries(Object.keys(X.ITEMS).map(id => [id, X.have(P, id)])),
         season: seasonView(P, now),
         posts: postsView(P),
+        tradeDisc: (() => { try { return Fy.buffs(P).trade || 0; } catch (e) { return 0; } })(),
         meta: meta(P)
     };
     if (quests) state.quests = quests(P, now);

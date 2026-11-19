@@ -13,7 +13,7 @@ VIEWS.shop = () => {
     ["up", "🏠 توسعات"]
   ];
 
-  let h = `<h2>🛒 المتجر</h2><div class="seg">${seg.map(s => `<button data-s="${s[0]}" class="${s[0] === shopTab ? "on" : ""}">${s[1]}</button>`).join("")}</div>`;
+  let h = `<h2>🛒 المتجر</h2><div class="seg">${seg.map(s => `<button data-s="${s[0]}" class="${s[0] === shopTab ? "on" : ""}">${s[1]}</button>`).join("")}</div>${S.tradeDisc ? `<div class="card" style="margin:6px 0">🧚 خصم التجارة <b>${Math.round(S.tradeDisc * 1000) / 10}%</b> — يُردّ إليك بعد الشراء (الأسعار قبل الخصم)</div>` : ""}`;
 
   if (shopTab === "eggs") {
     m.eggs.forEach(e => {

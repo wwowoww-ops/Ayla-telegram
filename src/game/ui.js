@@ -422,9 +422,14 @@ function screenShop(P, note_) {
     };
 }
 
+// خصم التجارة من الجنيات: يُردّ للاعب بعد الشراء، فالسعر المعروض قبل الخصم. نوضّح ذلك في شاشات الشراء.
+function tradeLine(P) {
+    try { const d = require("./fairies").buffs(P).trade; return d ? `🧚 خصم التجارة <b>${Math.round(d * 1000) / 10}%</b> — يُردّ إليك بعد الشراء (الأسعار أدناه قبل الخصم)\n\n` : ""; } catch (e) { return ""; }
+}
+
 function screenShopEggs(P, note_) {
     const b = kbBuilder(P.id);
-    let text = `🥚 <b>سوق البيض</b> — 🪙 ${fmt(P.coins)}\n\n`;
+    let text = `🥚 <b>سوق البيض</b> — 🪙 ${fmt(P.coins)}\n\n` + tradeLine(P);
 
     D.EGGS.forEach((e, i) => {
         text += `${e.e} <b>${e.n}</b> — ${fmt(e.price)} 🪙 · ${E.dur(e.min * 60000)}\n   ${eggChances(e.w)}\n`;
@@ -441,7 +446,7 @@ function screenShopEggs(P, note_) {
 
 function screenShopFood(P, note_) {
     const b = kbBuilder(P.id);
-    let text = `🍖 <b>سوق الطعام</b> — 🪙 ${fmt(P.coins)}\n\n`;
+    let text = `🍖 <b>سوق الطعام</b> — 🪙 ${fmt(P.coins)}\n\n` + tradeLine(P);
     D.GENERAL_FOODS.forEach(id => {
         const f = D.FOODS[id];
         text += `${f.e} <b>${f.n}</b> — ${fmt(f.price)} 🪙 · جوع +${f.hg}${f.xp ? " · خبرة +" + Math.round(f.xp * 100) + "%" : ""} (عندك: ${P.items[id] || 0})\n`;
@@ -494,7 +499,7 @@ function screenShopUp(P, note_) {
     b.back("shop");
 
     return {
-        text: `🏠 <b>التوسعات</b> — 🪙 ${fmt(P.coins)}\n\nالحظيرة: ${P.pets.length}/${P.slots}\nالحضانة: ${P.eggs.length}/${P.hatchSlots}` + note(note_),
+        text: `🏠 <b>التوسعات</b> — 🪙 ${fmt(P.coins)}\n\n` + tradeLine(P) + `الحظيرة: ${P.pets.length}/${P.slots}\nالحضانة: ${P.eggs.length}/${P.hatchSlots}` + note(note_),
         kb: b.kb
     };
 }
