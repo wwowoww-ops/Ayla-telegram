@@ -7,6 +7,7 @@ const Res = require("../game/resources");
 const Fy = require("../game/fairies");
 const X = require("../game/extras");
 const Se = require("../game/season");
+const Po = require("../game/posts");
 
 function petView(P, pet, now) {
     const sp = D.SPECIES[pet.sp], r = D.RARITIES[sp.r], el = D.ELEMENTS[pet.el];
@@ -17,7 +18,7 @@ function petView(P, pet, now) {
         lv: pet.lv, xp: Math.floor(pet.xp), xpNeed: E.xpNeed(pet.lv), st: pet.st,
         q: pet.q, grade: E.grade(pet.q), gen: pet.gen || 0,
         elb: pet.elb || null, elbEmoji: pet.elb ? D.ELEMENTS[pet.elb].e : "", elbName: pet.elb ? D.ELEMENTS[pet.elb].n : "",
-        rv: X.recycleValue(P, pet), prot: X.protectedPet(P, pet),
+        rv: X.recycleValue(P, pet), prot: X.protectedPet(P, pet), post: Po.postOf(P, pet.id), fit: Po.fitList(pet),
         el2: pet.el2 || null, el2Emoji: pet.el2 ? D.ELEMENTS[pet.el2].e : "", el2Name: pet.el2 ? D.ELEMENTS[pet.el2].n : "",
         elite: E.isElite(pet), pol: pet.pol || 0, polMax: E.POL_MAX, polCost: E.polishCost(pet), evoCost: E.evoCost(pet),
         hunger: Math.round(E.hungerNow(pet, now)),
@@ -34,9 +35,9 @@ function petView(P, pet, now) {
     };
 }
 
-function eggView(egg, now) {   // warm/warmWait: تدفئة البيض
+function eggView(egg, now, P) {   // warm/warmWait: تدفئة البيض
     const d = D.EGGS[egg.tier];
-    return { id: egg.id, tier: egg.tier, name: d.n, emoji: d.e, readyIn: Math.max(0, egg.readyAt - now), bred: !!egg.bred, warm: egg.warm || 0, warmWait: Math.max(0, (egg.warmAt || 0) + X.WARM_CD - now) };
+    return { id: egg.id, tier: egg.tier, name: d.n, emoji: d.e, readyIn: Math.max(0, egg.readyAt - now), bred: !!egg.bred, warm: egg.warm || 0, warmWait: Math.max(0, (egg.warmAt || 0) + (P ? X.warmCd(P) : X.WARM_CD) - now) };
 }
 
 // معلومات ثابتة تقريبًا (كتالوجات المتجر والمناطق)
@@ -45,7 +46,7 @@ function meta(P) {
         elements: D.ELEMENTS, beats: D.BEATS, beatsAll: D.BEATS_ALL,
         species: Object.values(D.SPECIES).map(x => ({ id: x.id, n: x.n, e: x.e, r: x.r, els: x.els })),
         rarities: D.RARITIES.map(r => ({ n: r.n, e: r.e })),
-        novItems: Object.entries(X.ITEMS).map(([id, it]) => ({ id, n: it.n, e: it.e, price: it.price, d: it.d })), warmMax: X.WARM_MAX,
+        novItems: Object.entries(X.ITEMS).map(([id, it]) => ({ id, n: it.n, e: it.e, price: it.price, d: it.d })), warmMax: X.warmMax(P),
         zones: D.ZONES.map((z, i) => ({ i, name: z.n, power: z.power, coins: z.coins, els: z.els, elite: z.elite || 0 })),
         bossKinds: require("../game/boss").KINDS.map(k => ({ id: k.id, n: k.n, e: k.e, el: k.el })),
         eggs: D.EGGS.map((e, tier) => ({ tier, name: e.n, emoji: e.e, price: e.price, min: e.min, w: e.w })),
@@ -57,6 +58,7 @@ function meta(P) {
         habitats: Object.keys(Fy.HABITATS).map(id => ({ id, ...Fy.HABITATS[id] })),
         fairyFam: Object.fromEntries(Object.keys(Fy.FAM).map(k => [k, Fy.FAM[k].n])),
         fairyRates: Fy.ratesTxt(), fairyOwnCap: Fy.OWN_CAP, fairyMaxLv: Fy.MAX_LV,
+        posts: Po.POST_IDS.map(id => ({ id, n: Po.POSTS[id].n, e: Po.POSTS[id].e, slots: Po.POSTS[id].slots, d: Po.POSTS[id].d })),
         penMax: 8, slotPrice: E.slotPrice(P), hatchPrice: P.hatchSlots < 10 ? E.hatchPrice(P) : 0,
         bowlPrice: F.price(P), bowlMax: F.MAX_BOWLS, bowlCap: F.CAP, bowlFoods: F.FOODS,
         breedLv: D.C.BREED_LV, lvCap: D.C.LV_CAP, maxStars: D.C.MAX_STARS
@@ -72,6 +74,14 @@ function seasonView(P, now) {
         prizes: Se.PRIZES.concat([Se.TOP10, Se.PART]).map(p => ({ crystal: p.res.crystal || 0, dust: p.res.dust || 0, ess: p.essN || 0, egg: p.egg != null ? D.EGGS[p.egg].e + " " + D.EGGS[p.egg].n : "", fairy: p.fairy != null })),
         old: Se.hist().slice().reverse().map(s => ({ n: Se.numOf(s.id), total: s.total, top: s.rows.slice(0, 3) })),
         won: (P.seasonWon || []).slice(-5).reverse().map(w => ({ n: Se.numOf(w.id), rank: w.rank, pts: w.pts }))
+    };
+}
+
+function postsView(P) {
+    const s = Po.st(P);
+    return {
+        total: Po.fxText(Po.total(P)),
+        list: Object.fromEntries(Po.POST_IDS.map(id => [id, s[id].map(pid => E.getPet(P, pid)).filter(Boolean).map(p => ({ id: p.id, fx: Po.fxText(Po.petFx(p, id)), apt: Po.aptitude(p, id) }))]))
     };
 }
 
@@ -92,7 +102,7 @@ function buildState(P, now, quests) {
         bowls: F.bowls(P).map(b => ({
             id: b.id, pen: b.pen, food: b.food, qty: b.qty
         })),
-        eggs: P.eggs.map(e => eggView(e, now)),
+        eggs: P.eggs.map(e => eggView(e, now, P)),
         eggBag: (P.eggBag || []).map(e => ({ id: e.id, tier: e.tier, name: D.EGGS[e.tier].n, emoji: D.EGGS[e.tier].e, bred: !!e.bred })),
         res: Object.fromEntries(Object.keys(P.res || {}).filter(k => P.res[k] > 0).map(k => [k, P.res[k]])),
         fairies: Fy.st(P).fairies.map(f => {
@@ -107,6 +117,7 @@ function buildState(P, now, quests) {
         items: Object.keys(P.items).filter(id => P.items[id] > 0 && D.FOODS[id]).map(id => ({ id, count: P.items[id] })),
         nov: Object.fromEntries(Object.keys(X.ITEMS).map(id => [id, X.have(P, id)])),
         season: seasonView(P, now),
+        posts: postsView(P),
         meta: meta(P)
     };
     if (quests) state.quests = quests(P, now);

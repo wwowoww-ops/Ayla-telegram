@@ -65,3 +65,27 @@ SUBS.recycle = () => {
     buzz("medium"); const ids = [...recSel]; const j = await run("recycle", { ids }); if (j && j.ok) recSel.clear(); SUBS.recycle();
   };
 };
+
+// ---- وظائف الحيوانات ----
+let postPick = null;   // الوظيفة المفتوحة لاختيار حيوان
+SUBS.posts = () => {
+  const P = S.posts, defs = S.meta.posts, byId = Object.fromEntries(S.pets.map(p => [p.id, p]));
+  let h = back + `<h2>🧰 وظائف الحيوانات</h2><div class="dim">ضع حيواناتك الزائدة في وظائف تعطيك بفات دائمة. الموظَّف لا يقاتل في الزعيم، والأساسي لا يُوظَّف. ⭐ = مناسب للوظيفة.</div>`;
+  h += `<div class="card" style="margin-top:8px">${P.total ? "✨ " + esc(P.total).split(" · ").join("<br>✨ ") : "لم تعيّن أحدًا بعد."}</div>`;
+  defs.forEach(d => {
+    const cur = P.list[d.id] || [];
+    h += `<div class="card"><div class="row" style="justify-content:space-between"><b>${d.e} ${esc(d.n)}</b><span class="dim">${cur.length}/${d.slots}</span></div><div class="dim" style="font-size:12px;margin:4px 0">${esc(d.d)}</div>`;
+    cur.forEach(c => { const p = byId[c.id]; if (!p) return; h += `<div class="row" style="align-items:center;gap:8px;margin-top:6px"><div style="font-size:26px">${p.emoji}</div><div class="grow"><b>${esc(p.name)}</b> ${p.rarEmoji} <span class="dim">Lv.${p.lv}</span>${c.apt > 1 ? " ⭐" : ""}<div class="dim" style="font-size:12px">${esc(c.fx || "—")}</div></div><button class="btn sm sec" data-pc="${p.id}">❌</button></div>`; });
+    if (cur.length < d.slots) h += `<button class="btn sm" style="margin-top:8px" data-pp="${d.id}">➕ تعيين حيوان</button>`;
+    h += `</div>`;
+    if (postPick === d.id) {
+      const cands = S.pets.filter(p => !p.main && !cur.some(c => c.id === p.id)).sort((a, b) => (b.fit.includes(d.id) - a.fit.includes(d.id)) || (b.rar - a.rar) || (b.lv - a.lv));
+      h += `<div class="card"><b>اختر حيوانًا لـ${esc(d.n)}</b>` + (cands.length ? cands.slice(0, 40).map(p => `<div class="row" style="align-items:center;gap:8px;margin-top:6px"><div style="font-size:24px">${p.emoji}</div><div class="grow">${p.fit.includes(d.id) ? "⭐ " : ""}<b>${esc(p.name)}</b> ${p.rarEmoji} <span class="dim">Lv.${p.lv} ${p.elEmoji}${p.elbEmoji || ""}${p.post ? " · في " + esc((defs.find(x => x.id === p.post) || {}).n || "") : ""}</span></div><button class="btn sm" data-pa="${p.id}">عيّن</button></div>`).join("") : `<div class="dim">لا حيوانات متاحة.</div>`) + `<button class="btn sm sec" style="margin-top:8px" data-px="1">إغلاق</button></div>`;
+    }
+  });
+  view.innerHTML = h; bindBack();
+  view.querySelectorAll("[data-pp]").forEach(b => b.onclick = () => { buzz(); postPick = postPick === b.dataset.pp ? null : b.dataset.pp; SUBS.posts(); });
+  view.querySelectorAll("[data-pc]").forEach(b => b.onclick = async () => { buzz(); await run("postClear", { id: Number(b.dataset.pc) }); SUBS.posts(); });
+  view.querySelectorAll("[data-pa]").forEach(b => b.onclick = async () => { buzz("medium"); const j = await run("postSet", { post: postPick, id: Number(b.dataset.pa) }); if (j && j.ok) postPick = null; SUBS.posts(); });
+  const x = view.querySelector("[data-px]"); if (x) x.onclick = () => { postPick = null; SUBS.posts(); };
+};

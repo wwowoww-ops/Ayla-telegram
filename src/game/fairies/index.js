@@ -161,6 +161,7 @@ function buffs(P, now = Date.now()) {
         if (!f) return;
         Object.entries(buffOf(f, now)).forEach(([k, v]) => { b[k] = (b[k] || 0) + v; });
     });
+    try { Object.entries(require("../posts").buffs(P)).forEach(([k, v]) => { b[k] = (b[k] || 0) + v; }); } catch (e) { /* لا وظائف */ }   // بفات وظائف الحيوانات
     Object.keys(b).forEach(k => { b[k] = Math.min(k === "tier" ? 0.05 : CAP, b[k]); });
     return b;
 }

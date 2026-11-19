@@ -42,7 +42,8 @@ const save = (chatId, boss, extra) => store.setGroup(chatId, Object.assign({ bos
 const open = b => !!(b && !b.done && b.phase === "reg");
 
 const ranked = P => [...P.pets].sort((a, b) => E.power(b) - E.power(a));
-const defaultTeam = P => ranked(P).slice(0, TEAM).map(p => p.id);
+const posted = (P, id) => { try { return require("../posts").isPosted(P, id); } catch (e) { return false; } };   // الموظَّف لا يقاتل
+const defaultTeam = P => { const r = ranked(P), free = r.filter(p => !posted(P, p.id)); return (free.length ? free : r).slice(0, TEAM).map(p => p.id); };
 
 // ---------- الاستدعاء والتسجيل ----------
 function spawn(chatId, now, uid, name, opt = {}) {
@@ -79,6 +80,7 @@ function toggle(chatId, P, petId) {
     if (r.ready) return fail("أنت جاهز. ألغِ الجاهزية لتعديل الاختيار.");
     const id = Number(petId);
     if (!P.pets.some(p => p.id === id)) return fail("حيوان غير موجود.");
+    if (posted(P, id)) return fail("هذا الحيوان في وظيفة (حرس/حضانة…). أزله منها من قائمة الوظائف أولًا.");
     const i = r.pets.indexOf(id);
     if (i >= 0) r.pets.splice(i, 1);
     else { if (r.pets.length >= TEAM) return fail("الحد الأقصى " + TEAM + " حيوانات."); r.pets.push(id); }
@@ -160,7 +162,7 @@ function prepare(chatId, now) {
     Object.entries(b.reg || {}).forEach(([uid, r]) => {
         const P = store.get(uid);
         if (!P) return;
-        const pets = r.pets.map(id => P.pets.find(p => p.id === id)).filter(Boolean);
+        const pets = r.pets.filter(id => !posted(P, id)).map(id => P.pets.find(p => p.id === id)).filter(Boolean);
         if (pets.length) parts.push({ uid, name: r.n, pets, P, mode: r.mode === "manual" ? "manual" : "auto", boost: r.boost ? BOOST_ATK : 0 });
     });
     if (!parts.length) {

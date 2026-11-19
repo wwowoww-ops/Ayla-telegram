@@ -12,6 +12,7 @@ const Fy = require("../game/fairies");
 const Mk = require("../game/market");
 const X = require("../game/extras");
 const Se = require("../game/season");
+const Po = require("../game/posts");
 const { nameOf } = require("../lib/util");
 const { validateInitData } = require("./auth");
 const { buildState, petView } = require("./state");
@@ -84,6 +85,9 @@ const ACTIONS = {
     nOpen: P => X.openBox(P, rng),
     recycle: (P, a) => (Array.isArray(a.ids) && a.ids.length <= 60 ? X.recycle(P, a.ids.map(int).filter(Number.isInteger)) : { ok: false, msg: "اختيار غير صالح." }),
     recycleBulk: (P, a) => (Number.isInteger(a.r) && a.r >= 0 && a.r <= 3 ? X.recycleBulk(P, a.r, 25) : { ok: false, msg: "اختيار غير صالح." }),
+    // ----- وظائف الحيوانات -----
+    postSet: (P, a) => Po.assign(P, String(a.post), int(a.id)),
+    postClear: (P, a) => Po.unassign(P, int(a.id)),
     hunt(P, a, now) {
         const zone = D.ZONES[int(a.zone)];
         const pet = E.getPet(P, P.main);

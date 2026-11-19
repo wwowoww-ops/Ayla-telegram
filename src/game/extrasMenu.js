@@ -63,8 +63,8 @@ function list(P, page) {
 function pick(P, id) {
     const p = E.getPet(P, id);
     if (!p || p.id === P.main) return recycle(P, "حيوان غير صالح.");
-    const prot = p.st > 0 || E.isElite(p);
-    const t = "♻️ <b>تدوير حيوان</b>\n" + nm(p) + "\n🎖 جودة " + E.grade(p.q) + (E.isElite(p) ? " 👑 نخبة" : "") + "\n\n🎁 ستحصل على: " + yieldTxt(X.recycleValue(P, p)) + (prot ? "\n⚠️ هذا حيوان مميّز (نجوم/نخبة) — تأكد قبل التدوير!" : "") + "\n⚠️ لا يمكن التراجع.";
+    const prot = p.st > 0 || E.isElite(p), inPost = X.protectedPet(P, p) && !prot;
+    const t = "♻️ <b>تدوير حيوان</b>\n" + nm(p) + "\n🎖 جودة " + E.grade(p.q) + (E.isElite(p) ? " 👑 نخبة" : "") + "\n\n🎁 ستحصل على: " + yieldTxt(X.recycleValue(P, p)) + (prot ? "\n⚠️ هذا حيوان مميّز (نجوم/نخبة) — تأكد قبل التدوير!" : "") + (inPost ? "\n⚠️ هذا الحيوان في وظيفة (🧰) — سيُزال منها عند التدوير." : "") + "\n⚠️ لا يمكن التراجع.";
     return { text: t, kb: new InlineKeyboard().text("✅ نعم، دوّره", "xr:" + P.id + ":do:" + p.id).text("❌ إلغاء", "xr:" + P.id + ":list:0") };
 }
 module.exports = { shop, recycle, ask, list, pick, LEVELS };

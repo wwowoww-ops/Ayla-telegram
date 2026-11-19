@@ -431,6 +431,7 @@ function breed(P, aId, bId, now, rng, useStone) {
         if (!P.nov || !(P.nov.stone > 0)) return fail("لا تملك حجر الطفرة 🧿.");
         P.nov.stone--; boost = 0.15;
     }
+    try { boost += require("./posts").extra(P).mut || 0; } catch (e) { /* لا وظائف */ }   // مختبر التزاوج
     P.coins -= cost;
     const d = bredEggData(a, b, rng, boost), mutated = d.mutated;
     addEggToBag(P, d.tier, { pre: d.pre, bred: true });

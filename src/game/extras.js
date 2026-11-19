@@ -8,6 +8,9 @@ const fail = msg => ({ ok: false, msg });
 const ok = (msg, extra) => Object.assign({ ok: true, msg }, extra || {});
 const fmt = E.fmt;
 const buffs = P => { try { return require("./fairies").buffs(P); } catch (e) { return {}; } };
+const postX = P => { try { return require("./posts").extra(P); } catch (e) { return { warmMax: 0, warmCd: 0, mut: 0 }; } };   // بفات الحضانة من وظائف الحيوانات
+const warmMax = P => WARM_MAX + postX(P).warmMax;
+const warmCd = P => Math.floor(WARM_CD * (1 - Math.min(0.5, postX(P).warmCd)));
 
 // ---------- الإعدادات (عدّل من هنا) ----------
 const HOUR = 3600e3;
@@ -53,15 +56,15 @@ function openBox(P, rng = Math.random) {
 
 // ---------- تدفئة البيض ----------
 function warmInfo(P, egg, now) {
-    const n = egg.warm || 0, left = Math.max(0, (egg.warmAt || 0) + WARM_CD - now);
-    return { n, max: WARM_MAX, wait: left, canWarm: egg.readyAt > now && n < WARM_MAX && left === 0 };
+    const n = egg.warm || 0, mx = warmMax(P), left = Math.max(0, (egg.warmAt || 0) + warmCd(P) - now);
+    return { n, max: mx, wait: left, canWarm: egg.readyAt > now && n < mx && left === 0 };
 }
 function warm(P, eggId, now) {
     const egg = (P.eggs || []).find(e => e.id === Number(eggId));
     if (!egg) return fail("البيضة غير موجودة في الحضانة.");
     if (egg.readyAt <= now) return fail("البيضة جاهزة أصلًا 🐣");
     const w = warmInfo(P, egg, now);
-    if (w.n >= WARM_MAX) return fail("وصلت هذه البيضة أقصى تدفئة (" + WARM_MAX + ").");
+    if (w.n >= w.max) return fail("وصلت هذه البيضة أقصى تدفئة (" + w.max + ").");
     if (w.wait > 0) return fail("انتظر " + E.dur(w.wait) + " قبل تدفئتها مجددًا.");
     if (have(P, "honey") < 1) return fail("لا تملك 🍯 عسل الحضانة. اشتره من متجر النوادر.");
     const base = E.eggMs(P, egg.tier, egg.bred), cut = Math.floor(base * WARM_PCT * (1 + (buffs(P).warm || 0)));
@@ -69,7 +72,7 @@ function warm(P, eggId, now) {
     items(P).honey--;
     egg.readyAt = Math.max(now, egg.readyAt - cut);
     egg.warm = w.n + 1; egg.warmAt = now;
-    return ok("🍯 دفّأتَ البيضة: نقص " + E.dur(Math.min(cut, before)) + " (" + egg.warm + "/" + WARM_MAX + "). المتبقي " + (egg.readyAt <= now ? "لا شيء — جاهزة!" : E.dur(egg.readyAt - now)));
+    return ok("🍯 دفّأتَ البيضة: نقص " + E.dur(Math.min(cut, before)) + " (" + egg.warm + "/" + w.max + "). المتبقي " + (egg.readyAt <= now ? "لا شيء — جاهزة!" : E.dur(egg.readyAt - now)));
 }
 
 // ---------- تدوير الحيوانات الزائدة ----------
@@ -81,7 +84,8 @@ function recycleValue(P, pet) {
     if (pet.elb) ess["ess_" + pet.elb] = (ess["ess_" + pet.elb] || 0) + Math.max(1, Math.ceil(n / 2));
     return { crystal: Math.max(1, Math.round(RC[r] * mult)), ess };
 }
-const protectedPet = (P, pet) => pet.id === P.main || pet.st > 0 || E.isElite(pet);
+const posted = (P, pet) => { try { return require("./posts").isPosted(P, pet.id); } catch (e) { return false; } };
+const protectedPet = (P, pet) => pet.id === P.main || pet.st > 0 || E.isElite(pet) || posted(P, pet);
 function recycle(P, ids) {
     const list = [];
     for (const id of ids) { const p = E.getPet(P, Number(id)); if (p && !list.includes(p)) list.push(p); }
@@ -122,4 +126,4 @@ function readyEggs(players, now) {
     return out;
 }
 
-module.exports = { ITEMS, WARM_PCT, WARM_MAX, WARM_CD, STONE_BOOST, RC, items, have, buy, openBox, warm, warmInfo, recycleValue, recycle, recycleBulk, candidates, protectedPet, readyEggs };
+module.exports = { ITEMS, WARM_PCT, WARM_MAX, WARM_CD, warmMax, warmCd, STONE_BOOST, RC, items, have, buy, openBox, warm, warmInfo, recycleValue, recycle, recycleBulk, candidates, protectedPet, readyEggs };

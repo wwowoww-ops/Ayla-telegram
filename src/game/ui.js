@@ -143,6 +143,7 @@ b.btn("🥚 الحضانة", "eggs").btn("🛒 المتجر", "shop").row()
  .btn("🏆 ترتيب", "top").btn("🧿 العناصر", "elems").row()
  .btn("📚 المزيد من القوائم", "more");
 b.kb.row().text("🏆 الموسم", `ss:${P.id}:cur`).text("🛍️ نوادر", `xn:${P.id}:main`);
+b.kb.row().text("🧰 وظائف الحيوانات", `po:${P.id}:main`);
 
 return { text, kb: b.kb };
 }
@@ -171,6 +172,7 @@ function screenMore(P) {
         .text("🛍️ متجر النوادر", `xn:${uid}:main`)
         .row()
         .text("♻️ تدوير الحيوانات", `xr:${uid}:main`)
+        .text("🧰 وظائف الحيوانات", `po:${uid}:main`)
         .row()
         .text("🏠 القائمة الرئيسية", `g:${uid}:home`);
 
