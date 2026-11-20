@@ -56,7 +56,7 @@ function openPens() {
     ${S.pens.length < S.meta.penMax ? `<div class="row" style="margin:8px 0"><input id="newPen" placeholder="اسم حظيرة جديدة" maxlength="14" class="grow"><button class="btn sm" id="addPen">➕ أنشئ</button></div>` : `<div class="dim">وصلت أقصى عدد من الحظائر (${S.meta.penMax}).</div>`}
     <div class="dim" style="margin:12px 0 6px">نقل جماعي</div>
     <div class="row"><select id="mvFrom" class="grow">${opts(true)}</select><span>➜</span><select id="mvTo" class="grow">${opts(false)}</select><button class="btn sm" id="mvGo">انقل</button></div>
-    <div class="dim" style="margin-top:12px">💡 اضغط مطولًا على أي حيوان داخل الحظيرة ثم حرّكه وأفلته حيث تريد، فيبقى هناك. ولنقل حيوان واحد افتح بطاقته.</div>
+    <div class="dim" style="margin-top:12px">💡 اضغط على أي حيوان في الحظيرة لفتح بطاقته، ومنها تنقله إلى حظيرة أخرى.</div>
   </div>`;
   $("#sheet").classList.remove("hidden");
   const P = $("#sheet .panel");

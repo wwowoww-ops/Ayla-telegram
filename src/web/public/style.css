@@ -95,3 +95,6 @@ h2 { margin: 6px 0 10px; font-size: 18px; }
 input, select { padding: 9px; border-radius: 10px; border: 1px solid var(--line); background: #0e0a18; color: #fff; font: inherit; min-width: 0; }
 /* المزرعة (منظر علوي) */
 #farm { width: 100%; display: block; border-radius: 14px; background: #7fb2d6; touch-action: none; user-select: none; }
+.dock { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0 2px; }
+.dock button { flex: none; min-width: 66px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px 6px; font-size: 12px; text-align: center; }
+.dock button span { display: block; font-size: 24px; }

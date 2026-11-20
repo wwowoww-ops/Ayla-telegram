@@ -4,12 +4,12 @@
 // ======================================================
 VIEWS.more = () => {
   if (sub) return SUBS[sub]();
-  const tiles = [["farm", "🌄", "المزرعة"], ["visit", "👥", "زيارة"], ["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["posts", "🧰", "وظائف"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "الدليل"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"]];
+  const tiles = [["visit", "👥", "زيارة"], ["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["posts", "🧰", "وظائف"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "الدليل"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"]];
   view.innerHTML = `<h2>☰ المزيد</h2><div class="grid3">${tiles.map(t => `<button class="tile" data-sub="${t[0]}"><span>${t[1]}</span>${t[2]}</button>`).join("")}</div>`;
   view.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { buzz(); sub = b.dataset.sub; SUBS[sub](); });
 };
 const back = `<button class="btn sec sm" id="back" style="margin-bottom:8px">↩️ رجوع</button>`;
-const bindBack = () => { const b = $("#back"); if (b) b.onclick = () => { sub = null; VIEWS.more(); }; };
+const bindBack = () => { const b = $("#back"); if (b) b.onclick = () => { if (window.__fromWorld) { go("pen"); return; } sub = null; VIEWS.more(); }; };
 const SUBS = {};
 
 // ---- التزاوج ----

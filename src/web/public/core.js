@@ -118,6 +118,7 @@ function renderTop() {
   $("#hTop").onclick = () => { buzz(); go("more", "top"); };
 }
 function go(t, s) {
+  window.__fromWorld = false;     // يُضبط من جديد عند الدخول إلى قسم من العالم (farm3d.js)
   stopPen();
   tab = t; sub = s || null;
   renderTabs();
