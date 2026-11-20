@@ -18,6 +18,7 @@ const { validateInitData } = require("./auth");
 const { buildState, petView } = require("./state");
 const Farm = require("./farm");
 const World = require("./world");
+const Map_ = require("./map");
 
 // المهام والإنجازات اختيارية: إن لم يوجد الملف تعمل اللعبة بدونها
 let Q = null;
@@ -208,6 +209,14 @@ const ACTIONS = {
         return { ok: true, msg: "تم تغيير الاسم." };
     },
     worldSave: (P, a) => World.save(P, a && a.world),
+    mapView: (P, a, now) => Map_.mapView(P, a, now),
+    mapMove: (P, a, now) => Map_.mapMove(P, a, now),
+    allyCreate: (P, a, now) => Map_.allyCreate(P, a, now),
+    allyInvite: (P, a, now) => Map_.allyInvite(P, a, now),
+    allyAccept: (P, a, now) => Map_.allyAccept(P, a, now),
+    allyDecline: (P, a) => Map_.allyDecline(P, a),
+    allyLeave: P => Map_.allyLeave(P),
+    allyKick: (P, a) => Map_.allyKick(P, a),
     visitList: (P, a, now) => Farm.visitList(P, a, now),
     farmView: (P, a, now) => Farm.farmView(P, a, now),
     top() {

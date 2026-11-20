@@ -21,7 +21,7 @@ const SERVICES = [
   ["hatch", "🥚", "الحضانة", ["hatch"]], ["hunt", "⚔️", "الصيد", ["hunt"]], ["breed", "🧬", "التزاوج", ["more", "breed"]],
   ["boss", "👑", "الزعماء", ["more", "boss"]], ["season", "🏆", "الموسم", ["more", "season"]], ["fairies", "🧚", "الجنيات", ["more", "fairies"]],
   ["recycle", "♻️", "التدوير", ["more", "recycle"]], ["quests", "🎯", "المهام", ["more", "quests"]], ["top", "🥇", "الترتيب", ["more", "top"]],
-  ["visit", "👥", "زيارة", null], ["bag", "🎒", "المخزن", ["more", "bag"]], ["more", "☰", "المزيد", ["more"]]
+  ["visit", "👥", "زيارة", null], ["map", "🗺️", "الخريطة", null], ["bag", "🎒", "المخزن", ["more", "bag"]], ["more", "☰", "المزيد", ["more"]]
 ];
 const POST_SVC = new Set(["hatch", "hunt", "boss"]);                       // لها مبانٍ وظيفية بالمعرّف نفسه
 const WORLD_SVC = SERVICES.filter(s => !POST_SVC.has(s[0]));              // بوابات مستقلة في الحلقة الخارجية
@@ -29,6 +29,7 @@ function svcOpen(id) {
   const s = SERVICES.find(x => x[0] === id);
   if (!s) return;
   if (id === "visit") return farmVisitList("");
+  if (id === "map") return farmMap();
   go(s[3][0], s[3][1]);
   if (s[3][1]) window.__fromWorld = true;        // زر الرجوع في القسم الفرعي يعود إلى الحظيرة لا إلى قائمة المزيد
 }
@@ -839,3 +840,59 @@ function farm2dInit(F) {
     dispose() { /* لا موارد خاصة */ }
   };
 }
+
+// ======================================================
+// العالم المشترك: خريطة شبكية + نقل المزرعة بجانب لاعب + التحالفات
+// ======================================================
+async function farmMap(cx, cy, sel) {
+  farmStop();
+  sub = "map";
+  const j = await act("mapView", { cx, cy });
+  if (!j || !j.ok) { toast("تعذّر تحميل الخريطة", true); return go("pen"); }
+  const R = j.radius, N = R * 2 + 1, by = {};
+  j.players.forEach(p => { by[p.x + "," + p.y] = p; });
+  const al = j.alliance, hrs = Math.ceil(j.wait / 3600000);
+  let cells = "";
+  for (let y = j.center[1] - R; y <= j.center[1] + R; y++) for (let x = j.center[0] - R; x <= j.center[0] + R; x++) {
+    const p = by[x + "," + y], on = sel && sel[0] === x && sel[1] === y;
+    cells += `<button class="mc${p ? (p.me ? " me" : p.ally ? " al" : " pl") : ""}${on ? " on" : ""}" data-x="${x}" data-y="${y}">${p ? p.emoji : ""}</button>`;
+  }
+  const chosen = sel && (by[sel[0] + "," + sel[1]] || null);
+  let act1 = "";
+  if (sel) {
+    if (chosen && chosen.me) act1 = `<b>🏡 مزرعتك</b> (${chosen.x}, ${chosen.y})`;
+    else if (chosen) act1 = `<div class="row" style="gap:6px;flex-wrap:wrap"><div class="grow"><b>${chosen.emoji} ${esc(chosen.name)}</b>${chosen.ally ? " 🤝" : ""}</div><button class="btn sm" data-a="visit">👀 زيارة</button><button class="btn sm" data-a="near">📍 انتقل بجانبه</button>${al.leader && !chosen.ally ? `<button class="btn sec sm" data-a="inv">🤝 ادعُه للتحالف</button>` : ""}</div>`;
+    else act1 = `<div class="row"><div class="grow">الخانة (${sel[0]}, ${sel[1]}) فارغة</div><button class="btn sm" data-a="here">📍 انتقل هنا</button></div>`;
+  }
+  const inv = al.invites.map(i => `<div class="row" style="gap:6px"><div class="grow">📨 دعوة من <b>${esc(i.name)}</b> إلى «${esc(i.ally)}»</div><button class="btn sm" data-ya="${esc(i.from)}">قبول</button><button class="btn sec sm" data-no="${esc(i.from)}">رفض</button></div>`).join("");
+  const alBox = al.name
+    ? `<b>🤝 ${esc(al.name)}</b> (${al.members.length}/${al.max})<div class="dim" style="margin:4px 0">${al.members.map(m => (m.leader ? "👑 " : "") + esc(m.name) + (al.leader && !m.leader ? ` <a href="#" data-kick="${esc(m.uid)}">✖</a>` : "")).join(" · ")}</div><button class="btn sec sm" id="mLeave">${al.leader ? "حلّ التحالف" : "مغادرة التحالف"}</button>`
+    : `<div class="dim" style="margin-bottom:6px">التحالف يسمح لأعضائه بالتلاصق وبمدى انتقال أبعد.</div><div class="row" style="gap:6px"><input id="mName" class="grow" maxlength="16" placeholder="اسم التحالف" style="padding:9px;border-radius:10px;background:var(--card2);border:1px solid var(--line);color:inherit"><button class="btn sm" id="mNew">تأسيس</button></div>`;
+  view.innerHTML = `<button class="btn sec sm" id="fBack" style="margin-bottom:8px">↩️ رجوع</button><h2>🗺️ العالم المشترك</h2>
+    <div class="dim" style="font-size:12px;margin:4px 0 8px">مزرعتك في (${j.loc[0]}, ${j.loc[1]}). ${hrs > 0 ? "⏳ الانتقال متاح بعد " + hrs + " ساعة." : "✅ يمكنك الانتقال الآن."} قفزة الانتقال حتى ${j.hop} خانات (${j.hopAlly} مع الحلفاء)، وبين غير الحلفاء يلزم فراغ خانة واحدة على الأقل.</div>
+    <div class="row" style="gap:6px;margin-bottom:6px"><button class="btn sec sm" data-m="-1,0">⬅️</button><button class="btn sec sm" data-m="0,-1">⬆️</button><button class="btn sec sm" data-m="0,1">⬇️</button><button class="btn sec sm" data-m="1,0">➡️</button><button class="btn sec sm" id="mHome">🏡</button></div>
+    <div class="mgrid" style="display:grid;grid-template-columns:repeat(${N},1fr);gap:2px;direction:ltr">${cells}</div>
+    <div class="card" style="margin-top:8px;min-height:40px">${act1 || '<span class="dim">اضغط على خانة أو لاعب.</span>'}</div>
+    ${inv ? `<div class="card" style="margin-top:8px">${inv}</div>` : ""}
+    <div class="card" style="margin-top:8px">${alBox}</div>
+    <style>.mc{aspect-ratio:1;border:0;border-radius:6px;background:#2d5a2f;font-size:18px;padding:0}.mc.pl{background:#6b3a3a}.mc.al{background:#2f5f7a}.mc.me{background:#7c3aed}.mc.on{outline:2px solid #ffd24d}</style>`;
+  const reload = (x, y, s) => farmMap(x, y, s);
+  $("#fBack").onclick = () => { buzz(); go("pen"); };
+  $("#mHome").onclick = () => reload(j.loc[0], j.loc[1], null);
+  view.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { buzz(); const d = b.dataset.m.split(",").map(Number); reload(j.center[0] + d[0] * 5, j.center[1] + d[1] * 5, sel); });
+  view.querySelectorAll(".mc").forEach(b => b.onclick = () => { buzz(); reload(j.center[0], j.center[1], [Number(b.dataset.x), Number(b.dataset.y)]); });
+  const doAct = async (type, args, msg) => { const r = await act(type, args); if (r && r.msg) toast(r.msg, !r.ok); reload(r && r.ok && r.loc ? r.loc[0] : j.center[0], r && r.ok && r.loc ? r.loc[1] : j.center[1], null); };
+  view.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
+    buzz();
+    if (b.dataset.a === "visit") return farmOpen(chosen.uid);
+    if (b.dataset.a === "near") return doAct("mapMove", { near: chosen.uid });
+    if (b.dataset.a === "here") return doAct("mapMove", { x: sel[0], y: sel[1] });
+    if (b.dataset.a === "inv") return doAct("allyInvite", { uid: chosen.uid });
+  });
+  view.querySelectorAll("[data-ya]").forEach(b => b.onclick = () => doAct("allyAccept", { from: b.dataset.ya }));
+  view.querySelectorAll("[data-no]").forEach(b => b.onclick = () => doAct("allyDecline", { from: b.dataset.no }));
+  view.querySelectorAll("[data-kick]").forEach(a => a.onclick = e => { e.preventDefault(); doAct("allyKick", { uid: a.dataset.kick }); });
+  const nw = $("#mNew"); if (nw) nw.onclick = () => doAct("allyCreate", { name: $("#mName").value });
+  const lv = $("#mLeave"); if (lv) lv.onclick = () => doAct("allyLeave", {});
+}
+SUBS.map = () => { if (!$("#fBack")) farmMap(); };
