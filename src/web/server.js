@@ -17,6 +17,7 @@ const { nameOf } = require("../lib/util");
 const { validateInitData } = require("./auth");
 const { buildState, petView } = require("./state");
 const Farm = require("./farm");
+const World = require("./world");
 
 // المهام والإنجازات اختيارية: إن لم يوجد الملف تعمل اللعبة بدونها
 let Q = null;
@@ -206,6 +207,7 @@ const ACTIONS = {
         pet.nick = name;
         return { ok: true, msg: "تم تغيير الاسم." };
     },
+    worldSave: (P, a) => World.save(P, a && a.world),
     visitList: (P, a, now) => Farm.visitList(P, a, now),
     farmView: (P, a, now) => Farm.farmView(P, a, now),
     top() {

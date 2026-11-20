@@ -8,6 +8,7 @@ const Fy = require("../game/fairies");
 const X = require("../game/extras");
 const Se = require("../game/season");
 const Po = require("../game/posts");
+const World = require("./world");
 
 function petView(P, pet, now) {
     const sp = D.SPECIES[pet.sp], r = D.RARITIES[sp.r], el = D.ELEMENTS[pet.el];
@@ -118,6 +119,8 @@ function buildState(P, now, quests) {
         nov: Object.fromEntries(Object.keys(X.ITEMS).map(id => [id, X.have(P, id)])),
         season: seasonView(P, now),
         posts: postsView(P),
+        world: Object.assign({ b: {}, pens: {}, av: {}, pos: {}, hidePow: false }, P.world || {}),
+        looks: World.LOOKS,
         tradeDisc: (() => { try { return Fy.buffs(P).trade || 0; } catch (e) { return 0; } })(),
         meta: meta(P)
     };
