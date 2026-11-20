@@ -93,3 +93,5 @@ h2 { margin: 6px 0 10px; font-size: 18px; }
 #nur { display: block; border-radius: 18px; border: 3px solid #5a3d1e; touch-action: manipulation; }
 .pen-bar .btn:nth-child(n+3) { flex: 0 0 auto; }
 input, select { padding: 9px; border-radius: 10px; border: 1px solid var(--line); background: #0e0a18; color: #fff; font: inherit; min-width: 0; }
+/* المزرعة (منظر علوي) */
+#farm { width: 100%; display: block; border-radius: 14px; background: #7fb2d6; touch-action: none; user-select: none; }

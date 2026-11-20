@@ -16,6 +16,7 @@ const Po = require("../game/posts");
 const { nameOf } = require("../lib/util");
 const { validateInitData } = require("./auth");
 const { buildState, petView } = require("./state");
+const Farm = require("./farm");
 
 // المهام والإنجازات اختيارية: إن لم يوجد الملف تعمل اللعبة بدونها
 let Q = null;
@@ -205,6 +206,8 @@ const ACTIONS = {
         pet.nick = name;
         return { ok: true, msg: "تم تغيير الاسم." };
     },
+    visitList: (P, a, now) => Farm.visitList(P, a, now),
+    farmView: (P, a, now) => Farm.farmView(P, a, now),
     top() {
         const all = store.all();
         const power = all.filter(p => p.pets.length).map(p => ({ name: p.name, v: E.totalPower(p) })).sort((a, b) => b.v - a.v).slice(0, 10);
