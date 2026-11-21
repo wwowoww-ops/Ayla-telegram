@@ -238,6 +238,10 @@ const ACTIONS = {
     farmView: (P, a, now) => Farm.farmView(P, a, now),
     cosView: P => require("./cosmetics").view(P),
     cosSet: (P, a) => require("./cosmetics").set(P, a),
+    frameList: P => require("./cosmetics").frameList(P),
+    frameAnim: (P, a) => require("./cosmetics").frameAnim(P, a),
+    frameSet: (P, a) => require("./cosmetics").frameSet(P, a),
+    frameBuy: (P, a) => require("./cosmetics").frameBuy(P, a),
     top() {
         const all = store.all();
         const power = all.filter(p => p.pets.length).map(p => ({ name: p.name, tg: Cos.tag(p), v: E.totalPower(p) })).sort((a, b) => b.v - a.v).slice(0, 10);

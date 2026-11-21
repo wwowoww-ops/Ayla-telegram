@@ -6,17 +6,6 @@ const resMeta = id => (S.meta.resources.find(r => r.id === id) || { name: id, em
 const resLine = o => Object.keys(o || {}).map(k => `${resMeta(k).emoji}×${fmt(o[k])}`).join(" ");
 const elTag = k => (S.meta.elements[k] ? S.meta.elements[k].e + " " + S.meta.elements[k].n : k);
 
-// ---------- شريط علوي: بلورات ----------
-const _renderTop = renderTop;
-renderTop = function () {
-  _renderTop();
-  if (!S) return;
-  const t = $("#top"), b = $("#hTop");
-  const c = document.createElement("span");
-  c.className = "chip"; c.innerHTML = `🔷 <b>${fmt((S.res || {}).crystal || 0)}</b>`;
-  t.insertBefore(c, b);
-};
-
 // ---------- الحضانة: محفظة البيض ----------
 const _hatch = VIEWS.hatch;
 VIEWS.hatch = () => {

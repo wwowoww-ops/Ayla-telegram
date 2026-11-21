@@ -152,7 +152,8 @@ FRAMES.push(
     ...withCat(require("./ornate").ORNATE, "ornate"),
     ...withCat(require("./animal").ANIMAL, "animal"),
     ...require("./more").MORE,
-    ...require("./epic").EPIC
+    ...require("./epic").EPIC,
+    ...require("./rewards").REWARDS
 );
 require("./redesign").apply(FRAMES);   // رسم جديد للإطارات القديمة (نفس المعرّفات)
 
@@ -167,7 +168,8 @@ const CATS = [
     { id: "special", name: "خاصة",       e: "🎆" },
     { id: "boss",    name: "الزعماء",    e: "👑" },
     { id: "legend",  name: "الأساطير",   e: "🏆" },
-    { id: "epic",    name: "الملحمية",   e: "🐉" }
+    { id: "epic",    name: "الملحمية",   e: "🐉" },
+    { id: "reward",  name: "الجوائز",    e: "🎁" }
 ];
 
 const byId = id => FRAMES.find(x => x.id === id) || null;

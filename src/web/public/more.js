@@ -4,7 +4,7 @@
 // ======================================================
 VIEWS.more = () => {
   if (sub) return SUBS[sub]();
-  const tiles = [["visit", "👥", "زيارة"], ["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["posts", "🧰", "وظائف"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "الدليل"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"], ["cos", "🎖️", "ألقاب وإطارات"], ["exp", "🧭", "استكشاف"], ["book", "📖", "كتاب المجموعة"]];
+  const tiles = [["visit", "👥", "زيارة"], ["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["posts", "🧰", "وظائف"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "كتاب المجموعة"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"], ["cos", "🎖️", "إطارات وألقاب"], ["exp", "🧭", "استكشاف"]];
   view.innerHTML = `<h2>☰ المزيد</h2><div class="grid3">${tiles.map(t => `<button class="tile" data-sub="${t[0]}"><span>${t[1]}</span>${t[2]}</button>`).join("")}</div>`;
   view.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { buzz(); sub = b.dataset.sub; SUBS[sub](); });
 };
@@ -124,19 +124,25 @@ SUBS.collection = () => {
   view.querySelectorAll("[data-pet]").forEach(b => b.onclick = () => { buzz(); openPet(Number(b.dataset.pet)); });
 };
 
-// ---- الدليل: كل الأنواع حسب الندرة ----
+// ---- كتاب المجموعة (الدليل + جوائز الإكمال) ----
 let guideR = 0;
-SUBS.guide = () => {
-  const m = S.meta, owned = new Set(S.pets.map(p => p.sp));
-  const all = m.species, have = all.filter(s => owned.has(s.id)).length;
-  let h = back + `<h2>📖 الدليل <span class="dim">${have}/${all.length}</span></h2>
-    <div class="seg">${m.rarities.map((r, i) => `<button data-r="${i}" class="${i === guideR ? "on" : ""}">${r.e} ${esc(r.n)}</button>`).join("")}</div>`;
-  const list = all.filter(s => s.r === guideR);
+SUBS.guide = async () => {
+  const m = S.meta;
+  const j = await act("dexView", {});
+  if (!j || !j.ok) return;
+  const got = new Map(j.list.map(x => [x.id, x.have])), grp = new Map(j.groups.map(g => [g.r, g]));
+  const all = m.species;
+  let h = back + `<h2>📖 كتاب المجموعة <span class="dim">${j.have}/${j.total}</span></h2>
+    <div class="seg">${m.rarities.map((r, i) => `<button data-r="${i}" class="${i === guideR ? "on" : ""}">${r.e} ${esc(r.n)}${grp.get(i) && grp.get(i).have === grp.get(i).total ? (grp.get(i).claimed ? " ✅" : " 🎁") : ""}</button>`).join("")}</div>`;
+  const g = grp.get(guideR), list = all.filter(s => s.r === guideR);
+  if (g) h += `<div class="card"><div class="row"><b class="grow">${g.emoji} ${esc(g.name)} · ${g.have}/${g.total}</b>${g.claimed ? "✅ استُلمت" : g.have === g.total ? `<button class="btn sm" data-rc="${g.r}">🎁 استلم الجائزة</button>` : `<span class="dim" style="font-size:12px">الجائزة: 🔷×${g.rw.crystals} + بيضة</span>`}</div><div class="bar" style="margin-top:8px"><i style="width:${g.have / g.total * 100}%"></i></div></div>`;
   if (!list.length) h += `<div class="card dim">لا أنواع في هذه الندرة.</div>`;
   list.forEach(s => {
-    const o = owned.has(s.id);
+    const o = got.get(s.id);
     h += `<div class="card row" style="${o ? "" : "opacity:.55"}"><div style="font-size:38px">${o ? s.e : "❓"}</div><div class="grow"><b>${o ? esc(s.n) : "غير مكتشف"}</b> <span class="dim">#${s.id}</span><div class="dim">${o ? (s.els || []).map(k => m.elements[k].e + " " + m.elements[k].n).join(" · ") : "اجمعه لتكتشفه"}</div></div>${o ? "✅" : ""}</div>`;
   });
   view.innerHTML = h; bindBack();
   view.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { guideR = Number(b.dataset.r); SUBS.guide(); });
+  view.querySelectorAll("[data-rc]").forEach(b => b.onclick = () => run("dexClaim", { r: Number(b.dataset.rc) }, () => SUBS.guide()));
 };
+SUBS.book = () => SUBS.guide();

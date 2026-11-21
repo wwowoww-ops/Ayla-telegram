@@ -38,45 +38,54 @@ const TITLES = [
     ["rich", "💎 ثري", "مليار عملة", P => P.coins >= 1e9],
     ["rich2", "🤑 قارون", "كوادريليون عملة", P => P.coins >= 1e15]
 ];
-// [id, اسم، رمز، لون، شرط، اختبار]
-const FRAMES = [
-    ["plain", "بسيط", "", "#64748b", "متاح للجميع", () => true],
-    ["bronze", "برونزي", "🥉", "#cd7f32", "10 مرات صيد", P => st(P, "hunts") >= 10],
-    ["silver", "فضي", "🥈", "#cbd5e1", "100 مرة صيد", P => st(P, "hunts") >= 100],
-    ["gold", "ذهبي", "🥇", "#facc15", "1000 مرة صيد", P => st(P, "hunts") >= 1000],
-    ["diamond", "ألماسي", "💠", "#67e8f9", "10000 مرة صيد", P => st(P, "hunts") >= 10000],
-    ["forest", "الغابة", "🌿", "#4ade80", "3 رحلات استكشاف", P => cnt(P, "exp") >= 3],
-    ["flame", "اللهب", "🔥", "#f97316", "7 أيام متتالية", P => (P.streak || 0) >= 7],
-    ["ice", "الجليد", "❄️", "#93c5fd", "إكمال ندرتين في كتاب المجموعة", P => dexHave(P).groups >= 2],
-    ["pirate", "القراصنة", "🏴‍☠️", "#a8a29e", "5 غارات ناجحة", P => cnt(P, "raid") >= 5],
-    ["ally", "التحالف", "🤝", "#60a5fa", "الانضمام إلى تحالف", P => !!ally(P)],
-    ["royal", "ملكي", "👑", "#c084fc", "30 يومًا متتاليًا", P => (P.streak || 0) >= 30],
-    ["rainbow", "قوس قزح", "🌈", "#f472b6", "اكتشاف كل الأنواع", P => { const d = dexHave(P); return d.have >= d.total; }],
-    ["cosmos", "الكون", "🌌", "#818cf8", "امتلاك حيوان بأعلى ندرة", P => best(P) >= 6]
-];
-const T = Object.fromEntries(TITLES.map(t => [t[0], t])), F = Object.fromEntries(FRAMES.map(f => [f[0], f]));
+const T = Object.fromEntries(TITLES.map(t => [t[0], t]));
+const Fr = require("../game/frames"), E = require("../game/engine");
 const safe = (fn, P) => { try { return !!fn(P); } catch (e) { return false; } };
 
 function view(P) {
     const c = P.cos || {};
-    return {
-        ok: true, title: c.title || "newbie", frame: c.frame || "plain",
-        titles: TITLES.map(t => ({ id: t[0], n: t[1], req: t[2], have: safe(t[3], P) })),
-        frames: FRAMES.map(f => ({ id: f[0], n: f[1], e: f[2], c: f[3], req: f[4], have: safe(f[5], P) })),
-        count: TITLES.filter(t => safe(t[3], P)).length + FRAMES.filter(f => safe(f[5], P)).length - 2, total: TITLES.length + FRAMES.length - 2
-    };
+    const titles = TITLES.map(t => ({ id: t[0], n: t[1], req: t[2], have: safe(t[3], P) }));
+    return { ok: true, title: c.title || "newbie", titles, count: titles.filter(t => t.have).length - 1, total: titles.length - 1 };
 }
 function set(P, a) {
     const c = P.cos = P.cos || {};
-    if (a && a.title !== undefined) { const t = T[a.title]; if (!t || !safe(t[3], P)) return { ok: false, msg: "اللقب غير مفتوح بعد." }; c.title = t[0]; }
-    if (a && a.frame !== undefined) { const f = F[a.frame]; if (!f || !safe(f[5], P)) return { ok: false, msg: "الإطار غير مفتوح بعد." }; c.frame = f[0]; }
+    const t = T[a && a.title];
+    if (!t || !safe(t[3], P)) return { ok: false, msg: "اللقب غير مفتوح بعد." };
+    c.title = t[0];
     return { ok: true, msg: "✅ تم الحفظ.", cos: tag(P) };
 }
-// ما يُعرض مع اسم اللاعب للآخرين (يُرجع null إن كان الافتراضي)
-function tag(P) {
-    const c = P.cos || {}; let t = T[c.title], f = F[c.frame];
-    if (t && !safe(t[3], P)) t = null; if (f && !safe(f[5], P)) f = null;
-    if (!t && !f) return null;
-    return { t: t && t[0] !== "newbie" ? t[1] : "", fe: f && f[0] !== "plain" ? f[2] : "", fc: f && f[0] !== "plain" ? f[3] : "" };
+// ---- الإطارات: نظام البوت نفسه (game/frames). المفتوح/المشترى/المفعّل يُحفظ في P.frame و P.fown ----
+const wrapFrame = (P, fr) => ({ id: fr.id, n: fr.name, e: fr.e, cat: fr.cat, price: fr.price || 0, text: fr.text || "", have: Fr.isUnlocked(P, fr), on: P.frame === fr.id, anim: (fr.frames || 1) > 1 });
+function frameList(P) {
+    const w = Fr.FRAMES.find(f => f.win);
+    return { ok: true, cur: P.frame || null, win: w ? w.win : null, cats: Fr.CATS.map(c => ({ id: c.id, n: c.name, e: c.e })), list: Fr.FRAMES.map(f => wrapFrame(P, f)) };
 }
-module.exports = { view, set, tag, TITLES, FRAMES };
+function frameAnim(P, a) {
+    const fr = Fr.byId(a && a.id); if (!fr) return { ok: false, msg: "الإطار غير معروف." };
+    const n = Math.min(fr.frames || 1, 8), out = [];
+    for (let i = 0; i < n; i++) out.push(fr.draw(n > 1 ? i / n : 0));
+    return { ok: true, id: fr.id, svg: out, win: fr.win || null, square: !!fr.square };
+}
+function frameSet(P, a) {
+    if (a && a.off) { P.frame = null; return { ok: true, msg: "🚫 أُزيل الإطار.", cos: tag(P) }; }
+    const fr = Fr.byId(a && a.id); if (!fr) return { ok: false, msg: "الإطار غير معروف." };
+    if (!Fr.isUnlocked(P, fr)) return { ok: false, msg: "🔒 " + (fr.text || "هذا الإطار مغلق.") };
+    P.frame = fr.id; return { ok: true, msg: "✅ فُعّل " + fr.name + ".", cos: tag(P) };
+}
+function frameBuy(P, a) {
+    const fr = Fr.byId(a && a.id);
+    if (!fr || !fr.price) return { ok: false, msg: "هذا الإطار لا يُشترى." };
+    if (Fr.isUnlocked(P, fr)) return { ok: false, msg: "تملكه بالفعل." };
+    if (P.coins < fr.price) return { ok: false, msg: "تحتاج " + E.fmt(fr.price) + " 🪙" };
+    P.coins -= fr.price; P.fown = P.fown || {}; P.fown[fr.id] = true; P.frame = fr.id;
+    return { ok: true, msg: "🛒 اشتريت " + fr.name + " وفُعّل.", cos: tag(P) };
+}
+// ما يُعرض مع اسم اللاعب للآخرين (يُرجع null إن لم يكن له لقب ولا إطار)
+function tag(P) {
+    const c = P.cos || {}; let t = T[c.title]; if (t && !safe(t[3], P)) t = null;
+    const fr = P.frame ? Fr.byId(P.frame) : null, f = fr && Fr.isUnlocked(P, fr) ? fr : null;
+    const tt = t && t[0] !== "newbie" ? t[1] : "";
+    if (!tt && !f) return null;
+    return { t: tt, fe: f ? f.e : "", fid: f ? f.id : "" };
+}
+module.exports = { view, set, tag, frameList, frameAnim, frameSet, frameBuy, TITLES };

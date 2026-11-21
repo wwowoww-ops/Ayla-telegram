@@ -21,7 +21,7 @@ const SERVICES = [
   ["hatch", "🥚", "الحضانة", ["hatch"]], ["hunt", "⚔️", "الصيد", ["hunt"]], ["breed", "🧬", "التزاوج", ["more", "breed"]],
   ["boss", "👑", "الزعماء", ["more", "boss"]], ["season", "🏆", "الموسم", ["more", "season"]], ["fairies", "🧚", "الجنيات", ["more", "fairies"]],
   ["recycle", "♻️", "التدوير", ["more", "recycle"]], ["quests", "🎯", "المهام", ["more", "quests"]], ["top", "🥇", "الترتيب", ["more", "top"]],
-  ["visit", "👥", "زيارة", null], ["map", "🗺️", "الخريطة", null], ["exp", "🧭", "استكشاف", ["more", "exp"]], ["book", "📖", "كتاب", ["more", "book"]], ["bag", "🎒", "المخزن", ["more", "bag"]], ["more", "☰", "المزيد", ["more"]]
+  ["visit", "👥", "زيارة", null], ["map", "🗺️", "الخريطة", null], ["exp", "🧭", "استكشاف", ["more", "exp"]], ["book", "📖", "كتاب", ["more", "guide"]], ["bag", "🎒", "المخزن", ["more", "bag"]], ["more", "☰", "المزيد", ["more"]]
 ];
 const POST_SVC = new Set(["hatch", "hunt", "boss"]);                       // لها مبانٍ وظيفية بالمعرّف نفسه
 const WORLD_SVC = SERVICES.filter(s => !POST_SVC.has(s[0]));              // بوابات مستقلة في الحلقة الخارجية
@@ -1209,32 +1209,41 @@ SUBS.exp = () => {
   view.querySelectorAll("[data-claim]").forEach(b => b.onclick = () => run("expClaim", { id: Number(b.dataset.claim) }, () => SUBS.exp()));
 };
 
-// ---- كتاب المجموعة ----
-SUBS.book = async () => {
-  view.innerHTML = back + `<h2>📖 كتاب المجموعة</h2><div class="dim">جارٍ التحميل…</div>`; bindBack();
-  const j = await act("dexView", {});
-  if (!j || !j.ok) return;
-  const byR = {}; j.list.forEach(s => { (byR[s.r] = byR[s.r] || []).push(s); });
-  let h = back + `<h2>📖 كتاب المجموعة</h2><div class="card">اكتشفت <b>${j.have}</b> من <b>${j.total}</b> نوعًا. أكمل كل أنواع ندرة لتستلم جائزتها.</div>`;
-  h += j.groups.map(g => `<div class="card"><div class="row"><b class="grow">${g.emoji} ${esc(g.name)} · ${g.have}/${g.total}</b>${g.claimed ? "✅" : g.have === g.total ? `<button class="btn sm" data-rc="${g.r}">🎁 جائزة</button>` : `<span class="dim" style="font-size:12px">🔷×${g.rw.crystals} + بيضة</span>`}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${(byR[g.r] || []).map(s => `<span title="${esc(s.n)}" style="font-size:26px;${s.have ? "" : "filter:grayscale(1) brightness(.35)"}">${s.e}</span>`).join("")}</div></div>`).join("");
-  view.innerHTML = h; bindBack();
-  view.querySelectorAll("[data-rc]").forEach(b => b.onclick = () => run("dexClaim", { r: Number(b.dataset.rc) }, () => SUBS.book()));
-};
-
-// ---- ألقاب وإطارات ----
+// ---- إطارات وألقاب ----
+let cosCat = null, cosTab = "frames";
 SUBS.cos = async () => {
-  view.innerHTML = back + `<h2>🎖️ ألقاب وإطارات</h2><div class="dim">جارٍ التحميل…</div>`; bindBack();
-  const j = await act("cosView", {});
-  if (!j || !j.ok) return;
-  const draw = () => {
-    let h = back + `<h2>🎖️ ألقاب وإطارات</h2><div class="card">اسمك كما يراه الآخرون:<div style="margin-top:6px;font-size:18px;text-align:center">${nameTag(S.player.name, S.cos)}</div><div class="dim" style="margin-top:6px">فتحت ${j.count} من ${j.total}. اضغط على المفتوح لتختاره.</div></div>`;
-    h += `<h3 style="margin:12px 0 6px">🖼️ الإطارات</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + j.frames.map(f => `<button class="card" data-f="${f.id}" style="text-align:center;${f.have ? "" : "opacity:.45"};border:2px solid ${j.frame === f.id ? f.c : "transparent"}"><div style="font-size:24px">${f.e || "▫️"}</div><b style="color:${f.c}">${esc(f.n)}</b><div class="dim" style="font-size:11px">${f.have ? (j.frame === f.id ? "✅ مُستخدم" : "مفتوح") : "🔒 " + esc(f.req)}</div></button>`).join("") + `</div>`;
-    h += `<h3 style="margin:12px 0 6px">🏷️ الألقاب</h3>` + j.titles.map(t => `<button class="card row" data-t="${t.id}" style="width:100%;${t.have ? "" : "opacity:.45"};border:2px solid ${j.title === t.id ? "var(--gold, #facc15)" : "transparent"}"><b class="grow" style="text-align:right">${esc(t.n)}</b><span class="dim" style="font-size:11px">${t.have ? (j.title === t.id ? "✅" : "مفتوح") : "🔒 " + esc(t.req)}</span></button>`).join("");
+  view.innerHTML = back + `<h2>🎖️ إطارات وألقاب</h2><div class="dim">جارٍ التحميل…</div>`; bindBack();
+  const [jt, jf] = await Promise.all([act("cosView", {}), act("frameList", {})]);
+  if (!jt || !jt.ok || !jf || !jf.ok) return;
+  const have = jf.list.filter(f => f.have).length;
+  const draw = async () => {
+    const main = S.pets.find(x => x.main) || S.pets[0];
+    let h = back + `<h2>🎖️ إطارات وألقاب</h2><div class="card row" style="justify-content:center;gap:14px"><div id="cosPrev"></div><div>${nameTag(S.player.name, S.cos)}<div class="dim" style="margin-top:4px">إطارات ${have}/${jf.list.length} · ألقاب ${jt.count}/${jt.total}</div></div></div>
+      <div class="seg"><button data-tab="frames" class="${cosTab === "frames" ? "on" : ""}">🖼️ الإطارات</button><button data-tab="titles" class="${cosTab === "titles" ? "on" : ""}">🏷️ الألقاب</button></div>`;
+    if (cosTab === "frames") {
+      const cats = jf.cats.filter(c => jf.list.some(f => f.cat === c.id));
+      if (!cosCat || !cats.some(c => c.id === cosCat)) cosCat = cats[0].id;
+      h += `<div class="seg">${cats.map(c => { const l = jf.list.filter(f => f.cat === c.id); return `<button data-cat="${c.id}" class="${c.id === cosCat ? "on" : ""}">${c.e} ${esc(c.n)} ${l.filter(f => f.have).length}/${l.length}</button>`; }).join("")}</div>`;
+      if (jf.cur) h += `<button class="btn sec sm" id="frOff" style="margin-bottom:8px">🚫 إزالة الإطار</button>`;
+      h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">` + jf.list.filter(f => f.cat === cosCat).map(f => `<div class="card" style="margin:0;text-align:center;${f.have ? "" : "opacity:.7"};${f.on ? "border-color:#ffd166;box-shadow:0 0 14px rgba(255,209,102,.5)" : ""}">
+        <div id="fp_${f.id}" style="display:flex;justify-content:center;min-height:96px"></div>
+        <b style="font-size:13px">${f.e} ${esc(f.n)}</b>
+        <div style="margin-top:6px">${f.have ? (f.on ? `<span class="dim">✅ مُفعّل</span>` : `<button class="btn sm" data-set="${f.id}">تفعيل</button>`) : f.price ? `<button class="btn sm" data-buy="${f.id}">🛒 ${fmt(f.price)}</button>` : `<span class="dim" style="font-size:11px">🔒 ${esc(f.text || "مغلق")}</span>`}${!f.have && f.price && f.text ? `<div class="dim" style="font-size:11px;margin-top:4px">أو: ${esc(f.text)}</div>` : ""}</div></div>`).join("") + `</div>`;
+    } else {
+      h += jt.titles.map(t => `<button class="card row" data-t="${t.id}" style="width:100%;${t.have ? "" : "opacity:.5"};${jt.title === t.id ? "border-color:#ffd166" : ""}"><b class="grow" style="text-align:right">${esc(t.n)}</b><span class="dim" style="font-size:11px">${t.have ? (jt.title === t.id ? "✅" : "مفتوح") : "🔒 " + esc(t.req)}</span></button>`).join("");
+    }
     view.innerHTML = h; bindBack();
-    const pick = async (k, v) => { buzz(); const r = await act("cosSet", { [k === "t" ? "title" : "frame"]: v }); toast(r.msg || "تعذّر", !r.ok); if (r.ok) { S.cos = r.cos; j[k === "t" ? "title" : "frame"] = v; draw(); } };
-    view.querySelectorAll("[data-f]").forEach(b => b.onclick = () => pick("f", b.dataset.f));
-    view.querySelectorAll("[data-t]").forEach(b => b.onclick = () => pick("t", b.dataset.t));
+    const cur = jf.cur;
+    const pv = $("#cosPrev"); if (pv) pv.innerHTML = framedHTML(main ? petFace(main, 60) : "🐾", cur || "", 92);
+    if (cosTab === "frames") jf.list.filter(f => f.cat === cosCat).forEach(f => { const el = document.getElementById("fp_" + f.id); if (el) el.innerHTML = framedHTML(main ? petFace(main, 50) : "🐾", f.id, 96); });
+    frameFill(view);
+    view.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { buzz(); cosTab = b.dataset.tab; draw(); });
+    view.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { buzz(); cosCat = b.dataset.cat; draw(); });
+    const after = (r, mut) => { toast(r.msg || "تعذّر", !r.ok); if (!r.ok) return; S.cos = r.cos; mut(); renderTop(); draw(); };
+    view.querySelectorAll("[data-set]").forEach(b => b.onclick = async () => { const r = await act("frameSet", { id: b.dataset.set }); after(r, () => { jf.cur = b.dataset.set; jf.list.forEach(f => { f.on = f.id === jf.cur; }); }); });
+    view.querySelectorAll("[data-buy]").forEach(b => b.onclick = async () => { const r = await act("frameBuy", { id: b.dataset.buy }); after(r, () => { jf.cur = b.dataset.buy; jf.list.forEach(f => { if (f.id === b.dataset.buy) f.have = true; f.on = f.id === jf.cur; }); }); });
+    const off = $("#frOff"); if (off) off.onclick = async () => { const r = await act("frameSet", { off: 1 }); after(r, () => { jf.cur = null; jf.list.forEach(f => { f.on = false; }); }); };
+    view.querySelectorAll("[data-t]").forEach(b => b.onclick = async () => { const r = await act("cosSet", { title: b.dataset.t }); after(r, () => { jt.title = b.dataset.t; }); });
   };
   draw();
 };

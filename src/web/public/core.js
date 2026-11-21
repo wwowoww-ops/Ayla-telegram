@@ -52,13 +52,74 @@ function petFace(p, px) {
     : `<span style="font-size:${px * 0.85}px;line-height:1">${p.emoji}</span>`;
 }
 
-// اسم اللاعب مع لقبه وإطاره (tg من الخادم)
+// اسم اللاعب مع لقبه وإطاره (tg من الخادم: t لقب، fe رمز الإطار، fid معرّفه)
 function nameTag(name, tg) {
   const n = esc(name);
   if (!tg) return n;
-  const fr = tg.fc ? `border:2px solid ${tg.fc};box-shadow:0 0 8px ${tg.fc}66;border-radius:10px;padding:1px 8px;display:inline-block` : "";
+  const fr = tg.fe ? "border:2px solid #ffd166;box-shadow:0 0 8px rgba(255,209,102,.5);border-radius:10px;padding:1px 8px;display:inline-block" : "";
   return `<span style="${fr}">${tg.fe ? tg.fe + " " : ""}${n}${tg.fe ? " " + tg.fe : ""}</span>` + (tg.t ? `<div class="dim" style="font-size:11px;margin-top:2px">${esc(tg.t)}</div>` : "");
 }
+
+// ---------- الإطارات المتحركة (نظام البوت نفسه) ----------
+const FRAME_CACHE = {};
+const svgUri = s => "data:image/svg+xml;utf8," + encodeURIComponent(s);
+async function loadFrame(id) {
+  if (FRAME_CACHE[id]) return FRAME_CACHE[id];
+  const j = await act("frameAnim", { id });
+  if (!j || !j.ok) return null;
+  return (FRAME_CACHE[id] = { uris: j.svg.map(svgUri), win: j.win, square: j.square });
+}
+// يضع الصورة داخل نافذة الإطار: win بإحداثيات 400×400
+function framedHTML(inner, fid, size) {
+  const f = fid ? FRAME_CACHE[fid] : null;
+  if (!fid) return `<div class="fa" style="width:${size}px;height:${size}px"><div class="in" style="inset:0;border-radius:50%;border:2px solid #ffd166">${inner}</div></div>`;
+  const w = f && f.win ? f.win : { x: 76, y: 94, w: 248, h: 248, r: 20 }, k = size / 400;
+  return `<div class="fa" data-fid="${fid}" style="width:${size}px;height:${size}px"><div class="in" style="left:${w.x * k}px;top:${w.y * k}px;width:${w.w * k}px;height:${w.h * k}px;border-radius:${w.r * k}px">${inner}</div><img alt="" ${f ? `src="${f.uris[0]}"` : ""}></div>`;
+}
+async function frameFill(root) {
+  const els = (root || document).querySelectorAll(".fa[data-fid]");
+  for (const el of els) { const id = el.dataset.fid; if (!FRAME_CACHE[id]) { await loadFrame(id); } const f = FRAME_CACHE[id]; const im = el.querySelector("img"); if (f && im && !im.getAttribute("src")) im.src = f.uris[0]; }
+}
+let frameTick = 0;
+setInterval(() => {
+  frameTick++;
+  document.querySelectorAll(".fa[data-fid] img").forEach(im => { const f = FRAME_CACHE[im.parentNode.dataset.fid]; if (f && f.uris.length > 1) im.src = f.uris[frameTick % f.uris.length]; });
+}, 140);
+
+// ---------- صوت وجزيئات (إحساس اللعبة) ----------
+let AC = null;
+const sndOn = () => { try { return localStorage.getItem("ayla_snd") !== "0"; } catch (e) { return true; } };
+function sfx(kind) {
+  if (!sndOn()) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    const t0 = AC.currentTime, seq = { tap: [[520, .05]], ok: [[660, .07], [880, .09]], err: [[200, .12]], big: [[523, .07], [659, .07], [784, .07], [1046, .14]] }[kind] || [];
+    let t = t0;
+    seq.forEach(([f, d]) => { const o = AC.createOscillator(), g = AC.createGain(); o.type = kind === "err" ? "sawtooth" : "triangle"; o.frequency.value = f; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + .02); t += d; });
+  } catch (e) { /* لا شيء */ }
+}
+function sparkle(x, y, n, ems) {
+  const E = ems || ["✨", "⭐", "💫"];
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement("div"); d.className = "spk"; d.textContent = E[i % E.length];
+    const a = Math.random() * 6.28, r = 26 + Math.random() * 34;
+    d.style.cssText = `left:${x - 8}px;top:${y - 8}px;--dx:${Math.cos(a) * r}px;--dy:${Math.sin(a) * r - 12}px;--rot:${(Math.random() - .5) * 120}deg`;
+    document.body.appendChild(d); setTimeout(() => d.remove(), 700);
+  }
+}
+function floatGain(text, x, y) {
+  const d = document.createElement("div"); d.className = "gain"; d.textContent = text;
+  d.style.left = (x == null ? innerWidth / 2 - 40 : x - 30) + "px"; d.style.top = (y == null ? innerHeight * 0.35 : y - 20) + "px";
+  document.body.appendChild(d); setTimeout(() => d.remove(), 1150);
+}
+let lastTap = [innerWidth / 2, innerHeight / 2];
+document.addEventListener("pointerdown", e => {
+  lastTap = [e.clientX, e.clientY];
+  const b = e.target.closest && e.target.closest("button, .tile, .pick");
+  if (b && !b.classList.contains("off") && !b.disabled) { sfx("tap"); if (b.classList.contains("btn") || b.classList.contains("tile")) sparkle(e.clientX, e.clientY, 4); }
+}, true);
+
 // ---------- الاتصال بالخادم ----------
 let S = null, stamp = 0, busy = false;
 async function act(type, args) {
@@ -86,6 +147,7 @@ async function run(type, args, after) {
   const j = await act(type, args);
   busy = false;
   if (j.msg) toast(j.msg, !j.ok);
+  if (j.ok && type === "collect") { floatGain((j.msg.match(/[\d.,]+\s?[A-Za-z]*\s?🪙|🪙\s?[\d.,]+\s?[A-Za-z]*/) || ["+🪙"])[0], lastTap[0], lastTap[1]); sfx("big"); sparkle(lastTap[0], lastTap[1], 10, ["🪙", "✨"]); }
   update();
   if (after) after(j);
   return j;
@@ -93,7 +155,7 @@ async function run(type, args, after) {
 function toast(msg, err) {
   const d = document.createElement("div");
   d.className = "toast" + (err ? " err" : "");
-  d.textContent = msg;
+  d.textContent = msg; sfx(err ? "err" : "ok");
   $("#toasts").appendChild(d);
   setTimeout(() => d.remove(), 3000);
 }
@@ -115,14 +177,26 @@ function renderTabs() {
 }
 function renderTop() {
   if (!S) return;
-  const p = S.player;
-  $("#top").innerHTML =
-    `<span class="chip">🪙 <b>${fmt(p.coins)}</b></span>` +
-    `<span class="chip">⚔️ ${fmt(p.power)}</span>` +
-    `<span class="chip">💰 ${fmt(p.income)}/س</span>` +
-    `<span class="chip">🐾 ${S.pets.length}/${p.slots}</span>` +
-    `<button class="chip" id="hTop">🏆</button>`;
+  const p = S.player, main = S.pets.find(x => x.main) || S.pets[0], fid = (S.cos && S.cos.fid) || "";
+  const face = main ? petFace(main, 44) : "🐾";
+  $("#top").innerHTML = `<div class="hud">
+    <div class="hud-av" id="hAv">${framedHTML(face, fid, 58).replace('class="fa"', 'class="fa hud-fa"')}</div>
+    <div class="hud-mid">
+      <div class="hud-name">${esc(p.name || "لاعب")}${S.cos && S.cos.t ? `<small>${esc(S.cos.t)}</small>` : ""}</div>
+      <div class="pills">
+        <span class="pill gold"><i>🪙</i><b>${fmt(p.coins)}</b></span>
+        <span class="pill pw"><i>⚔️</i>${fmt(p.power)}</span>
+        <span class="pill inc"><i>💰</i>${fmt(p.income)}/س</span>
+        <span class="pill pt"><i>🐾</i>${S.pets.length}/${p.slots}</span>
+        <span class="pill cr"><i>🔷</i>${fmt((S.res || {}).crystal || 0)}</span>
+      </div>
+    </div>
+    <button class="hbtn" id="hSnd" title="الصوت">${sndOn() ? "🔊" : "🔇"}</button>
+    <button class="hbtn" id="hTop" title="الترتيب">🏆</button></div>`;
   $("#hTop").onclick = () => { buzz(); go("more", "top"); };
+  $("#hSnd").onclick = () => { try { localStorage.setItem("ayla_snd", sndOn() ? "0" : "1"); } catch (e) { /* لا شيء */ } renderTop(); sfx("ok"); };
+  $("#hAv").onclick = () => { buzz(); go("more", "cos"); };
+  frameFill($("#top"));
 }
 function go(t, s) {
   window.__fromWorld = false;     // يُضبط من جديد عند الدخول إلى قسم من العالم (farm3d.js)
