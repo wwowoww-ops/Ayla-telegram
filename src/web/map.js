@@ -73,7 +73,8 @@ function mapView(P, a, now) {
         if (Math.abs(l[0] - cx) <= RADIUS && Math.abs(l[1] - cy) <= RADIUS) players.push({ uid: String(p.id), name: p.name || "لاعب", x: l[0], y: l[1], emoji: iconOf(p), me: String(p.id) === String(P.id), ally: sameAlly(P, p) });
     });
     const wait = Math.max(0, ((World.get(P).movedAt || 0) + COOLDOWN) - now);
-    return { ok: true, loc, center: [cx, cy], radius: RADIUS, players, wait, hop: HOP, hopAlly: HOP_ALLY, alliance: allyInfo(P, now) };
+    const Raid = require("./raid");
+    return { ok: true, raids: (P.raidLog || []).slice(0, 10), raidSt: Raid.status(P, now), loc, center: [cx, cy], radius: RADIUS, players, wait, hop: HOP, hopAlly: HOP_ALLY, alliance: allyInfo(P, now) };
 }
 
 // a: {x,y} خانة محددة، أو {near: uid} للانتقال بجانب لاعب

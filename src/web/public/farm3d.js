@@ -503,13 +503,22 @@ async function farmOpen(uid) {
       <div class="pen-bar">
         <button class="btn sec sm" id="fBack" style="flex:none">↩️</button>
         <div class="grow" style="align-self:center;font-weight:700">👀 ${esc(f.name)} <span class="dim" style="font-weight:400">${f.hidePow ? "🔒" : "⚔️ " + fmt(f.power)} · 🐾 ${f.count}</span></div>
-        <button class="btn sm" id="fMine" style="flex:none">🏠 حظيرتي</button>
+        <button class="btn sm" id="fRaid" style="flex:none">🏴‍☠️ غارة</button><button class="btn sm" id="fMine" style="flex:none">🏠 حظيرتي</button>
       </div>
       <canvas id="farm"></canvas>
       <div id="fInfo" class="card dim" style="margin-top:8px;min-height:44px">اضغط على حيوان أو مبنى لترى بياناته.</div>
       <div class="dim" id="fMode" style="font-size:11px;margin-top:4px"></div>`;
     $("#fBack").onclick = () => farmVisitList("");
     $("#fMine").onclick = () => { buzz(); go("pen"); };
+    let armed = false;
+    $("#fRaid").onclick = async e => {
+      buzz();
+      if (!armed) { armed = true; e.target.textContent = "⚠️ تأكيد الغارة؟"; setTimeout(() => { armed = false; const b = $("#fRaid"); if (b) b.textContent = "🏴‍☠️ غارة"; }, 4000); return; }
+      armed = false; e.target.textContent = "🏴‍☠️ غارة";
+      const r = await act("raid", { uid: f.uid }); buzz("medium");
+      const box = $("#fInfo"); if (box && r) box.innerHTML = `<b>${esc(r.msg || "")}</b>`;
+      if (r && r.msg) toast(r.msg, !r.ok);
+    };
     await sceneStart(f, false, cloneW(f.world || {}));
   } finally { farmBusy = false; }
 }
@@ -1043,6 +1052,7 @@ async function farmMap(cx, cy, sel) {
     <div class="mgrid" style="display:grid;grid-template-columns:repeat(${N},1fr);gap:2px;direction:ltr">${cells}</div>
     <div class="card" style="margin-top:8px;min-height:40px">${act1 || '<span class="dim">اضغط على خانة أو لاعب.</span>'}</div>
     ${inv ? `<div class="card" style="margin-top:8px">${inv}</div>` : ""}
+    <div class="card" style="margin-top:8px"><b>🏴‍☠️ الغارات</b><div class="dim" style="font-size:12px;margin:4px 0">لك ${j.raidSt.left} محاولات اليوم${j.raidSt.shield ? " · 🛡️ درعك " + Math.ceil(j.raidSt.shield / 3600000) + " س" : ""}. زر «غارة» في حظيرة أي لاعب (ليس حليفًا). تُسرق بيضة وبعض الموارد النادرة فقط، لا حيوانات ولا عملات.</div>${j.raids.length ? j.raids.map(r => `<div class="dim" style="font-size:12px">${r.ok ? "🏴‍☠️" : "🛡️"} ${esc(r.n)} ${r.ok ? "سرق منك: " + esc(r.loot || "لا شيء") : "فشل في الغارة عليك"}</div>`).join("") : `<div class="dim" style="font-size:12px">لا غارات عليك حتى الآن.</div>`}</div>
     <div class="card" style="margin-top:8px">${alBox}</div>
     <style>.mc{aspect-ratio:1;border:0;border-radius:6px;background:#2d5a2f;font-size:18px;padding:0}.mc.pl{background:#6b3a3a}.mc.al{background:#2f5f7a}.mc.me{background:#7c3aed}.mc.on{outline:2px solid #ffd24d}</style>`;
   const reload = (x, y, s) => farmMap(x, y, s);

@@ -19,6 +19,7 @@ const { buildState, petView } = require("./state");
 const Farm = require("./farm");
 const World = require("./world");
 const Map_ = require("./map");
+const Raid = require("./raid");
 
 // المهام والإنجازات اختيارية: إن لم يوجد الملف تعمل اللعبة بدونها
 let Q = null;
@@ -210,6 +211,7 @@ const ACTIONS = {
         return { ok: true, msg: "تم تغيير الاسم." };
     },
     worldSave: (P, a) => World.save(P, a && a.world),
+    raid: (P, a, now) => Raid.raid(P, a, now),
     mapView: (P, a, now) => Map_.mapView(P, a, now),
     mapMove: (P, a, now) => Map_.mapMove(P, a, now),
     allyCreate: (P, a, now) => Map_.allyCreate(P, a, now),
