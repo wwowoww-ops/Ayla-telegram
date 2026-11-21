@@ -131,6 +131,15 @@ function farmLayout(f, W) {
     const a = SLOT0 + (i + 0.5) * Math.PI * 2 / svcs.length, o = W.b[s[0]];
     buildings.push({ key: s[0], type: "svc", id: s[0], e: s[1], n: s[2], x: o ? o[0] : Math.cos(a) * R2, z: o ? o[1] : Math.sin(a) * R2, w: 3.6, d: 2.6, h: 2.2, color: FARM_COL.svc[i % FARM_COL.svc.length] });
   });
+  // فكّ التداخل: المباني التي لم يحرّكها اللاعب تُدفع للخارج إن وقعت فوق مبنى آخر (مثلًا بعد إضافة مبانٍ جديدة تغيّر الأماكن الافتراضية)
+  const hit = (a, c) => Math.abs(a.x - c.x) < Math.max(5.4, (a.w + c.w) / 2 + 1.2) && Math.abs(a.z - c.z) < (a.d + c.d) / 2 + 1.4;
+  buildings.forEach((b, i) => {
+    if (W.b[b.key]) return;                                     // مكان اختاره اللاعب: لا يُلمس
+    for (let k = 0; k < 14 && buildings.some((o, j) => j !== i && hit(b, o)); k++) {
+      const d = Math.hypot(b.x, b.z) || 1, nd = d + 2.2;
+      b.x = b.x / d * nd; b.z = b.z / d * nd;
+    }
+  });
   const bmap = {}; buildings.forEach(b => { bmap[b.key] = b; });
   const outer = svcs.length ? R2 : ring;
   const seaX = outer + 10;
@@ -181,7 +190,9 @@ function farmLayout(f, W) {
   L.pets.forEach((p, i) => { p.rank = i; });
   L.deco = (W.deco || []).map(d => ({ t: d.t, x: d.x, z: d.z }));
   const av = W.av || {};
-  L.me = { kind: "me", emoji: av.look || "🧑‍🌾", name: f.name, x: av.x != null ? av.x : 0, z: av.z != null ? av.z : Y + 4, tx: 0, tz: 0, walking: false, after: null, size: 2.6, base: 1.5 };
+  let meX = av.x != null ? av.x : 0, meZ = av.z != null ? av.z : Y + 4;
+  if (av.x == null) for (let k = 0; k < 12 && buildings.some(b => Math.abs(b.x - meX) < b.w / 2 + 2.6 && Math.abs(b.z - meZ) < b.d / 2 + 2.2); k++) meZ -= 1.6;   // لا تبدأ الشخصية فوق مبنى
+  L.me = { kind: "me", emoji: av.look || "🧑‍🌾", name: f.name, x: meX, z: meZ, tx: 0, tz: 0, walking: false, after: null, size: 2.6, base: 1.5 };
   L.npc = { kind: "npc", emoji: "🧓", name: "الراعي", x: 3, z: 2, tx: 0, tz: 0, wait: 1, size: 2.4, base: 1.4 };
   L.actors = [L.me, L.npc];
   return L;

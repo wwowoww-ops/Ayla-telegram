@@ -81,7 +81,7 @@ async function nurTap(e) {
   const egg = S.eggs[i];
   if (!egg) { shopTab = "eggs"; return go("shop"); }
   const left = egg.readyIn - (Date.now() - stamp);
-  if (left > 0) { buzz(); return toast("⏳ تفقس بعد " + dur(left)); }
+  if (left > 0) { buzz(); return eggSheet(egg.id); }
   buzz("medium");
   const j = await run("hatch", { id: egg.id });
   if (j && j.ok && j.reveal) reveal(j.reveal);
@@ -103,4 +103,23 @@ async function reveal(p) {
     <button class="btn" id="okRev">رائع! 🎉</button>`;
   buzz("heavy");
   $("#okRev").onclick = () => { o.classList.add("hidden"); o.innerHTML = ""; go("pen"); };
+}
+// نافذة البيضة قيد الحضانة: الوقت المتبقي + تدفئة بعسل الحضانة
+function eggSheet(id) {
+  const egg = S.eggs.find(x => x.id === id); if (!egg) return closeSheet();
+  const t = Date.now() - stamp, left = egg.readyIn - t, honey = (S.nov || {}).honey || 0, max = (S.meta && S.meta.warmMax) || 3;
+  const wait = egg.warmWait - t, can = left > 0 && honey > 0 && egg.warm < max && wait <= 0;
+  const why = left <= 0 ? "البيضة جاهزة" : egg.warm >= max ? "وصلت أقصى تدفئة" : honey < 1 ? "لا عسل عندك، اشتره من النوادر" : wait > 0 ? "انتظر " + dur(wait) + " قبل التدفئة التالية" : "";
+  $("#sheet").innerHTML = `<div class="panel">
+    <div class="row"><div style="font-size:60px">${egg.emoji}</div><div class="grow"><div style="font-size:19px;font-weight:800">${esc(egg.name)}${egg.bred ? " 🧬" : ""}</div>
+      <div class="dim">⏳ ${left > 0 ? "تفقس بعد " + dur(left) : "جاهزة"}</div></div></div>
+    <div class="card" style="margin-top:12px"><div class="row"><div style="font-size:32px">🍯</div><div class="grow"><b>عسل الحضانة</b><div class="dim">عندك ${honey} · يقصّر 10% من مدة البيضة · التدفئات ${egg.warm}/${max}</div></div></div>
+      <button class="btn ${can ? "" : "off"}" id="warmBtn" style="width:100%;margin-top:10px">🍯 دفّئ البيضة</button>
+      ${why ? `<div class="dim" style="text-align:center;margin-top:6px">${why}</div>` : ""}
+      ${honey < 1 ? `<button class="btn sec sm" id="buyHoney" style="width:100%;margin-top:8px">🛍️ اذهب إلى النوادر</button>` : ""}</div>
+    <button class="btn sec" id="eggClose" style="width:100%;margin-top:10px">إغلاق</button></div>`;
+  $("#sheet").classList.remove("hidden");
+  $("#eggClose").onclick = closeSheet;
+  const bh = $("#buyHoney"); if (bh) bh.onclick = () => { closeSheet(); go("more", "shop"); };
+  $("#warmBtn").onclick = async () => { if (!can) return toast(why || "غير متاح", true); const j = await run("warm", { id }); if (j && j.ok) eggSheet(id); };
 }
