@@ -1,5 +1,5 @@
 // أوامر الترفيه (بدون قاعدة بيانات)
-const { esc, nameOf, link, pick, HTML, cmd, hash } = require("./lib/util");
+const { esc, nameOf, link, pick, HTML, cmd, hash } = require("../lib/util");
 
 const JOKES = [
     "واحد قال لصاحبه: أنا أنام 8 ساعات يوميًا.\nقال له: وأنا أنام 16 ساعة.\nقال: والله؟ كيف؟\nقال: أنام وأنا في الشغل 😴",
@@ -64,4 +64,4 @@ module.exports = function (bot) {
     cmd(bot, ["سؤال", "اسال", "اسأل"], async (ctx, args) => {
         if (!args) return ctx.reply("اكتب سؤالك بعد الأمر. مثال:\n.سؤال هل سأنجح؟");
         return ctx.reply("🔮 " + pick(EIGHT));
-    });
+    });};
