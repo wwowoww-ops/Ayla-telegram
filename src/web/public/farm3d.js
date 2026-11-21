@@ -89,7 +89,7 @@ function farmLayout(f, W) {
   const rnd = mulberry(hashSeed(f.uid + "|" + f.seed));
   const inPost = new Set([].concat(...Object.values(f.post)));
   const roam = f.pets.filter(p => !inPost.has(p.id)).length;
-  const Y = Math.max(8, Math.min(15, 6.5 + Math.sqrt(roam) * 0.95));
+  const Y = Math.max(8, Math.min(26, 6.5 + Math.sqrt(roam) * 1.55));
   const ring = Y + 6;
   const slot = k => [Math.cos(SLOT0 + k * SLOT_STEP) * ring, Math.sin(SLOT0 + k * SLOT_STEP) * ring];
   const buildings = [];
@@ -157,6 +157,12 @@ function stepPets(L, dt) {
     const v = Math.min(d, p.speed * dt);
     p.x += dx / d * v; p.z += dz / d * v; p.moving = true;
   });
+  const ps = L.pets;                                   // تباعد بسيط كي لا تتراكم الحيوانات فوق بعضها
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+    const a = ps[i], b = ps[j]; if (a.dragging || b.dragging) continue;
+    const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = 1.25;
+    if (d < m && d > 0.001) { const k = (m - d) / d * 0.5 * Math.min(1, dt * 6); a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
+  }
   const me = L.me;
   if (me.walking) {
     const dx = me.tx - me.x, dz = me.tz - me.z, d = Math.hypot(dx, dz), v = 10 * dt;
@@ -246,7 +252,7 @@ async function mountOwn() {
     const f = ownFarm();
     view.innerHTML = `
       <div class="seg" id="penTabs"></div>
-      <div class="pen-bar"><button class="btn" id="bCollect"></button><button class="btn sec" id="bDaily"></button><button class="btn sec" id="bFeed">🍖</button><button class="btn sec" id="bBowl">🥣</button><button class="btn sec" id="bFollow" title="تتبّع شخصيتي">🎯</button><button class="btn sec" id="bEdit">✏️</button></div>
+      <style>.pen-bar{overflow-x:auto}.pen-bar .btn{flex:none;white-space:nowrap;min-height:0;height:auto;padding:9px 14px}</style><div class="pen-bar"><button class="btn" id="bCollect"></button><button class="btn sec" id="bDaily"></button><button class="btn sec" id="bFeed">🍖</button><button class="btn sec" id="bBowl">🥣</button><button class="btn sec" id="bFollow" title="تتبّع شخصيتي">🎯</button><button class="btn sec" id="bEdit">✏️</button></div>
       <canvas id="farm"></canvas>
       <div id="fEdit" class="card hidden" style="margin-top:8px"></div>
       <div id="fInfo" class="card dim" style="margin-top:8px;min-height:44px">اسحب للتحرك، وإصبعان للتكبير. اضغط على الأرض لتمشي شخصيتك، وعلى مبنى لدخوله، وعلى حيوان لإدارته، واضغط مطولًا على حيوان لسحبه.</div>
