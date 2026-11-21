@@ -237,6 +237,17 @@ const ACTIONS = {
     visitList: (P, a, now) => Farm.visitList(P, a, now),
     farmView: (P, a, now) => Farm.farmView(P, a, now),
     cosView: P => require("./cosmetics").view(P),
+    avatarSet: (P, a) => {
+        const m = a && a.mode;
+        if (m === "photo") {
+            const d = a.data;
+            if (typeof d !== "string" || d.length > 80000 || d.length < 200 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(d)) return { ok: false, msg: "الصورة غير صالحة أو كبيرة." };
+            P.avPhoto = d; P.avMode = "photo";
+        } else if (m === "tg" || m === "pet") P.avMode = m;
+        else return { ok: false, msg: "خيار غير معروف." };
+        return { ok: true, msg: "✅ تم تغيير الصورة." };
+    },
+    avatarGet: P => ({ ok: true, mode: P.avMode || "pet", data: P.avPhoto || null }),
     cosSet: (P, a) => require("./cosmetics").set(P, a),
     frameList: P => require("./cosmetics").frameList(P),
     frameAnim: (P, a) => require("./cosmetics").frameAnim(P, a),
@@ -270,7 +281,7 @@ function send(res, code, body, type) {
 function readBody(req) {
     return new Promise((resolve, reject) => {
         let size = 0; const chunks = [];
-        req.on("data", c => { size += c.length; if (size > 4096) { reject(new Error("big")); req.destroy(); } else chunks.push(c); });
+        req.on("data", c => { size += c.length; if (size > 90000) { reject(new Error("big")); req.destroy(); } else chunks.push(c); });
         req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
         req.on("error", reject);
     });

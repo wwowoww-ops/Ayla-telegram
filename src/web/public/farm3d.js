@@ -1219,6 +1219,7 @@ SUBS.cos = async () => {
   const draw = async () => {
     const main = S.pets.find(x => x.main) || S.pets[0];
     let h = back + `<h2>🎖️ إطارات وألقاب</h2><div class="card row" style="justify-content:center;gap:14px"><div id="cosPrev"></div><div>${nameTag(S.player.name, S.cos)}<div class="dim" style="margin-top:4px">إطارات ${have}/${jf.list.length} · ألقاب ${jt.count}/${jt.total}</div></div></div>
+      <div class="card"><b>🖼️ صورة الحساب</b><div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm ${S.avMode === "pet" || !S.avMode ? "" : "sec"}" data-av="pet">🐾 حيواني</button>${tgPhoto() ? `<button class="btn sm ${S.avMode === "tg" ? "" : "sec"}" data-av="tg">✈️ صورة تيليجرام</button>` : ""}<button class="btn sm ${S.avMode === "photo" ? "" : "sec"}" data-av="photo">📷 من المعرض</button></div></div>
       <div class="seg"><button data-tab="frames" class="${cosTab === "frames" ? "on" : ""}">🖼️ الإطارات</button><button data-tab="titles" class="${cosTab === "titles" ? "on" : ""}">🏷️ الألقاب</button></div>`;
     if (cosTab === "frames") {
       const cats = jf.cats.filter(c => jf.list.some(f => f.cat === c.id));
@@ -1234,9 +1235,15 @@ SUBS.cos = async () => {
     }
     view.innerHTML = h; bindBack();
     const cur = jf.cur;
-    const pv = $("#cosPrev"); if (pv) pv.innerHTML = framedHTML(main ? petFace(main, 60) : "🐾", cur || "", 92);
-    if (cosTab === "frames") jf.list.filter(f => f.cat === cosCat).forEach(f => { const el = document.getElementById("fp_" + f.id); if (el) el.innerHTML = framedHTML(main ? petFace(main, 50) : "🐾", f.id, 96); });
+    const pv = $("#cosPrev"); if (pv) pv.innerHTML = framedHTML(avatarInner(60), cur || "", 92);
+    if (cosTab === "frames") jf.list.filter(f => f.cat === cosCat).forEach(f => { const el = document.getElementById("fp_" + f.id); if (el) el.innerHTML = framedHTML(avatarInner(50), f.id, 96); });
     frameFill(view);
+    view.querySelectorAll("[data-av]").forEach(b => b.onclick = async () => {
+      buzz(); const m = b.dataset.av; let data;
+      if (m === "photo") { data = await pickPhoto(); if (!data) return; }
+      const r = await act("avatarSet", { mode: m, data }); toast(r.msg || "تعذّر", !r.ok);
+      if (r.ok) { S.avMode = m; if (data) AVPHOTO = data; renderTop(); draw(); }
+    });
     view.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { buzz(); cosTab = b.dataset.tab; draw(); });
     view.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { buzz(); cosCat = b.dataset.cat; draw(); });
     const after = (r, mut) => { toast(r.msg || "تعذّر", !r.ok); if (!r.ok) return; S.cos = r.cos; mut(); renderTop(); draw(); };

@@ -60,6 +60,41 @@ function nameTag(name, tg) {
   return `<span style="${fr}">${tg.fe ? tg.fe + " " : ""}${n}${tg.fe ? " " + tg.fe : ""}</span>` + (tg.t ? `<div class="dim" style="font-size:11px;margin-top:2px">${esc(tg.t)}</div>` : "");
 }
 
+// ---------- صورة الحساب: حيوان / صورة تيليجرام / من المعرض ----------
+let AVPHOTO = null, avLoading = false;
+const tgPhoto = () => { try { return (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.photo_url) || ""; } catch (e) { return ""; } };
+async function avatarLoad() {
+  if (avLoading || AVPHOTO !== null || !S || S.avMode !== "photo") return;
+  avLoading = true; const j = await act("avatarGet", {}); avLoading = false;
+  if (j && j.ok && j.data) { AVPHOTO = j.data; renderTop(); }
+}
+// محتوى الصورة الدائرية حسب اختيار اللاعب
+function avatarInner(px) {
+  const img = src => `<img alt="" src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
+  const m = (S && S.avMode) || "pet", main = S && (S.pets.find(x => x.main) || S.pets[0]);
+  if (m === "photo") { if (AVPHOTO) return img(AVPHOTO); avatarLoad(); }
+  else if (m === "tg" && tgPhoto()) return img(tgPhoto());
+  return main ? petFace(main, px) : "🐾";
+}
+// يختار صورة من المعرض ويصغّرها إلى 192×192 قبل الرفع
+function pickPhoto() {
+  return new Promise(res => {
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0]; if (!f) return res(null);
+      const im = new Image(), url = URL.createObjectURL(f);
+      im.onload = () => {
+        const c = document.createElement("canvas"); c.width = c.height = 192; const g = c.getContext("2d"), s = Math.min(im.width, im.height);
+        g.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 192, 192); URL.revokeObjectURL(url);
+        let q = 0.85, d = c.toDataURL("image/jpeg", q); while (d.length > 70000 && q > 0.3) { q -= 0.15; d = c.toDataURL("image/jpeg", q); }
+        res(d);
+      };
+      im.onerror = () => res(null); im.src = url;
+    };
+    inp.click();
+  });
+}
+
 // ---------- الإطارات المتحركة (نظام البوت نفسه) ----------
 const FRAME_CACHE = {};
 const svgUri = s => "data:image/svg+xml;utf8," + encodeURIComponent(s);
@@ -178,7 +213,7 @@ function renderTabs() {
 function renderTop() {
   if (!S) return;
   const p = S.player, main = S.pets.find(x => x.main) || S.pets[0], fid = (S.cos && S.cos.fid) || "";
-  const face = main ? petFace(main, 44) : "🐾";
+  const face = avatarInner(44);
   $("#top").innerHTML = `<div class="hud">
     <div class="hud-av" id="hAv">${framedHTML(face, fid, 58).replace('class="fa"', 'class="fa hud-fa"')}</div>
     <div class="hud-mid">

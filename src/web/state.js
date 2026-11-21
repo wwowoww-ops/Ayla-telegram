@@ -122,7 +122,7 @@ function buildState(P, now, quests) {
         season: seasonView(P, now),
         posts: postsView(P),
         world: Object.assign({ b: {}, pens: {}, av: {}, pos: {}, biome: {}, hidePow: false }, P.world || {}),
-        looks: World.LOOKS, cos: require("./cosmetics").tag(P),
+        avMode: P.avMode || "pet", looks: World.LOOKS, cos: require("./cosmetics").tag(P),
         exp: require("./expedition").view(P, now), expZones: require("./expedition").ZONES, expBusy: [...require("./expedition").busyIds(P)],
         event: require("./events").current(now),
         tradeDisc: (() => { try { return Fy.buffs(P).trade || 0; } catch (e) { return 0; } })(),
