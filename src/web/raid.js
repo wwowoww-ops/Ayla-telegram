@@ -9,6 +9,7 @@ const E = require("../game/engine");
 const Res = require("../game/resources");
 const store = require("../core/store");
 const Map_ = require("./map");
+const Notify = require("./notify");
 
 const CD = 10 * 60 * 1000, SHIELD = 6 * 3600 * 1000, DAY_ATK = 5, DAY_DEF = 3, MIN_PETS = 3, LOG_N = 10;
 const day = now => Math.floor(now / 864e5);
@@ -30,7 +31,7 @@ function raid(P, a, now, rng = Math.random) {
     if ((T.shield || 0) > now) return { ok: false, msg: "🛡️ لاعبه محمي لـ " + Math.ceil((T.shield - now) / 3600000) + " ساعة." };
     const inn = T.raidIn && T.raidIn.d === day(now) ? T.raidIn : { d: day(now), n: 0 };
     if (inn.n >= DAY_DEF) return { ok: false, msg: "🛡️ تعرّض لغارات كثيرة اليوم، هو محمي حتى الغد." };
-    const A = E.totalPower(P), Dp = E.totalPower(T), chance = Math.max(0.1, Math.min(0.9, A / (A + Dp)));
+    const A = E.totalPower(P), Dp = E.totalPower(T), chance = Math.max(0.05, Math.min(0.9, A / (A + Dp)) * (1 - Map_.perk(T).defense));
     P.raidOut = { d: day(now), n: (P.raidOut && P.raidOut.d === day(now) ? P.raidOut.n : 0) + 1, cd: now + CD };
     const win = rng() < chance, loot = [];
     if (win) {
@@ -49,6 +50,7 @@ function raid(P, a, now, rng = Math.random) {
     }
     T.raidLog = [{ n: String(P.name || "لاعب").slice(0, 24), t: now, ok: win, loot: loot.join("، ") }].concat(T.raidLog || []).slice(0, LOG_N);
     store.touch(T.id);
+    Notify.send(T, win ? "🏴‍☠️ " + String(P.name || "لاعب") + " أغار على حظيرتك" + (loot.length ? " وسرق: " + loot.join("، ") : "") + "!\n🛡️ حظيرتك محمية 6 ساعات." : "🛡️ حاول " + String(P.name || "لاعب") + " الإغارة على حظيرتك لكن حيواناتك صدّته!");
     const pc = Math.round(chance * 100);
     if (!win) return { ok: true, win: false, chance: pc, msg: "🛡️ فشلت الغارة (فرصتك " + pc + "%). دافعت حيواناته عن الحظيرة." };
     return { ok: true, win: true, chance: pc, loot, msg: loot.length ? "🏴‍☠️ نجحت الغارة على " + T.name + "! غنمت: " + loot.join("، ") : "🏴‍☠️ نجحت الغارة لكن لم تجد ما يُسرق." };

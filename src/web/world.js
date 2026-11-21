@@ -4,7 +4,7 @@
 const LIM = 160;              // أقصى بُعد لأي إحداثية
 const PT_LIM = 45;            // أقصى بُعد لرأس سياج عن مركز حظيرته
 const MIN_PTS = 3, MAX_PTS = 14;
-const BUILDINGS = ["hatch", "boss", "hunt", "lab", "farm", "vault", "gym", "market", "shop", "nov", "breed", "season", "fairies", "recycle", "quests", "top", "visit", "map", "bag", "more"];
+const BUILDINGS = ["hatch", "boss", "hunt", "lab", "farm", "vault", "gym", "market", "shop", "nov", "breed", "season", "fairies", "recycle", "quests", "top", "visit", "map", "exp", "book", "bag", "more"];
 const BIOMES = ["dirt", "grass", "sand", "snow", "forest", "swamp", "lava"];
 const LOOKS = ["🧑‍🌾", "👨‍🌾", "👩‍🌾", "🧙", "🥷", "🧑‍🚀", "🦸", "🧝", "🤠", "🧑‍🎤"];
 
@@ -17,9 +17,9 @@ function penIds(P) { return ["0"].concat((P.pens || []).map(p => String(p.id)));
 
 // يدمج patch في العالم المحفوظ ويُرجع العالم الجديد
 function save(P, patch) {
-    const cur = get(P), w = { b: Object.assign({}, cur.b), pens: Object.assign({}, cur.pens), av: Object.assign({}, cur.av), pos: Object.assign({}, cur.pos), hidePow: !!cur.hidePow, biome: Object.assign({}, cur.biome), loc: cur.loc, movedAt: cur.movedAt };
+    const cur = get(P), w = { b: Object.assign({}, cur.b), pens: Object.assign({}, cur.pens), av: Object.assign({}, cur.av), pos: Object.assign({}, cur.pos), hidePow: !!cur.hidePow, biome: Object.assign({}, cur.biome), loc: cur.loc, movedAt: cur.movedAt, deco: Array.isArray(cur.deco) ? cur.deco : [] };
     if (!patch || typeof patch !== "object") return { ok: false, msg: "بيانات غير صالحة." };
-    if (patch.reset === true) { P.world = { b: {}, pens: {}, av: w.av, pos: w.pos, hidePow: w.hidePow, biome: w.biome, loc: w.loc, movedAt: w.movedAt }; return { ok: true, world: P.world }; }
+    if (patch.reset === true) { P.world = { b: {}, pens: {}, av: w.av, pos: w.pos, hidePow: w.hidePow, biome: w.biome, loc: w.loc, movedAt: w.movedAt, deco: w.deco }; return { ok: true, world: P.world }; }
     if (patch.b && typeof patch.b === "object") {
         for (const id of Object.keys(patch.b)) { if (!BUILDINGS.includes(id)) continue; if (patch.b[id] === null) { delete w.b[id]; continue; } const p = pair(patch.b[id], LIM); if (p) w.b[id] = p; }
     }

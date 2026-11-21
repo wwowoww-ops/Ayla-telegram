@@ -8,6 +8,7 @@ const D = require("../game/data");
 const store = require("../core/store");
 const World = require("./world");
 
+const NOTIFY_NOP = 0;
 const RADIUS = 6, HOP = 8, HOP_ALLY = 30, COOLDOWN = 6 * 3600 * 1000, MAX_ALLY = 8, INV_TTL = 3 * 24 * 3600 * 1000, GRID = 60;
 const key = (x, y) => x + "," + y;
 const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
@@ -57,11 +58,33 @@ function ensureLoc(P) {
 }
 const iconOf = p => { const m = (p.pets || []).find(x => x.id === p.main) || (p.pets || [])[0]; return m ? D.SPECIES[m.sp].e : "🏡"; };
 
+// مستوى التحالف من إجمالي تبرعات الأعضاء: 1م → 1، 10م → 2 ... حتى 10
+const lvlOf = bank => (bank >= 1e6 ? Math.min(10, Math.floor(Math.log10(bank / 1e6)) + 1) : 0);
+// مزايا التحالف: دخل +2% لكل مستوى و+0.5% لكل عضو إضافي، وتخفيض فرصة نجاح الغارات على أعضائه 4% لكل عضو إضافي (حتى 28%)
+function perk(P) {
+    const L = leaderOf(P);
+    if (!L) return { income: 0, defense: 0 };
+    const n = L.alliance.members.length;
+    return { income: 0.02 * lvlOf(L.alliance.bank || 0) + 0.005 * (n - 1), defense: Math.min(0.28, 0.04 * (n - 1)) };
+}
+function allyDonate(P, a) {
+    const L = leaderOf(P);
+    if (!L) return { ok: false, msg: "لست في تحالف." };
+    const pct = Number(a && a.pct);
+    if (![1, 10, 50].includes(pct)) return { ok: false, msg: "نسبة غير صالحة." };
+    const amt = Math.floor(P.coins * pct / 100);
+    if (!(amt >= 1000)) return { ok: false, msg: "رصيدك قليل للتبرع." };
+    P.coins -= amt; L.alliance.bank = (L.alliance.bank || 0) + amt;
+    L.alliance.don = L.alliance.don || {}; L.alliance.don[String(P.id)] = (L.alliance.don[String(P.id)] || 0) + amt;
+    store.touch(L.id);
+    return { ok: true, msg: "🏦 تبرعت بـ " + require("../game/engine").fmt(amt) + " 🪙 لصندوق التحالف." };
+}
 function allyInfo(P, now) {
     const L = leaderOf(P);
     P.allyInv = (P.allyInv || []).filter(i => now - i.t < INV_TTL && store.get(i.from));
     const members = L ? L.alliance.members.map(id => store.get(id)).filter(Boolean).map(m => ({ uid: String(m.id), name: m.name, leader: String(m.id) === String(L.id) })) : [];
-    return { name: L ? L.alliance.name : null, leader: !!L && String(L.id) === String(P.id), members, max: MAX_ALLY, invites: P.allyInv.map(i => ({ from: i.from, name: i.name, ally: i.ally })) };
+    const bank = L ? L.alliance.bank || 0 : 0, lv = lvlOf(bank);
+    return { name: L ? L.alliance.name : null, bank, lvl: lv, nextAt: lv >= 10 ? null : 1e6 * Math.pow(10, lv), perk: perk(P), leader: !!L && String(L.id) === String(P.id), members, max: MAX_ALLY, invites: P.allyInv.map(i => ({ from: i.from, name: i.name, ally: i.ally })) };
 }
 
 function mapView(P, a, now) {
@@ -154,4 +177,4 @@ function allyKick(P, a) {
     return { ok: true, msg: "تم طرد " + m.name + "." };
 }
 
-module.exports = { mapView, mapMove, allyCreate, allyInvite, allyAccept, allyDecline, allyLeave, allyKick, sameAlly };
+module.exports = { perk, allyDonate, mapView, mapMove, allyCreate, allyInvite, allyAccept, allyDecline, allyLeave, allyKick, sameAlly };

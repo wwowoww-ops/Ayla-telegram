@@ -68,7 +68,10 @@ function incomePerHour(pet) {
 function grade(q) { return q < 0.95 ? "C" : q < 1.05 ? "B" : q < 1.15 ? "A" : q < 1.3 ? "S" : q < 1.45 ? "SS" : "SSS"; }
 const hungerFactor = h => (h >= 50 ? 1 : h >= 20 ? 0.75 : h > 0 ? 0.5 : 0.25);
 const totalPower = P => P.pets.reduce((s, p) => s + power(p), 0);
-const incomeAll = P => P.pets.reduce((s, p) => s + incomePerHour(p), 0);
+let incomeHook = null;                                  // مضاعِفات خارجية (تحالف، حدث أسبوعي)
+const setIncomeHook = f => { incomeHook = f; };
+const incomeMult = (P, p) => { if (!incomeHook) return 1; try { const m = incomeHook(P, p); return m > 0 ? m : 1; } catch (e) { return 1; } };
+const incomeAll = P => P.pets.reduce((s, p) => s + incomePerHour(p) * incomeMult(P, p), 0);
 
 function addXp(pet, amount) {
     if (pet.lv >= C.LV_CAP) { pet.xp = 0; return 0; }
@@ -271,7 +274,7 @@ function collect(P, now) {
     const hours = Math.min(C.COLLECT_CAP_H, (now - P.collectAt) / 3600000);
     if (hours < 0.02) return fail("لا أرباح جديدة الآن. عد بعد قليل.");
     let total = 0;
-    for (const p of P.pets) total += incomePerHour(p) * hours * hungerFactor(hungerNow(p, now));
+    for (const p of P.pets) total += incomePerHour(p) * incomeMult(P, p) * hours * hungerFactor(hungerNow(p, now));
     total = clampCoins(total);
     P.coins = clampCoins(P.coins + total);
     P.collectAt = now;
@@ -487,7 +490,7 @@ function release(P, petId) {
 }
 
 module.exports = {
-    fmt, dur, newPlayer, getPet, spOf, hungerNow, xpNeed, power, incomePerHour, grade, totalPower, incomeAll,
+    fmt, dur, newPlayer, getPet, spOf, hungerNow, xpNeed, power, incomePerHour, setIncomeHook, incomeMult, grade, totalPower, incomeAll,
     hungerFactor, addXp, makePet, buyEgg, hatch, buyFood, slotPrice, hatchPrice, expandSlots, expandHatch,
     train, play, feed, starCost, upgrade, collect, daily, hunt, breedCost, breedCheck, breed,
     duelPower, duelCheck, duel, setMain, release, clampCoins,

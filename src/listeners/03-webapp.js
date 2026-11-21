@@ -1,12 +1,14 @@
 // يشغّل خادم التطبيق المصغّر داخل البوت (على المنفذ الذي تحدده Railway)
 const { createServer } = require("../web/server");
 const config = require("../web/config");
+const notify = require("../web/notify");
 
 module.exports = function (bot) {
     const port = Number(process.env.PORT || 3000);
     const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
     config.url = process.env.WEBAPP_URL || (domain ? "https://" + domain : null);
 
+    notify.set(bot.api);
     const server = createServer(bot.token);
     server.on("error", e => console.error("[WEBAPP] تعذر تشغيل الخادم:", e.message));
     server.listen(port, "0.0.0.0", () => console.log("[WEBAPP] يعمل على المنفذ " + port + (config.url ? " — " + config.url : " (لا يوجد رابط عام بعد)")));

@@ -20,6 +20,11 @@ const Farm = require("./farm");
 const World = require("./world");
 const Map_ = require("./map");
 const Raid = require("./raid");
+require("./perks");
+const Exp = require("./expedition");
+const Dex = require("./dex");
+const Decor = require("./decor");
+const Ev = require("./events");
 
 // المهام والإنجازات اختيارية: إن لم يوجد الملف تعمل اللعبة بدونها
 let Q = null;
@@ -212,6 +217,14 @@ const ACTIONS = {
     },
     worldSave: (P, a) => World.save(P, a && a.world),
     raid: (P, a, now) => Raid.raid(P, a, now),
+    allyDonate: (P, a) => Map_.allyDonate(P, a),
+    expStart: (P, a, now) => Exp.start(P, a, now),
+    expClaim: (P, a, now) => Exp.claim(P, a, now),
+    dexView: P => Dex.view(P),
+    dexClaim: (P, a) => Dex.claim(P, a),
+    decoShop: P => Decor.shop(P),
+    decoBuy: (P, a) => Decor.buy(P, a),
+    decoSave: (P, a) => Decor.save(P, a),
     mapView: (P, a, now) => Map_.mapView(P, a, now),
     mapMove: (P, a, now) => Map_.mapMove(P, a, now),
     allyCreate: (P, a, now) => Map_.allyCreate(P, a, now),

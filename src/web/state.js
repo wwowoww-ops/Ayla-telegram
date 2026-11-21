@@ -91,7 +91,7 @@ function postsView(P) {
 function buildState(P, now, quests) {
     const hours = Math.min(D.C.COLLECT_CAP_H, (now - P.collectAt) / 3600000);
     let pending = 0;
-    for (const p of P.pets) pending += E.incomePerHour(p) * hours * E.hungerFactor(E.hungerNow(p, now));
+    for (const p of P.pets) pending += E.incomePerHour(p) * E.incomeMult(P, p) * hours * E.hungerFactor(E.hungerNow(p, now));
 
     const state = {
         player: {
@@ -123,6 +123,8 @@ function buildState(P, now, quests) {
         posts: postsView(P),
         world: Object.assign({ b: {}, pens: {}, av: {}, pos: {}, biome: {}, hidePow: false }, P.world || {}),
         looks: World.LOOKS,
+        exp: require("./expedition").view(P, now), expZones: require("./expedition").ZONES, expBusy: [...require("./expedition").busyIds(P)],
+        event: require("./events").current(now),
         tradeDisc: (() => { try { return Fy.buffs(P).trade || 0; } catch (e) { return 0; } })(),
         meta: meta(P)
     };

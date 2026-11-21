@@ -21,7 +21,7 @@ const SERVICES = [
   ["hatch", "🥚", "الحضانة", ["hatch"]], ["hunt", "⚔️", "الصيد", ["hunt"]], ["breed", "🧬", "التزاوج", ["more", "breed"]],
   ["boss", "👑", "الزعماء", ["more", "boss"]], ["season", "🏆", "الموسم", ["more", "season"]], ["fairies", "🧚", "الجنيات", ["more", "fairies"]],
   ["recycle", "♻️", "التدوير", ["more", "recycle"]], ["quests", "🎯", "المهام", ["more", "quests"]], ["top", "🥇", "الترتيب", ["more", "top"]],
-  ["visit", "👥", "زيارة", null], ["map", "🗺️", "الخريطة", null], ["bag", "🎒", "المخزن", ["more", "bag"]], ["more", "☰", "المزيد", ["more"]]
+  ["visit", "👥", "زيارة", null], ["map", "🗺️", "الخريطة", null], ["exp", "🧭", "استكشاف", ["more", "exp"]], ["book", "📖", "كتاب", ["more", "book"]], ["bag", "🎒", "المخزن", ["more", "bag"]], ["more", "☰", "المزيد", ["more"]]
 ];
 const POST_SVC = new Set(["hatch", "hunt", "boss"]);                       // لها مبانٍ وظيفية بالمعرّف نفسه
 const WORLD_SVC = SERVICES.filter(s => !POST_SVC.has(s[0]));              // بوابات مستقلة في الحلقة الخارجية
@@ -49,6 +49,20 @@ function loadThree() {
 }
 
 // ---------- أدوات ----------
+const qLow = () => { try { return localStorage.getItem("ayla_q") === "low"; } catch (e) { return false; } };
+const DECO_E = { tree: "🌳", flowers: "🌷", lamp: "🏮", bench: "🪑", tent: "⛺", fountain: "⛲", statue: "🗿", windmill: "🌬️" };
+// طقس ووقت اليوم من ساعة جهاز اللاعب: ليل وفجر ونهار، ومطر في بعض الأيام
+function weatherNow() {
+  const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+  const day = (d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()), rain = (day * 2654435761 >>> 0) % 5 === 0 && h > 7 && h < 21;
+  let sky = 0x9fd0f0, hemi = 0.85, sun = 0.75, label = "☀️";
+  if (h < 5 || h >= 21) { sky = 0x101a3c; hemi = 0.38; sun = 0.12; label = "🌙"; }
+  else if (h < 7) { sky = 0xf0a878; hemi = 0.6; sun = 0.4; label = "🌅"; }
+  else if (h >= 18) { sky = 0xf08a60; hemi = 0.6; sun = 0.4; label = "🌇"; }
+  if (rain) { sky = 0x7f8a96; hemi = Math.min(hemi, 0.6); sun *= 0.5; label = "🌧️"; }
+  return { sky, hemi, sun, rain, label };
+}
+
 function hashSeed(str) { let h = 2166136261; for (const c of String(str)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; }
 function mulberry(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const clampN = (v, lim) => Math.max(-lim, Math.min(lim, v));
@@ -165,6 +179,7 @@ function farmLayout(f, W) {
     });
   });
   L.pets.forEach((p, i) => { p.rank = i; });
+  L.deco = (W.deco || []).map(d => ({ t: d.t, x: d.x, z: d.z }));
   const av = W.av || {};
   L.me = { kind: "me", emoji: av.look || "🧑‍🌾", name: f.name, x: av.x != null ? av.x : 0, z: av.z != null ? av.z : Y + 4, tx: 0, tz: 0, walking: false, after: null, size: 2.6, base: 1.5 };
   L.npc = { kind: "npc", emoji: "🧓", name: "الراعي", x: 3, z: 2, tx: 0, tz: 0, wait: 1, size: 2.4, base: 1.4 };
@@ -290,7 +305,8 @@ async function mountOwn() {
     const f = ownFarm();
     view.innerHTML = `
       <div class="seg" id="penTabs"></div>
-      <style>.pen-bar{overflow-x:auto}.pen-bar .btn{flex:none;white-space:nowrap;min-height:0;height:auto;padding:9px 14px}</style><div class="pen-bar"><button class="btn" id="bCollect"></button><button class="btn sec" id="bDaily"></button><button class="btn sec" id="bFeed">🍖</button><button class="btn sec" id="bBowl">🥣</button><button class="btn sec" id="bFollow" title="تتبّع شخصيتي">🎯</button><button class="btn sec" id="bEdit">✏️</button></div>
+      <style>.pen-bar{overflow-x:auto}.pen-bar .btn{flex:none;white-space:nowrap;min-height:0;height:auto;padding:9px 14px}</style><div class="pen-bar"><button class="btn" id="bCollect"></button><button class="btn sec" id="bDaily"></button><button class="btn sec" id="bFeed">🍖</button><button class="btn sec" id="bBowl">🥣</button><button class="btn sec" id="bNow" title="ماذا أفعل الآن؟">❓</button><button class="btn sec" id="bFollow" title="تتبّع شخصيتي">🎯</button><button class="btn sec" id="bEdit">✏️</button></div>
+      ${S.event ? `<div class="dim" style="font-size:12px;margin:2px 0 6px">${S.event.emoji} <b>${esc(S.event.name)}</b>: +${Math.round(S.event.bonus * 100)}% دخل لحيوانات ${S.event.emoji} (تنتهي بعد ${dur(S.event.left)})</div>` : ""}
       <canvas id="farm"></canvas>
       <div id="fEdit" class="card hidden" style="margin-top:8px"></div>
       <div id="fInfo" class="card dim" style="margin-top:8px;min-height:44px">اسحب للتحرك، وإصبعان للتكبير. اضغط على الأرض لتمشي شخصيتك، وعلى مبنى لدخوله، وعلى حيوان لإدارته، واضغط مطولًا على حيوان لسحبه.</div>
@@ -300,6 +316,7 @@ async function mountOwn() {
     $("#bDaily").onclick = () => { buzz("medium"); run("daily"); };
     $("#bFeed").onclick = feedAll;
     $("#bBowl").onclick = () => { buzz(); openBowls(); };
+    $("#bNow").onclick = () => { buzz(); showNext(); };
     $("#bFollow").onclick = () => { buzz(); if (fm) { fm.follow = !fm.follow; $("#bFollow").classList.toggle("sec", !fm.follow); } };
     $("#bEdit").onclick = () => { buzz(); if (fm) editToggle(fm); };
     farmPenTabs(); penBar(); farmDock();
@@ -344,7 +361,7 @@ async function sceneStart(f, own, W) {
     r = farm2dInit(F); F.mode = "2d";
   }
   F.r = r;
-  const m = $("#fMode"); if (m) m.textContent = F.mode === "3d" ? "" : "عرض مبسّط (تعذّر تحميل الثلاثي الأبعاد)";
+  const m = $("#fMode"); if (m) m.textContent = F.mode === "3d" ? (F.weather ? "الطقس الآن: " + F.weather : "") : "عرض مبسّط (تعذّر تحميل الثلاثي الأبعاد)";
   farmInput(F);
   const loop = t => {
     if (fm !== F || !document.body.contains(F.canvas)) { farmDispose(F); if (fm === F) fm = null; return; }
@@ -389,13 +406,15 @@ function farmRedraw(F) { if (F.r && F.r.refreshFences) F.r.refreshFences(); }
 function penName(id) { return id === 0 ? "الحظيرة الكبرى" : ((S.pens.find(p => p.id === id) || {}).name || "حظيرة"); }
 function editPanel(F) {
   const E = F.edit, el = $("#fEdit"); if (!el || !E) return;
-  const tools = [["move", "🖐️ نقل"], ["draw", "✏️ رسم حظيرة"], ["gate", "🚪 باب"], ["clear", "🗑️ مسح الشكل"], ["biome", "🌍 بيئة"]];
+  const tools = [["move", "🖐️ نقل"], ["draw", "✏️ رسم حظيرة"], ["gate", "🚪 باب"], ["clear", "🗑️ مسح الشكل"], ["biome", "🌍 بيئة"], ["deco", "🪴 زينة"], ["del", "🧺 إزالة زينة"]];
   const pensOpts = [0].concat(S.pens.map(p => p.id)).map(id => `<option value="${id}" ${id === E.pen ? "selected" : ""}>${esc(penName(id))}</option>`).join("");
   el.classList.remove("hidden");
   el.innerHTML = `
     <div class="seg" style="margin-bottom:8px">${tools.map(t => `<button data-t="${t[0]}" class="${E.tool === t[0] ? "on" : ""}">${t[1]}</button>`).join("")}</div>
     <div class="dim" style="font-size:12px;margin-bottom:8px">${{
-      move: "اسحب أي مبنى أو نقطة في السياج لتحريكه. اضغط مطولًا على حيوان لتثبيته في مكان.",
+      move: "اسحب أي مبنى أو زينة أو نقطة في السياج لتحريكه. اضغط مطولًا على حيوان لتثبيته في مكان.",
+      deco: "اشترِ زينة بالعملات، تظهر قرب شخصيتك، ثم حرّكها بأداة «نقل».",
+      del: "اضغط على زينة لإزالتها واسترداد نصف سعرها.",
       draw: "اختر الحظيرة ثم اضغط على الأرض لوضع نقاط السياج (3 إلى 14 نقطة)، ثم «إغلاق».",
       gate: "اضغط على جزء من سياج حظيرة لجعله الباب (باب واحد لكل حظيرة).",
       clear: "اضغط داخل حظيرة أو على سياجها لحذف شكلها المخصّص.",
@@ -403,7 +422,9 @@ function editPanel(F) {
     }[E.tool]}</div>
     ${E.tool === "biome" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select></div><div class="scroll-x" style="margin-bottom:8px">${BIOME_NAMES.map(b => `<button class="pick ${((F.W.biome || {})[String(E.pen)] || "dirt") === b[0] ? "on" : ""}" data-bm="${b[0]}">${b[1]}</button>`).join("")}</div>` : ""}
     ${E.tool === "draw" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select><button class="btn sm" id="eaUndo">↩️ تراجع</button><button class="btn sm" id="eaClose" ${E.draft.length < 3 ? "disabled" : ""}>⭕ إغلاق (${E.draft.length})</button></div><div class="dim" style="font-size:12px;margin:2px 0 6px">أو اختر شكلًا جاهزًا للحظيرة المحددة:</div><div class="scroll-x" style="margin-bottom:8px;display:flex;gap:6px;overflow-x:auto">${PRESETS.map(q => `<button class="btn sec sm" style="flex:none;white-space:nowrap" data-ps="${q[0]}">${q[1]}</button>`).join("")}</div>` : ""}
+    ${E.tool === "deco" ? `<div id="decoShop" class="scroll-x" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:8px"><span class="dim">جارٍ تحميل المتجر…</span></div>` : ""}
     <div class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="btn sec sm" id="eaQ">${qLow() ? "🎚️ الجودة: منخفضة" : "🎚️ الجودة: عادية"}</button>
       <button class="btn sec sm" id="eaPow">${F.W.hidePow ? "🔒 قوة الحيوانات مخفية عن الزوّار" : "👁️ قوة الحيوانات ظاهرة للزوّار"}</button>
       <button class="btn sec sm" id="eaUnpin">🔓 فكّ تثبيت الحيوانات</button>
       <button class="btn sec sm" id="eaReset">↺ التخطيط الافتراضي</button>
@@ -415,6 +436,8 @@ function editPanel(F) {
   const un = $("#eaUndo"); if (un) un.onclick = () => { E.draft.pop(); editPanel(F); farmRedraw(F); };
   const cl = $("#eaClose"); if (cl) cl.onclick = () => editCommitDraft(F);
   el.querySelectorAll("[data-ps]").forEach(b => b.onclick = () => editPreset(F, b.dataset.ps));
+  $("#eaQ").onclick = () => { try { localStorage.setItem("ayla_q", qLow() ? "normal" : "low"); } catch (e) { /* لا شيء */ } buzz(); editPanel(F); if (F.r.quality) F.r.quality(); toast(qLow() ? "جودة منخفضة: أسرع على الأجهزة الضعيفة" : "جودة عادية"); };
+  if (E.tool === "deco") decoShopLoad(F);
   $("#eaPow").onclick = () => { F.W.hidePow = !F.W.hidePow; saveWorld(F, { hidePow: F.W.hidePow }); buzz(); editPanel(F); toast(F.W.hidePow ? "🔒 لن يرى الزوّار قوة حيواناتك" : "👁️ سيرى الزوّار قوة حيواناتك"); };
   $("#eaUnpin").onclick = () => {
     const ids = Object.keys(F.W.pos); if (!ids.length) return toast("لا حيوانات مثبّتة");
@@ -463,6 +486,11 @@ function editCommitDraft(F) {
 }
 function editTap(F, wx, wz) {
   const E = F.edit, L = F.L;
+  if (E.tool === "del") {
+    const i = (L.deco || []).findIndex(d => Math.hypot(wx - d.x, wz - d.z) < 1.8);
+    if (i < 0) return toast("اضغط على زينة لإزالتها");
+    L.deco.splice(i, 1); decoPush(F, true); return;
+  }
   if (E.tool === "draw") {
     if (E.draft.length >= 14) return toast("الحد الأقصى 14 نقطة");
     E.draft.push([r2(clampN(wx, WLIM)), r2(clampN(wz, WLIM))]); editPanel(F); farmRedraw(F); return;
@@ -566,6 +594,8 @@ function farmInput(F) {
     if (F.edit && F.edit.tool === "move" && g) {
       const v = nearVertex(g);
       if (v) { F.drag = { kind: "vtx", id: v.r.id, i: v.i }; return; }
+      const dc = (F.L.deco || []).find(d => Math.hypot(g[0] - d.x, g[1] - d.z) < 1.6);
+      if (dc) { F.drag = { kind: "deco", d: dc, ox: dc.x - g[0], oz: dc.z - g[1] }; return; }
       const b = hitBuilding(g);
       if (b) { F.drag = { kind: "bld", b, ox: b.x - g[0], oz: b.z - g[1] }; return; }
     }
@@ -611,6 +641,7 @@ function dragMove(F, g) {
   const d = F.drag, x = clampN(g[0], WLIM), z = clampN(g[1], WLIM);
   if (d.kind === "pet") { d.p.x = x; d.p.z = z; return; }
   if (d.kind === "bld") { d.b.x = clampN(x + d.ox, WLIM); d.b.z = clampN(z + d.oz, WLIM); if (F.r.moveBuilding) F.r.moveBuilding(d.b); return; }
+  if (d.kind === "deco") { d.d.x = clampN(x + d.ox, WLIM); d.d.z = clampN(z + d.oz, WLIM); if (F.r.moveDeco) F.r.moveDeco(d.d); return; }
   if (d.kind === "vtx") {
     const reg = F.L.regions[d.id], sh = F.W.pens[d.id]; if (!sh) return;
     reg.poly[d.i] = [x, z];
@@ -628,6 +659,7 @@ function dragEnd(F) {
   }
   if (d.kind === "bld") { F.W.b[d.b.key] = [r2(d.b.x), r2(d.b.z)]; saveWorld(F, { b: { [d.b.key]: [r2(d.b.x), r2(d.b.z)] } }); buzz(); return; }
   if (d.kind === "vtx") { const sh = F.W.pens[d.id]; saveWorld(F, { pens: { [d.id]: sh } }); buzz(); }
+  if (d.kind === "deco") { decoPush(F); buzz(); }
 }
 
 function farmTap(F, e, g, loc) {
@@ -687,13 +719,23 @@ function enterBuilding(F, b) {
 function farm3dInit(F) {
   const T = window.THREE, c = F.canvas;
   const renderer = new T.WebGLRenderer({ canvas: c, antialias: false, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, qLow() ? 1 : 1.5));
   renderer.setClearColor(0x9fd0f0);
   const scene = new T.Scene();
   scene.fog = new T.Fog(0x9fd0f0, 70, 150);
   const camera = new T.PerspectiveCamera(42, 1, 0.5, 260);
   const hemi = new T.HemisphereLight(0xffffff, 0x4d6b3a, 0.85); scene.add(hemi);
   const sun = new T.DirectionalLight(0xfff2d0, 0.75); sun.position.set(-20, 30, 12); scene.add(sun);
+  const wx = weatherNow();
+  renderer.setClearColor(wx.sky); scene.fog.color.set(wx.sky); hemi.intensity = wx.hemi; sun.intensity = wx.sun;
+  F.weather = wx.label;
+  let rainG = null, rainA = null;
+  if (wx.rain && !qLow()) {                                   // مطر: خطوط قصيرة تتبع الكاميرا
+    const N = 260, arr = new Float32Array(N * 6);
+    for (let i = 0; i < N; i++) { const x = (Math.random() - 0.5) * 70, z = (Math.random() - 0.5) * 70, y = Math.random() * 40; arr.set([x, y, z, x, y - 1.4, z], i * 6); }
+    const gm = new T.BufferGeometry(); gm.setAttribute("position", new T.BufferAttribute(arr, 3));
+    rainG = new T.LineSegments(gm, new T.LineBasicMaterial({ color: 0xcfe3f5, transparent: true, opacity: 0.55 })); rainG.frustumCulled = false; scene.add(rainG); rainA = arr;
+  }
   const anim = { clouds: [], foam: [], t: 0, sky: 0 };            // عناصر البيئة المتحركة
 
   const textures = new Map();          // تُحفظ بين إعادات البناء
@@ -876,7 +918,7 @@ function farm3dInit(F) {
     L.pets.forEach(p => {
       p.size = p.main ? 2.5 : 1.8; p.base = p.main ? 1.4 : 1.0;
       p.hd = p.hd || Math.random() * 6.28; p.anim = null; p.fx = null; p.glow = null; p.crown = null;
-      const an = mkAnimal(p, p.main || L.pets.length <= 28);
+      const an = mkAnimal(p, p.main || L.pets.length <= (qLow() ? 10 : 28));
       if (an) { if (p.main) addFx(p, an.g); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar) * (L.pets.length > 40 ? 0.88 : 1); petG.add(an.g); petPick.push(an.g); }
       else { const sp = mkSprite(emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
       const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
@@ -900,7 +942,25 @@ function farm3dInit(F) {
     c.style.height = h + "px"; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
   };
   resize(); F.onResize = resize; window.addEventListener("resize", resize);
-  const buildAll = L => { buildEnv(L); buildBuildings(L); buildFences(L); buildPets(L); };
+  let decoG = null; const decoMap = new Map(), blades = [];
+  function decoObj(d) {
+    const g = new T.Group();
+    if (d.t === "tree") { boxIn(g, 0.5, 1.6, 0.5, 0x6b4a2a, 0, 0.8, 0); const k = new T.Mesh(new T.ConeGeometry(1.5, 3.4, 7), mat(0x2f8a45)); k.position.y = 3; g.add(k); }
+    else if (d.t === "flowers") { [[0, 0], [0.6, 0.3], [-0.5, 0.5], [0.2, -0.6]].forEach((q, i) => { boxIn(g, 0.08, 0.5, 0.08, 0x3a8a3a, q[0], 0.25, q[1]); const m = new T.Mesh(new T.SphereGeometry(0.25, 8, 6), mat([0xff6aa8, 0xffd24d, 0xb06aff, 0xff8a3a][i])); m.position.set(q[0], 0.58, q[1]); g.add(m); }); }
+    else if (d.t === "lamp") { boxIn(g, 0.15, 2.2, 0.15, 0x3a3a44, 0, 1.1, 0); const m = new T.Mesh(new T.SphereGeometry(0.4, 8, 6), new T.MeshBasicMaterial({ color: 0xffe27a })); m.position.y = 2.4; g.add(m); }
+    else if (d.t === "bench") { boxIn(g, 2, 0.15, 0.7, 0x8a5a34, 0, 0.55, 0); boxIn(g, 2, 0.6, 0.12, 0x8a5a34, 0, 0.95, -0.3); boxIn(g, 0.15, 0.55, 0.6, 0x5a3a22, -0.85, 0.27, 0); boxIn(g, 0.15, 0.55, 0.6, 0x5a3a22, 0.85, 0.27, 0); }
+    else if (d.t === "tent") { const k = new T.Mesh(new T.ConeGeometry(1.8, 2.2, 4), mat(0xd6503a)); k.position.y = 1.1; k.rotation.y = Math.PI / 4; g.add(k); boxIn(g, 0.6, 1.1, 0.05, 0x3a2a22, 0, 0.5, 1.2); }
+    else if (d.t === "fountain") { const b = new T.Mesh(new T.CylinderGeometry(2, 2.2, 0.6, 14), mat(0x9aa4b0)); b.position.y = 0.3; g.add(b); const w = new T.Mesh(new T.CylinderGeometry(1.7, 1.7, 0.1, 14), mat(0x4aa8e8)); w.position.y = 0.62; g.add(w); boxIn(g, 0.3, 1.6, 0.3, 0x9aa4b0, 0, 1.0, 0); const t2 = new T.Mesh(new T.SphereGeometry(0.4, 8, 6), mat(0x8ad0ff)); t2.position.y = 1.9; g.add(t2); }
+    else if (d.t === "statue") { boxIn(g, 1.4, 0.8, 1.4, 0x8a8d93, 0, 0.4, 0); boxIn(g, 0.8, 1.6, 0.6, 0xd0b050, 0, 1.6, 0); const h = new T.Mesh(new T.SphereGeometry(0.4, 8, 6), mat(0xd0b050)); h.position.y = 2.7; g.add(h); }
+    else if (d.t === "windmill") { const b = new T.Mesh(new T.CylinderGeometry(0.8, 1.3, 4, 8), mat(0xe8d8b0)); b.position.y = 2; g.add(b); const r = new T.Mesh(new T.ConeGeometry(1.1, 1.2, 8), mat(0xb0503a)); r.position.y = 4.5; g.add(r); const bl = new T.Group(); bl.position.set(0, 3.6, 1.0); [0, 1, 2, 3].forEach(i => { const w = new T.Mesh(new T.BoxGeometry(0.4, 2.6, 0.08), mat(0xf4f0e8)); w.position.y = 1.3; const pv = new T.Group(); pv.rotation.z = i * Math.PI / 2; pv.add(w); bl.add(pv); }); g.add(bl); blades.push(bl); }
+    g.position.set(d.x, 0, d.z); g.userData = { kind: "deco" };
+    return g;
+  }
+  function buildDeco(L) {
+    dispose(decoG); decoG = new T.Group(); scene.add(decoG); decoMap.clear(); blades.length = 0;
+    (L.deco || []).forEach(d => { const o = decoObj(d); decoG.add(o); decoMap.set(d, o); });
+  }
+  const buildAll = L => { buildEnv(L); buildBuildings(L); buildFences(L); buildPets(L); buildDeco(L); };
   buildAll(F.L);
   F.cam.d = Math.min(F.L.outer * 5 + 30, (F.L.ring + 5) * 2 / (camera.aspect * 0.77));   // يشمل الساحة وحلقة الوظائف
   F.cam.tz = 2;
@@ -908,6 +968,8 @@ function farm3dInit(F) {
   return {
     setLayout(L) { buildAll(L); },
     refreshFences() { buildFences(F.L); },
+    moveDeco(d) { const o = decoMap.get(d); if (o) o.position.set(d.x, 0, d.z); },
+    quality() { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, qLow() ? 1 : 1.5)); resize(); buildAll(F.L); },
     moveBuilding(b) { const g = bmap[b.key]; if (g) g.position.set(b.x, 0, b.z); const now = Date.now(); if (now - (anim.pt || 0) > 150) { anim.pt = now; buildPaths(F.L); } },
     toWorld(x, y, w, h) {
       ndc.set(x / w * 2 - 1, -(y / h) * 2 + 1); ray.setFromCamera(ndc, camera);
@@ -936,6 +998,8 @@ function farm3dInit(F) {
         a.lab.position.set(a.x, (a.g ? 3.0 * Math.min(zs, 1.7) : (a.base + 1.9) * zs), a.z); a.lab.scale.set(4 * zs, 1 * zs, 1);
         a.sh.position.set(a.x, 0.04, a.z); a.sh.scale.setScalar(zs);
       });
+      blades.forEach(b => { b.rotation.z = t * 0.8; });
+      if (rainG) { for (let i = 0; i < rainA.length; i += 6) { rainA[i + 1] -= 0.9; rainA[i + 4] -= 0.9; if (rainA[i + 1] < 0) { rainA[i + 1] += 40; rainA[i + 4] += 40; } } rainG.geometry.attributes.position.needsUpdate = true; rainG.position.set(F.cam.tx, 0, F.cam.tz); }
       anim.clouds.forEach(c => { c.g.position.x += c.v * 0.02; if (c.g.position.x > L.seaX + 40) c.g.position.x = -L.outer - 40; });
       anim.foam.forEach(f => { f.m.position.z = f.z0 + Math.sin(t * 0.8 + f.ph) * 1.2; f.m.material.opacity = 1; });
       renderer.render(scene, camera);
@@ -968,6 +1032,8 @@ function farm2dInit(F) {
   return {
     setLayout() { /* F.L يُقرأ مباشرة في كل إطار */ },
     refreshFences() { /* يُرسم كل إطار */ },
+    moveDeco() { /* يُرسم كل إطار */ },
+    quality() { /* لا شيء */ },
     moveBuilding() { /* يُرسم كل إطار */ },
     toWorld(x, y) { const k = F.h / F.cam.d * 1.1; return [(x - F.w / 2) / k + F.cam.tx, (y - F.h / 2) / k + F.cam.tz]; },
     draw() {
@@ -1006,6 +1072,7 @@ function farm2dInit(F) {
         label(a.name || "", a.x, a.z - 1.9, 0.9);
         hits.push({ x: sx, y: sz, r: s * 0.7, d: { kind: a.kind } });
       });
+      (L.deco || []).forEach(d => { const [sx, sz, k] = toS(d.x, d.z); g.font = Math.round(Math.max(20, 2 * k)) + "px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#fff"; g.fillText(DECO_E[d.t] || "🌳", sx, sz); });
       if (E) {                                                          // مقابض ومسودة التعديل
         L.fences.filter(r => r.custom).forEach(r => r.poly.forEach(p => { const [sx, sz, k] = toS(p[0], p[1]); g.fillStyle = "#ffd24d"; g.beginPath(); g.arc(sx, sz, Math.max(6, 0.6 * k), 0, 7); g.fill(); }));
         E.draft.forEach((p, i) => { const [sx, sz, k] = toS(p[0], p[1]); g.fillStyle = "#4aa3ff"; g.beginPath(); g.arc(sx, sz, Math.max(6, 0.55 * k), 0, 7); g.fill(); if (i) line(E.draft[i - 1], p, "#4aa3ff", 3); });
@@ -1044,8 +1111,8 @@ async function farmMap(cx, cy, sel) {
   }
   const inv = al.invites.map(i => `<div class="row" style="gap:6px"><div class="grow">📨 دعوة من <b>${esc(i.name)}</b> إلى «${esc(i.ally)}»</div><button class="btn sm" data-ya="${esc(i.from)}">قبول</button><button class="btn sec sm" data-no="${esc(i.from)}">رفض</button></div>`).join("");
   const alBox = al.name
-    ? `<b>🤝 ${esc(al.name)}</b> (${al.members.length}/${al.max})<div class="dim" style="margin:4px 0">${al.members.map(m => (m.leader ? "👑 " : "") + esc(m.name) + (al.leader && !m.leader ? ` <a href="#" data-kick="${esc(m.uid)}">✖</a>` : "")).join(" · ")}</div><button class="btn sec sm" id="mLeave">${al.leader ? "حلّ التحالف" : "مغادرة التحالف"}</button>`
-    : `<div class="dim" style="margin-bottom:6px">التحالف يسمح لأعضائه بالتلاصق وبمدى انتقال أبعد.</div><div class="row" style="gap:6px"><input id="mName" class="grow" maxlength="16" placeholder="اسم التحالف" style="padding:9px;border-radius:10px;background:var(--card2);border:1px solid var(--line);color:inherit"><button class="btn sm" id="mNew">تأسيس</button></div>`;
+    ? `<b>🤝 ${esc(al.name)}</b> (${al.members.length}/${al.max}) · المستوى ${al.lvl}/10<div class="dim" style="font-size:12px;margin:4px 0">🏦 الصندوق: ${fmt(al.bank)} 🪙${al.nextAt ? " (المستوى التالي عند " + fmt(al.nextAt) + ")" : ""}<br>🎁 مزاياك: دخل +${(al.perk.income * 100).toFixed(1)}% · الغارات عليك أصعب بـ ${Math.round(al.perk.defense * 100)}%</div><div class="row" style="gap:6px;margin:4px 0"><button class="btn sm" data-dn="1">تبرّع 1%</button><button class="btn sm" data-dn="10">10%</button><button class="btn sm" data-dn="50">50%</button></div><div class="dim" style="margin:4px 0">${al.members.map(m => (m.leader ? "👑 " : "") + esc(m.name) + (al.leader && !m.leader ? ` <a href="#" data-kick="${esc(m.uid)}">✖</a>` : "")).join(" · ")}</div><button class="btn sec sm" id="mLeave">${al.leader ? "حلّ التحالف" : "مغادرة التحالف"}</button>`
+    : `<div class="dim" style="margin-bottom:6px">التحالف: تلاصق على الخريطة، مدى انتقال أبعد، دخل إضافي من مستوى الصندوق، وحماية أعلى من الغارات.</div><div class="row" style="gap:6px"><input id="mName" class="grow" maxlength="16" placeholder="اسم التحالف" style="padding:9px;border-radius:10px;background:var(--card2);border:1px solid var(--line);color:inherit"><button class="btn sm" id="mNew">تأسيس</button></div>`;
   view.innerHTML = `<button class="btn sec sm" id="fBack" style="margin-bottom:8px">↩️ رجوع</button><h2>🗺️ العالم المشترك</h2>
     <div class="dim" style="font-size:12px;margin:4px 0 8px">مزرعتك في (${j.loc[0]}, ${j.loc[1]}). ${hrs > 0 ? "⏳ الانتقال متاح بعد " + hrs + " ساعة." : "✅ يمكنك الانتقال الآن."} قفزة الانتقال حتى ${j.hop} خانات (${j.hopAlly} مع الحلفاء)، وبين غير الحلفاء يلزم فراغ خانة واحدة على الأقل.</div>
     <div class="row" style="gap:6px;margin-bottom:6px"><button class="btn sec sm" data-m="-1,0">⬅️</button><button class="btn sec sm" data-m="0,-1">⬆️</button><button class="btn sec sm" data-m="0,1">⬇️</button><button class="btn sec sm" data-m="1,0">➡️</button><button class="btn sec sm" id="mHome">🏡</button></div>
@@ -1071,7 +1138,81 @@ async function farmMap(cx, cy, sel) {
   view.querySelectorAll("[data-ya]").forEach(b => b.onclick = () => doAct("allyAccept", { from: b.dataset.ya }));
   view.querySelectorAll("[data-no]").forEach(b => b.onclick = () => doAct("allyDecline", { from: b.dataset.no }));
   view.querySelectorAll("[data-kick]").forEach(a => a.onclick = e => { e.preventDefault(); doAct("allyKick", { uid: a.dataset.kick }); });
+  view.querySelectorAll("[data-dn]").forEach(b => b.onclick = () => doAct("allyDonate", { pct: Number(b.dataset.dn) }));
   const nw = $("#mNew"); if (nw) nw.onclick = () => doAct("allyCreate", { name: $("#mName").value });
   const lv = $("#mLeave"); if (lv) lv.onclick = () => doAct("allyLeave", {});
 }
 SUBS.map = () => { if (!$("#fBack")) farmMap(); };
+
+// ======================================================
+// زينة المزرعة، الاقتراح التالي، الأحداث
+// ======================================================
+let decoT = 0;
+function decoPush(F, now) {
+  const send = async () => {
+    const list = F.L.deco.map(d => ({ t: d.t, x: d.x, z: d.z }));
+    const j = await act("decoSave", { list });
+    if (j && j.ok && j.world) { F.W.deco = j.world.deco; if (j.msg) toast(j.msg); if (now && F.r) { F.L = farmLayout(F.f, F.W); F.r.setLayout(F.L); } }
+  };
+  clearTimeout(decoT);
+  if (now) send(); else decoT = setTimeout(send, 500);
+}
+async function decoShopLoad(F) {
+  const j = await act("decoShop", {});
+  const el = $("#decoShop"); if (!el || !j || !j.ok) return;
+  el.innerHTML = j.items.map(i => `<button class="btn sec sm" style="flex:none;white-space:nowrap" data-dt="${i.t}">${i.e} ${i.n}<br><span class="dim">${fmt(i.price)} 🪙</span></button>`).join("") + `<span class="dim" style="align-self:center;flex:none">${j.count}/${j.max}</span>`;
+  el.querySelectorAll("[data-dt]").forEach(b => b.onclick = async () => {
+    buzz();
+    const r = await act("decoBuy", { t: b.dataset.dt });
+    toast(r.msg || "تعذّر", !r.ok);
+    if (r.ok && r.world && fm === F) { F.W.deco = r.world.deco; F.L = farmLayout(F.f, F.W); F.r.setLayout(F.L); decoShopLoad(F); }
+  });
+}
+
+// ماذا أفعل الآن؟ يقترح أنسب خطوة حسب حالة اللعبة
+function nextStep() {
+  const t = Date.now() - stamp, P = S.player, pets = S.pets;
+  if (P.pending > 0 && P.pending >= Math.max(1, P.income * 0.05)) return { txt: "💰 أرباحك المتراكمة جاهزة للجمع", btn: "اجمع الآن", fn: () => run("collect") };
+  if (S.eggs.some(e => e.readyIn - t <= 0)) return { txt: "🥚 عندك بيض جاهز للفقس!", btn: "افتح الحضانة", fn: () => go("hatch") };
+  if ((S.eggBag || []).length && S.eggs.length < P.hatchSlots) return { txt: "🎒 عندك بيض في المحفظة وفي الحضانة مكان فارغ", btn: "ضعه في الحضانة", fn: () => go("hatch") };
+  if (P.dailyIn - t <= 0) return { txt: "🎁 مكافأتك اليومية جاهزة", btn: "استلمها", fn: () => run("daily") };
+  if ((S.exp || []).some(x => x.left - t <= 0)) return { txt: "🧭 رحلة استكشاف عادت بغنائم", btn: "استلمها", fn: () => svcOpen("exp") };
+  if (pets.some(p => p.hunger < 40)) return { txt: "🍖 بعض حيواناتك جائعة وإنتاجها ينقص", btn: "أطعم الجائعين", fn: () => feedAll() };
+  if ((S.exp || []).length < 2 && pets.length >= 2) return { txt: "🧭 أرسل حيواناتك في رحلة استكشاف لتعود بعملات وبيض", btn: "ابدأ رحلة", fn: () => svcOpen("exp") };
+  if (pets.some(p => p.cd.hunt - t <= 0)) return { txt: "⚔️ حيواناتك جاهزة للصيد (فرصة لجنيات ونقود)", btn: "اذهب للصيد", fn: () => go("hunt") };
+  return { txt: "🧬 جرّب تزاوج حيواناتك للحصول على أنواع نادرة، أو اشترِ زينة لمزرعتك", btn: "التزاوج", fn: () => svcOpen("breed") };
+}
+function showNext() {
+  const box = $("#fInfo"); if (!box) return;
+  const n = nextStep();
+  box.innerHTML = `<div class="row" style="gap:8px"><div class="grow"><b>❓ ماذا الآن؟</b><div class="dim">${n.txt}</div></div><button class="btn sm" id="fNext">${n.btn}</button></div>`;
+  $("#fNext").onclick = () => { buzz("medium"); n.fn(); };
+}
+
+// ---- استكشاف ----
+SUBS.exp = () => {
+  const t = Date.now() - stamp, Z = S.expZones || [], busy = new Set(S.expBusy || []);
+  let h = back + `<h2>🧭 الاستكشاف</h2><div class="dim">أرسل 1–3 حيوانات لمدة محددة؛ تعود بعملات وبلورات ومورد نادر، وقد تجلب بيضة. رحلتان كحد أقصى في آنٍ واحد.</div>`;
+  h += (S.exp || []).map(x => `<div class="card row"><div style="font-size:32px">${x.emoji}</div><div class="grow"><b>${esc(x.name)}</b><div class="dim">${x.pets.length} حيوان · ${x.left - t > 0 ? "⏳ " + dur(x.left - t) : "✅ عادت"}</div></div>${x.left - t <= 0 ? `<button class="btn sm" data-claim="${x.id}">استلام</button>` : ""}</div>`).join("");
+  const free = S.pets.filter(p => !busy.has(p.id));
+  h += `<h3 style="margin:12px 0 6px">رحلة جديدة</h3><div class="dim" style="margin-bottom:6px">اختر حتى 3 حيوانات:</div><div class="scroll-x" id="exPick" style="display:flex;gap:6px;overflow-x:auto">${free.slice(0, 60).map(p => `<button class="pick" data-p="${p.id}" style="flex:none">${p.emoji}<br><span class="dim" style="font-size:10px">${esc(p.name)}</span></button>`).join("") || `<span class="dim">لا حيوانات متاحة</span>`}</div>
+    <div class="row" style="gap:6px;margin-top:10px">${Z.map((z, i) => `<button class="btn grow" data-z="${i}" ${(S.exp || []).length >= 2 ? "disabled" : ""}>${z.e} ${z.n}<br><span class="dim">${z.h} ساعة</span></button>`).join("")}</div>`;
+  view.innerHTML = h; bindBack();
+  const sel = new Set();
+  view.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { buzz(); const id = Number(b.dataset.p); if (sel.has(id)) sel.delete(id); else if (sel.size < 3) sel.add(id); b.classList.toggle("on", sel.has(id)); });
+  view.querySelectorAll("[data-z]").forEach(b => b.onclick = () => run("expStart", { zone: Number(b.dataset.z), ids: [...sel] }, () => SUBS.exp()));
+  view.querySelectorAll("[data-claim]").forEach(b => b.onclick = () => run("expClaim", { id: Number(b.dataset.claim) }, () => SUBS.exp()));
+};
+
+// ---- كتاب المجموعة ----
+SUBS.book = async () => {
+  view.innerHTML = back + `<h2>📖 كتاب المجموعة</h2><div class="dim">جارٍ التحميل…</div>`; bindBack();
+  const j = await act("dexView", {});
+  if (!j || !j.ok) return;
+  const byR = {}; j.list.forEach(s => { (byR[s.r] = byR[s.r] || []).push(s); });
+  let h = back + `<h2>📖 كتاب المجموعة</h2><div class="card">اكتشفت <b>${j.have}</b> من <b>${j.total}</b> نوعًا. أكمل كل أنواع ندرة لتستلم جائزتها.</div>`;
+  h += j.groups.map(g => `<div class="card"><div class="row"><b class="grow">${g.emoji} ${esc(g.name)} · ${g.have}/${g.total}</b>${g.claimed ? "✅" : g.have === g.total ? `<button class="btn sm" data-rc="${g.r}">🎁 جائزة</button>` : `<span class="dim" style="font-size:12px">🔷×${g.rw.crystals} + بيضة</span>`}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${(byR[g.r] || []).map(s => `<span title="${esc(s.n)}" style="font-size:26px;${s.have ? "" : "filter:grayscale(1) brightness(.35)"}">${s.e}</span>`).join("")}</div></div>`).join("");
+  view.innerHTML = h; bindBack();
+  view.querySelectorAll("[data-rc]").forEach(b => b.onclick = () => run("dexClaim", { r: Number(b.dataset.rc) }, () => SUBS.book()));
+};
