@@ -183,12 +183,21 @@ function stepPets(L, dt) {
     const v = Math.min(d, p.speed * (p.fly ? 2.6 : 1) * dt);
     p.x += dx / d * v; p.z += dz / d * v; p.moving = true;
   });
+  const keepIn = p => {                                // الحيوانات الحرة تبقى داخل سياج حظيرتها (المثبّتة بيد اللاعب والتي في وظيفة مستثناة)
+    if (p.anchor || p.home || p.dragging) return;
+    const poly = L.regionOf(p.pen).poly;
+    if (inPoly(p.x, p.z, poly)) { p.sx = p.x; p.sz = p.z; return; }
+    if (p.sx != null) { p.x = p.sx; p.z = p.sz; } else { const c = centroid(poly); p.x = c[0]; p.z = c[1]; }
+    p.tx = p.tz = 0; p.wait = 0.2;
+  };
+  L.pets.forEach(keepIn);
   const ps = L.pets;                                   // تباعد بسيط كي لا تتراكم الحيوانات فوق بعضها
   for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
     const a = ps[i], b = ps[j]; if (a.dragging || b.dragging) continue;
     const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = 1.25;
     if (d < m && d > 0.001) { const k = (m - d) / d * 0.5 * Math.min(1, dt * 6); a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
+  L.pets.forEach(keepIn);
   const me = L.me;
   if (me.walking) {
     const dx = me.tx - me.x, dz = me.tz - me.z, d = Math.hypot(dx, dz), v = 10 * dt;
@@ -208,8 +217,7 @@ function pickTarget(L, p) {
   if (p.anchor) { p.tx = p.anchor.x + (Math.random() - 0.5) * 1.8; p.tz = p.anchor.z + (Math.random() - 0.5) * 1.8; return; }
   if (p.home) { p.tx = p.home.x + (Math.random() - 0.5) * 3.4; p.tz = p.home.z + p.home.d / 2 + 1 + Math.random() * 1.8; return; }
   const poly = L.regionOf(p.pen).poly, s = samplePoly(poly);
-  if (p.fly) { const c = centroid(poly); p.tx = c[0] + (s[0] - c[0]) * 1.5; p.tz = c[1] + (s[1] - c[1]) * 1.5; return; }   // الطيور تحلّق فوق السياج
-  p.tx = s[0]; p.tz = s[1];
+    p.tx = s[0]; p.tz = s[1];
 }
 const doorOf = b => [b.x, b.z + b.d / 2 + 1.4];
 
@@ -394,7 +402,7 @@ function editPanel(F) {
       biome: "اختر الحظيرة ثم البيئة: تتغير أرضيتها وزينتها (صحراء، ثلج، غابة…)."
     }[E.tool]}</div>
     ${E.tool === "biome" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select></div><div class="scroll-x" style="margin-bottom:8px">${BIOME_NAMES.map(b => `<button class="pick ${((F.W.biome || {})[String(E.pen)] || "dirt") === b[0] ? "on" : ""}" data-bm="${b[0]}">${b[1]}</button>`).join("")}</div>` : ""}
-    ${E.tool === "draw" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select><button class="btn sm" id="eaUndo">↩️ تراجع</button><button class="btn sm" id="eaClose" ${E.draft.length < 3 ? "disabled" : ""}>⭕ إغلاق (${E.draft.length})</button></div>` : ""}
+    ${E.tool === "draw" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select><button class="btn sm" id="eaUndo">↩️ تراجع</button><button class="btn sm" id="eaClose" ${E.draft.length < 3 ? "disabled" : ""}>⭕ إغلاق (${E.draft.length})</button></div><div class="dim" style="font-size:12px;margin:2px 0 6px">أو اختر شكلًا جاهزًا للحظيرة المحددة:</div><div class="scroll-x" style="margin-bottom:8px;display:flex;gap:6px;overflow-x:auto">${PRESETS.map(q => `<button class="btn sec sm" style="flex:none;white-space:nowrap" data-ps="${q[0]}">${q[1]}</button>`).join("")}</div>` : ""}
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn sec sm" id="eaPow">${F.W.hidePow ? "🔒 قوة الحيوانات مخفية عن الزوّار" : "👁️ قوة الحيوانات ظاهرة للزوّار"}</button>
       <button class="btn sec sm" id="eaUnpin">🔓 فكّ تثبيت الحيوانات</button>
@@ -406,6 +414,7 @@ function editPanel(F) {
   el.querySelectorAll("[data-bm]").forEach(b => b.onclick = () => { buzz(); F.W.biome = F.W.biome || {}; const k = String(E.pen); if (b.dataset.bm === "dirt") delete F.W.biome[k]; else F.W.biome[k] = b.dataset.bm; saveWorld(F, { biome: { [k]: b.dataset.bm } }); applyPens(F); editPanel(F); });
   const un = $("#eaUndo"); if (un) un.onclick = () => { E.draft.pop(); editPanel(F); farmRedraw(F); };
   const cl = $("#eaClose"); if (cl) cl.onclick = () => editCommitDraft(F);
+  el.querySelectorAll("[data-ps]").forEach(b => b.onclick = () => editPreset(F, b.dataset.ps));
   $("#eaPow").onclick = () => { F.W.hidePow = !F.W.hidePow; saveWorld(F, { hidePow: F.W.hidePow }); buzz(); editPanel(F); toast(F.W.hidePow ? "🔒 لن يرى الزوّار قوة حيواناتك" : "👁️ سيرى الزوّار قوة حيواناتك"); };
   $("#eaUnpin").onclick = () => {
     const ids = Object.keys(F.W.pos); if (!ids.length) return toast("لا حيوانات مثبّتة");
@@ -421,6 +430,29 @@ function editPanel(F) {
 }
 function confirmReset() { try { return window.tg && tg.showConfirm ? true : confirm("إعادة المباني والأسوار إلى وضعها الافتراضي؟"); } catch (e) { return true; } }
 function applyPens(F) { F.L = farmLayout(F.f, F.W); F.r.setLayout(F.L); }
+const PRESETS = [["circle", "⭕ دائرة"], ["square", "⬜ مربع"], ["rect", "▭ مستطيل"], ["hex", "⬡ سداسي"], ["diamond", "🔷 معين"], ["star", "⭐ نجمة"], ["heart", "❤️ قلب"], ["ell", "🅻 حرف L"]];
+function presetPts(name, r) {
+  const reg = n => { const o = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 - Math.PI / 2; o.push([Math.cos(a) * r, Math.sin(a) * r]); } return o; };
+  if (name === "circle") return reg(14);
+  if (name === "hex") return reg(6);
+  if (name === "diamond") return reg(4);
+  if (name === "square") return [[-r, -r], [r, -r], [r, r], [-r, r]];
+  if (name === "rect") return [[-r * 1.5, -r * 0.8], [r * 1.5, -r * 0.8], [r * 1.5, r * 0.8], [-r * 1.5, r * 0.8]];
+  if (name === "ell") return [[-r, -r], [0, -r], [0, 0], [r, 0], [r, r], [-r, r]];
+  if (name === "star") { const o = []; for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, k = i % 2 ? r * 0.55 : r; o.push([Math.cos(a) * k, Math.sin(a) * k]); } return o; }
+  if (name === "heart") { const o = []; for (let i = 0; i < 12; i++) { const t = i / 12 * Math.PI * 2, x = 16 * Math.pow(Math.sin(t), 3), y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); o.push([x / 16 * r, y / 16 * r + r * 0.1]); } return o; }
+  return null;
+}
+function editPreset(F, name) {
+  const E = F.edit, cnt = F.f.pets.filter(p => p.pen === E.pen || (E.pen === 0 && !p.pen)).length;
+  const r = Math.max(5, Math.min(16, 3 + Math.sqrt(cnt) * 1.5)), pts = presetPts(name, r); if (!pts) return;
+  const c = E.pen === 0 && !F.W.pens["0"] ? [0, 0] : [clampN(F.cam.tx, WLIM), clampN(F.cam.tz, WLIM)];
+  let gate = 0, best = -1e9;                                                     // الباب في الضلع الأقرب للكاميرا
+  pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length], z = (a[1] + b[1]) / 2; if (z > best) { best = z; gate = i; } });
+  const shape = { c: [r2(c[0]), r2(c[1])], pts: pts.map(q => [r2(clampN(q[0], PLIM)), r2(clampN(q[1], PLIM))]), gate };
+  F.W.pens[String(E.pen)] = shape; saveWorld(F, { pens: { [String(E.pen)]: shape } });
+  E.draft = []; applyPens(F); editPanel(F); buzz("medium"); toast("✅ " + penName(E.pen) + ": شكل جاهز");
+}
 function editCommitDraft(F) {
   const E = F.edit; if (!E || E.draft.length < 3) return;
   const pts = E.draft.slice(0, 14), c = centroid(pts);
