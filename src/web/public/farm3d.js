@@ -53,7 +53,22 @@ function hashSeed(str) { let h = 2166136261; for (const c of String(str)) { h ^=
 function mulberry(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const clampN = (v, lim) => Math.max(-lim, Math.min(lim, v));
 const r2 = v => Math.round(v * 100) / 100;
-const cloneW = w => ({ b: Object.assign({}, w.b), pens: JSON.parse(JSON.stringify(w.pens || {})), av: Object.assign({}, w.av), pos: Object.assign({}, w.pos), hidePow: !!w.hidePow });
+const cloneW = w => ({ biome: Object.assign({}, w.biome), b: Object.assign({}, w.b), pens: JSON.parse(JSON.stringify(w.pens || {})), av: Object.assign({}, w.av), pos: Object.assign({}, w.pos), hidePow: !!w.hidePow });
+const BIOME_COL = { dirt: 0x8c7a4e, grass: 0x6dbb4a, sand: 0xe0c27a, snow: 0xeef4fa, forest: 0x3f7a3a, swamp: 0x4f6b3a, lava: 0x3a2424 };
+const BIOME_CSS = { dirt: "#8c7a4e", grass: "#6dbb4a", sand: "#e0c27a", snow: "#eef4fa", forest: "#3f7a3a", swamp: "#4f6b3a", lava: "#3a2424" };
+const BIOME_NAMES = [["dirt", "🟫 ترابية"], ["grass", "🌼 مرج"], ["sand", "🏜️ صحراء"], ["snow", "❄️ ثلجية"], ["forest", "🌳 غابة"], ["swamp", "🐸 مستنقع"], ["lava", "🌋 بركانية"]];
+const FLOWER_COL = [0xff6a8a, 0xffd24d, 0xffffff, 0xb07aff];
+function decorFor(r, rnd) {
+  const bm = r.biome, poly = r.poly, c = centroid(poly);
+  let rad = 0; poly.forEach(p => { rad += Math.hypot(p[0] - c[0], p[1] - c[1]); }); rad /= poly.length;
+  const types = { grass: ["flower", "flower", "flower", "bush"], sand: ["cactus", "rock", "cactus"], snow: ["pine", "snowball", "pine"], forest: ["tree", "tree", "bush"], swamp: ["reed", "puddle", "reed"], lava: ["lavarock", "lavapool"], dirt: ["hay"] }[bm] || [];
+  const n = bm === "dirt" ? 3 : Math.min(16, Math.max(6, Math.round(rad * 1.2))), out = [];
+  for (let i = 0; i < n * 5 && out.length < n; i++) {
+    const a = rnd() * 6.283, d = rad * (0.55 + rnd() * 0.38), x = c[0] + Math.cos(a) * d, z = c[1] + Math.sin(a) * d;
+    if (inPoly(x, z, poly)) out.push({ t: types[Math.floor(rnd() * types.length)], x, z, s: 0.7 + rnd() * 0.6, v: Math.floor(rnd() * 4) });
+  }
+  return out;
+}
 function circlePts(r, n) { const o = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; o.push([Math.cos(a) * r, Math.sin(a) * r]); } return o; }
 function inPoly(x, z, poly) {
   let ins = false;
@@ -105,15 +120,24 @@ function farmLayout(f, W) {
   const bmap = {}; buildings.forEach(b => { bmap[b.key] = b; });
   const outer = svcs.length ? R2 : ring;
   const seaX = outer + 10;
+  const patches = [{ t: "sand", x: -outer - 20, z: -outer * 0.45, r: 16 }, { t: "snow", x: -6, z: outer + 21, r: 16 }, { t: "swamp", x: -outer - 18, z: outer * 0.75, r: 12 }, { t: "lake", x: seaX - 30, z: outer + 20, r: 11 }];
+  const inPatch = (x, z, m) => patches.some(q => Math.hypot(x - q.x, z - q.z) < q.r + (m || 0));
+  const env = { patches, mountains: [], flowers: [], cacti: [], pines: [], clouds: [], reeds: [] };
+  for (let x = -outer - 26; x < seaX - 4; x += 12 + rnd() * 6) env.mountains.push({ x, z: -outer - 34 - rnd() * 10, s: 9 + rnd() * 8 });
+  for (let i = 0; i < 7; i++) { const q = patches[0], a = rnd() * 6.28, d = rnd() * q.r * 0.8; env.cacti.push({ x: q.x + Math.cos(a) * d, z: q.z + Math.sin(a) * d, s: 0.8 + rnd() * 0.7 }); }
+  for (let i = 0; i < 9; i++) { const q = patches[1], a = rnd() * 6.28, d = rnd() * q.r * 0.85; env.pines.push({ x: q.x + Math.cos(a) * d, z: q.z + Math.sin(a) * d, s: 0.9 + rnd() * 0.8 }); }
+  for (let i = 0; i < 8; i++) { const q = patches[2], a = rnd() * 6.28, d = rnd() * q.r * 0.8; env.reeds.push({ x: q.x + Math.cos(a) * d, z: q.z + Math.sin(a) * d }); }
+  for (let i = 0; i < 90 && env.flowers.length < 70; i++) { const x = -outer - 24 + rnd() * (outer + 22 + seaX - 6), z = -outer - 20 + rnd() * (2 * outer + 44); if (Math.hypot(x, z) > outer + 1 && x < seaX - 4 && !inPatch(x, z, 2)) env.flowers.push({ x, z, v: Math.floor(rnd() * 4) }); }
+  for (let i = 0; i < 6; i++) env.clouds.push({ x: -outer - 30 + rnd() * (2 * outer + 60), z: -outer - 25 + rnd() * (2 * outer + 50), y: 24 + rnd() * 8, s: 3 + rnd() * 3, v: 0.4 + rnd() * 0.8 });
   const trees = [];
   for (let i = 0; i < 90 && trees.length < 32; i++) {
     const x = -outer - 22 + rnd() * (outer + 20 + seaX - 4), z = -outer - 18 + rnd() * (2 * outer + 36);
-    if (!(Math.hypot(x, z) < outer + 5 || x > seaX - 3)) trees.push({ x, z, s: 0.8 + rnd() * 0.8 });
+    if (!(Math.hypot(x, z) < outer + 5 || x > seaX - 3 || inPatch(x, z, 3))) trees.push({ x, z, s: 0.8 + rnd() * 0.8 });
   }
   const rocks = [];
   for (let i = 0; i < 60 && rocks.length < 22; i++) {
     const x = -outer - 20 + rnd() * (2 * outer + 36), z = -outer - 16 + rnd() * (2 * outer + 32);
-    if (Math.hypot(x, z) > Y + 1.8 && x < seaX - 1) rocks.push({ x, z, s: 0.25 + rnd() * 0.5 });
+    if (Math.hypot(x, z) > Y + 1.8 && x < seaX - 1 && !inPatch(x, z, 1)) rocks.push({ x, z, s: 0.25 + rnd() * 0.5 });
   }
   // الحظائر (السياج): شكل مخصّص لكل حظيرة أو الدائرة الافتراضية للكبرى
   const regions = {};
@@ -124,10 +148,11 @@ function farmLayout(f, W) {
   const def = { id: "def", def: true, c: [0, 0], gate: 6, poly: circlePts(Y + 0.9, 24) };
   if (!regions["0"]) regions["0"] = def;
   const fences = Object.values(regions);
+  fences.forEach(r => { r.biome = (W.biome && W.biome[r.def ? "0" : r.id]) || "dirt"; r.decor = decorFor(r, rnd); });
   const regionOf = pen => regions[String(pen)] || regions["0"];
   const hatchB = bmap.hatch;
   const eggs = f.eggs.map((e, i) => ({ emoji: e.emoji, ready: e.ready, ox: 3 + (i % 4) * 0.9, oz: 2.6 + Math.floor(i / 4) * 0.9 }));
-  const L = { Y, ring, outer, seaX, buildings, bmap, trees, rocks, regions, fences, regionOf, eggs, hatchB, W, pets: [], actors: [] };
+  const L = { env, Y, ring, outer, seaX, buildings, bmap, trees, rocks, regions, fences, regionOf, eggs, hatchB, W, pets: [], actors: [] };
   L.pets = f.pets.map(p => {
     const anchor = W.pos && W.pos[p.id];
     const home = !anchor && f.post && p.post ? bmap[p.post] : null;
@@ -136,9 +161,10 @@ function farmLayout(f, W) {
       anchor: anchor ? { x: anchor[0], z: anchor[1] } : null, home: home || null,
       x: anchor ? anchor[0] : home ? home.x + (rnd() - 0.5) * 3 : sp[0],
       z: anchor ? anchor[1] : home ? home.z + home.d / 2 + 1.2 + rnd() * 1.4 : sp[1],
-      tx: 0, tz: 0, wait: rnd() * 3, speed: 0.6 + rnd() * 0.7
+      rank: 0, tx: 0, tz: 0, wait: rnd() * 3, speed: 0.6 + rnd() * 0.7, fly: window.AN3D ? AN3D.fly(p.sp) : 0
     });
   });
+  L.pets.forEach((p, i) => { p.rank = i; });
   const av = W.av || {};
   L.me = { kind: "me", emoji: av.look || "🧑‍🌾", name: f.name, x: av.x != null ? av.x : 0, z: av.z != null ? av.z : Y + 4, tx: 0, tz: 0, walking: false, after: null, size: 2.6, base: 1.5 };
   L.npc = { kind: "npc", emoji: "🧓", name: "الراعي", x: 3, z: 2, tx: 0, tz: 0, wait: 1, size: 2.4, base: 1.4 };
@@ -150,11 +176,11 @@ function farmLayout(f, W) {
 function stepPets(L, dt) {
   L.pets.forEach(p => {
     if (p.dragging) return;
-    if (p.wait > 0) { p.wait -= dt; p.moving = false; return; }
+    if (p.wait > 0) { p.wait -= dt * (p.fly ? 5 : 1); p.moving = false; return; }
     if (!p.tx && !p.tz) pickTarget(L, p);
     const dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
     if (d < 0.15) { p.wait = 1.5 + Math.random() * 5; p.tx = p.tz = 0; p.moving = false; return; }
-    const v = Math.min(d, p.speed * dt);
+    const v = Math.min(d, p.speed * (p.fly ? 2.6 : 1) * dt);
     p.x += dx / d * v; p.z += dz / d * v; p.moving = true;
   });
   const ps = L.pets;                                   // تباعد بسيط كي لا تتراكم الحيوانات فوق بعضها
@@ -181,7 +207,9 @@ function stepPets(L, dt) {
 function pickTarget(L, p) {
   if (p.anchor) { p.tx = p.anchor.x + (Math.random() - 0.5) * 1.8; p.tz = p.anchor.z + (Math.random() - 0.5) * 1.8; return; }
   if (p.home) { p.tx = p.home.x + (Math.random() - 0.5) * 3.4; p.tz = p.home.z + p.home.d / 2 + 1 + Math.random() * 1.8; return; }
-  const s = samplePoly(L.regionOf(p.pen).poly); p.tx = s[0]; p.tz = s[1];
+  const poly = L.regionOf(p.pen).poly, s = samplePoly(poly);
+  if (p.fly) { const c = centroid(poly); p.tx = c[0] + (s[0] - c[0]) * 1.5; p.tz = c[1] + (s[1] - c[1]) * 1.5; return; }   // الطيور تحلّق فوق السياج
+  p.tx = s[0]; p.tz = s[1];
 }
 const doorOf = b => [b.x, b.z + b.d / 2 + 1.4];
 
@@ -205,11 +233,12 @@ const farmSig = f => f.seed + "|" + f.pets.map(p => p.id + ":" + (p.post || "") 
 // ---------- الحفظ (مجمَّع ومؤجَّل) ----------
 function saveWorld(F, patch) {
   if (!F.own) return;
-  const q = F.pending || (F.pending = { b: {}, pens: {}, pos: {}, av: {} });
+  const q = F.pending || (F.pending = { b: {}, pens: {}, pos: {}, av: {}, biome: {} });
   if (patch.b) Object.assign(q.b, patch.b);
   if (patch.pens) Object.assign(q.pens, patch.pens);
   if (patch.pos) Object.assign(q.pos, patch.pos);
   if (patch.av) Object.assign(q.av, patch.av);
+  if (patch.biome) Object.assign(q.biome, patch.biome);
   if (typeof patch.hidePow === "boolean") q.hidePow = patch.hidePow;
   if (patch.reset) { q.reset = true; q.b = {}; q.pens = {}; }
   clearTimeout(F.saveT);
@@ -224,6 +253,7 @@ async function flushWorld(F) {
   if (Object.keys(q.pens).length) w.pens = q.pens;
   if (Object.keys(q.pos).length) w.pos = q.pos;
   if (Object.keys(q.av).length) w.av = q.av;
+  if (Object.keys(q.biome).length) w.biome = q.biome;
   if (typeof q.hidePow === "boolean") w.hidePow = q.hidePow;
   if (!Object.keys(w).length) return;
   try { const j = await act("worldSave", { world: w }); if (j && j.ok && j.world) S.world = j.world; else if (j && j.msg) toast(j.msg, true); }
@@ -351,7 +381,7 @@ function farmRedraw(F) { if (F.r && F.r.refreshFences) F.r.refreshFences(); }
 function penName(id) { return id === 0 ? "الحظيرة الكبرى" : ((S.pens.find(p => p.id === id) || {}).name || "حظيرة"); }
 function editPanel(F) {
   const E = F.edit, el = $("#fEdit"); if (!el || !E) return;
-  const tools = [["move", "🖐️ نقل"], ["draw", "✏️ رسم حظيرة"], ["gate", "🚪 باب"], ["clear", "🗑️ مسح الشكل"]];
+  const tools = [["move", "🖐️ نقل"], ["draw", "✏️ رسم حظيرة"], ["gate", "🚪 باب"], ["clear", "🗑️ مسح الشكل"], ["biome", "🌍 بيئة"]];
   const pensOpts = [0].concat(S.pens.map(p => p.id)).map(id => `<option value="${id}" ${id === E.pen ? "selected" : ""}>${esc(penName(id))}</option>`).join("");
   el.classList.remove("hidden");
   el.innerHTML = `
@@ -360,8 +390,10 @@ function editPanel(F) {
       move: "اسحب أي مبنى أو نقطة في السياج لتحريكه. اضغط مطولًا على حيوان لتثبيته في مكان.",
       draw: "اختر الحظيرة ثم اضغط على الأرض لوضع نقاط السياج (3 إلى 14 نقطة)، ثم «إغلاق».",
       gate: "اضغط على جزء من سياج حظيرة لجعله الباب (باب واحد لكل حظيرة).",
-      clear: "اضغط داخل حظيرة أو على سياجها لحذف شكلها المخصّص."
+      clear: "اضغط داخل حظيرة أو على سياجها لحذف شكلها المخصّص.",
+      biome: "اختر الحظيرة ثم البيئة: تتغير أرضيتها وزينتها (صحراء، ثلج، غابة…)."
     }[E.tool]}</div>
+    ${E.tool === "biome" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select></div><div class="scroll-x" style="margin-bottom:8px">${BIOME_NAMES.map(b => `<button class="pick ${((F.W.biome || {})[String(E.pen)] || "dirt") === b[0] ? "on" : ""}" data-bm="${b[0]}">${b[1]}</button>`).join("")}</div>` : ""}
     ${E.tool === "draw" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select><button class="btn sm" id="eaUndo">↩️ تراجع</button><button class="btn sm" id="eaClose" ${E.draft.length < 3 ? "disabled" : ""}>⭕ إغلاق (${E.draft.length})</button></div>` : ""}
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn sec sm" id="eaPow">${F.W.hidePow ? "🔒 قوة الحيوانات مخفية عن الزوّار" : "👁️ قوة الحيوانات ظاهرة للزوّار"}</button>
@@ -370,7 +402,8 @@ function editPanel(F) {
       <button class="btn sm" id="eaDone">✔️ تم</button>
     </div>`;
   el.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { buzz(); E.tool = b.dataset.t; E.draft = []; editPanel(F); farmRedraw(F); });
-  const sel = $("#eaPen"); if (sel) sel.onchange = () => { E.pen = Number(sel.value); };
+  const sel = $("#eaPen"); if (sel) sel.onchange = () => { E.pen = Number(sel.value); if (E.tool === "biome") editPanel(F); };
+  el.querySelectorAll("[data-bm]").forEach(b => b.onclick = () => { buzz(); F.W.biome = F.W.biome || {}; const k = String(E.pen); if (b.dataset.bm === "dirt") delete F.W.biome[k]; else F.W.biome[k] = b.dataset.bm; saveWorld(F, { biome: { [k]: b.dataset.bm } }); applyPens(F); editPanel(F); });
   const un = $("#eaUndo"); if (un) un.onclick = () => { E.draft.pop(); editPanel(F); farmRedraw(F); };
   const cl = $("#eaClose"); if (cl) cl.onclick = () => editCommitDraft(F);
   $("#eaPow").onclick = () => { F.W.hidePow = !F.W.hidePow; saveWorld(F, { hidePow: F.W.hidePow }); buzz(); editPanel(F); toast(F.W.hidePow ? "🔒 لن يرى الزوّار قوة حيواناتك" : "👁️ سيرى الزوّار قوة حيواناتك"); };
@@ -473,7 +506,7 @@ async function farmVisitList(q) {
 function farmInput(F) {
   const c = F.canvas, ptr = new Map();
   let startT = 0, moved = 0, pinch = 0, hold = 0;
-  const clampCam = () => { const cam = F.cam, lim = F.L.outer + 12; cam.d = Math.max(14, Math.min(F.L.outer * 5 + 30, cam.d)); cam.tx = Math.max(-lim, Math.min(lim, cam.tx)); cam.tz = Math.max(-lim, Math.min(lim, cam.tz)); };
+  const clampCam = () => { const cam = F.cam, lim = F.L.outer + 24; cam.d = Math.max(14, Math.min(F.L.outer * 5 + 30, cam.d)); cam.tx = Math.max(-lim, Math.min(lim, cam.tx)); cam.tz = Math.max(-lim, Math.min(lim, cam.tz)); };
   const local = e => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, r.width, r.height]; };
   const ground = e => { const [x, y, w, h] = local(e); const g = F.r.toWorld(x, y, w, h); return g && Number.isFinite(g[0]) && Number.isFinite(g[1]) ? g : null; };
   const nearVertex = (g) => {
@@ -618,8 +651,9 @@ function farm3dInit(F) {
   const scene = new T.Scene();
   scene.fog = new T.Fog(0x9fd0f0, 70, 150);
   const camera = new T.PerspectiveCamera(42, 1, 0.5, 260);
-  scene.add(new T.HemisphereLight(0xffffff, 0x4d6b3a, 0.85));
+  const hemi = new T.HemisphereLight(0xffffff, 0x4d6b3a, 0.85); scene.add(hemi);
   const sun = new T.DirectionalLight(0xfff2d0, 0.75); sun.position.set(-20, 30, 12); scene.add(sun);
+  const anim = { clouds: [], foam: [], t: 0, sky: 0 };            // عناصر البيئة المتحركة
 
   const textures = new Map();          // تُحفظ بين إعادات البناء
   const emojiTex = e => {
@@ -647,10 +681,10 @@ function farm3dInit(F) {
   const GEO = {}, MATS = {};
   const geo = k => GEO[k] || (GEO[k] = (() => { const g = k === "s" ? new T.SphereGeometry(1, 10, 8) : k === "b" ? new T.BoxGeometry(1, 1, 1) : k === "c" ? new T.ConeGeometry(1, 1, 8) : new T.CylinderGeometry(1, 1, 1, 8); g.userData = { shared: true }; return g; })());
   const smat = col => MATS[col] || (MATS[col] = (() => { const m = new T.MeshLambertMaterial({ color: new T.Color(col), flatShading: true }); m.userData = { shared: true }; return m; })());
-  function mkAnimal(p, hi) {
-    const parts = window.AN3D && AN3D.parts(p.sp);
+  function mkAnimal(p, hi) { return mkParts(window.AN3D && AN3D.parts(p.sp), Object.assign({ kind: "pet" }, p), hi); }
+  function mkParts(parts, data, hi) {
     if (!parts) return null;
-    const g = new T.Group(), anim = [], data = Object.assign({ kind: "pet" }, p);
+    const g = new T.Group(), anim = [];
     parts.forEach(pt => {
       if (pt.hi && !hi) return;
       const m = new T.Mesh(geo(pt.k), smat(pt.c || "#888888"));
@@ -675,6 +709,54 @@ function farm3dInit(F) {
     p.g.rotation.y = p.hd;
   }
 
+  // مجسّم بسيط من الهندسة المشتركة
+  const sm = (k, sc, pos, col, rot, g) => { const m = new T.Mesh(geo(k), smat(col)); m.scale.set(sc[0], sc[1], sc[2]); m.position.set(pos[0], pos[1], pos[2]); if (rot) m.rotation.set(rot[0], rot[1], rot[2]); (g || envG).add(m); return m; };
+  const TREE = (g, x, z, s, col) => { sm("y", [0.2 * s, 1.4 * s, 0.2 * s], [x, 0.7 * s, z], 0x6b4a2a, null, g); sm("c", [1.4 * s, 3.4 * s, 1.4 * s], [x, 3 * s, z], col || 0x2f6b3a, null, g); };
+  function addDecor(g, d) {
+    const x = d.x, z = d.z, s = d.s;
+    if (d.t === "flower") { sm("y", [0.03, 0.4, 0.03], [x, 0.2, z], 0x3f8f4a, null, g); sm("s", [0.17 * s, 0.17 * s, 0.17 * s], [x, 0.45, z], FLOWER_COL[d.v % 4], null, g); }
+    else if (d.t === "bush") sm("s", [0.55 * s, 0.4 * s, 0.55 * s], [x, 0.3 * s, z], 0x3f8f4a, null, g);
+    else if (d.t === "cactus") { sm("y", [0.22 * s, 1.3 * s, 0.22 * s], [x, 0.65 * s, z], 0x3f8f4a, null, g); sm("y", [0.13 * s, 0.55 * s, 0.13 * s], [x + 0.3 * s, 0.85 * s, z], 0x3f8f4a, null, g); sm("y", [0.13 * s, 0.4 * s, 0.13 * s], [x - 0.28 * s, 0.65 * s, z], 0x3f8f4a, null, g); }
+    else if (d.t === "rock") sm("s", [0.5 * s, 0.35 * s, 0.45 * s], [x, 0.2 * s, z], 0x9a8a6a, null, g);
+    else if (d.t === "pine") { sm("y", [0.15 * s, 0.6 * s, 0.15 * s], [x, 0.3 * s, z], 0x6b4a2a, null, g); sm("c", [0.8 * s, 1.8 * s, 0.8 * s], [x, 1.4 * s, z], 0x2f6b4a, null, g); sm("c", [0.45 * s, 0.9 * s, 0.45 * s], [x, 2.2 * s, z], 0xffffff, null, g); }
+    else if (d.t === "snowball") sm("s", [0.38 * s, 0.38 * s, 0.38 * s], [x, 0.3 * s, z], 0xffffff, null, g);
+    else if (d.t === "tree") TREE(g, x, z, 0.8 * s, 0x2f7a3a);
+    else if (d.t === "reed") [-0.12, 0, 0.12].forEach((o, i) => sm("y", [0.03, 0.9 + i * 0.2, 0.03], [x + o, 0.5 + i * 0.1, z + i * 0.05], 0x7a9a4a, null, g));
+    else if (d.t === "puddle") sm("y", [0.9 * s, 0.02, 0.7 * s], [x, 0.06, z], 0x2f5a6a, null, g);
+    else if (d.t === "lavarock") sm("s", [0.45 * s, 0.4 * s, 0.45 * s], [x, 0.25 * s, z], 0x2a2020, null, g);
+    else if (d.t === "lavapool") sm("y", [0.9 * s, 0.02, 0.9 * s], [x, 0.06, z], 0xff5a1a, null, g);
+    else if (d.t === "hay") { sm("b", [0.9, 0.6, 0.7], [x, 0.3, z], 0xd8b84a, [0, d.v, 0], g); }
+  }
+  // ---- تأثيرات الحيوانات: جزيئات عنصرها + هالة الندرة + تاج الأساسي ----
+  const FX_MODE = { fire: "rise", water: "rise", plant: "rise", earth: "rise", dark: "rise", poison: "rise", metal: "rise", ice: "fall", wind: "orbit", light: "orbit", thunder: "flash" };
+  function addFx(p, g, gs) {
+    p.fx = [];
+    const n = p.rar >= 4 ? 5 : p.rar >= 2 ? 3 : 2, tex = emojiTex(p.elEmoji || "✨");
+    for (let i = 0; i < n; i++) {
+      const sp = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0 })); sp.scale.set(0.6, 0.6, 1); g.add(sp);
+      p.fx.push({ sp, ph: i / n, mode: FX_MODE[p.el] || "rise" });
+    }
+    if (p.rar >= 3) {
+      const glow = new T.Mesh(new T.CircleGeometry(1.1, 20), new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.28, depthWrite: false }));
+      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.06; g.add(glow); p.glow = glow;
+    }
+    if (p.main) { const cr = new T.Sprite(new T.SpriteMaterial({ map: emojiTex("👑"), transparent: true, depthWrite: false })); cr.scale.set(0.9, 0.9, 1); g.add(cr); p.crown = cr; }
+  }
+  function fxFrame(p, t, zs) {
+    const gs = p.gs, fly = p.fly || 0, top = fly + 1.5 * gs;
+    p.fx.forEach(f => {
+      const u = (t * 0.45 + f.ph) % 1, sp = f.sp;
+      let x = 0, y = 0, z = 0, o = Math.sin(Math.PI * u);
+      if (f.mode === "rise") { x = Math.sin(u * 7 + f.ph * 9) * 0.35 * gs; y = fly + 0.3 * gs + u * 1.4 * gs; }
+      else if (f.mode === "fall") { x = Math.sin(u * 5 + f.ph * 9) * 0.5 * gs; y = fly + top - u * 1.6 * gs; }
+      else if (f.mode === "orbit") { const a = t * 1.6 + f.ph * 6.28; x = Math.cos(a) * 0.7 * gs; z = Math.sin(a) * 0.7 * gs; y = fly + 0.7 * gs + Math.sin(a * 2) * 0.2; o = 0.9; }
+      else { x = Math.sin(f.ph * 40) * 0.5 * gs; y = fly + 0.5 * gs + u * 0.9; z = Math.cos(f.ph * 40) * 0.4 * gs; o = Math.random() < 0.15 ? 0.2 : 1; }
+      sp.position.set(x, y, z); sp.material.opacity = Math.max(0, Math.min(1, o)); const k = 0.5 * Math.min(zs, 1.7) * (1 - u * 0.3); sp.scale.set(k, k, 1);
+    });
+    if (p.glow) { const k = (1 + 0.12 * Math.sin(t * 3 + p.id)) * gs; p.glow.scale.set(k, k, k); }
+    if (p.crown) { p.crown.position.set(0, fly + 1.5 * gs + Math.sin(t * 2.5) * 0.08, 0); }
+  }
+
   function buildEnv(L) {
     dispose(envG); envG = new T.Group(); scene.add(envG);
     const ground = new T.Mesh(new T.PlaneGeometry(320, 280), mat(0x58993f)); ground.rotation.x = -Math.PI / 2; envG.add(ground);
@@ -686,6 +768,15 @@ function farm3dInit(F) {
       const cone = new T.Mesh(new T.ConeGeometry(1.5 * t.s, 3.6 * t.s, 7), mat(0x2f6b3a)); cone.position.set(t.x, 3 * t.s, t.z); envG.add(cone);
     });
     L.rocks.forEach(r => { const m = new T.Mesh(new T.DodecahedronGeometry(r.s, 0), mat(0x8a8d93)); m.position.set(r.x, r.s * 0.4, r.z); envG.add(m); });
+    const E = L.env;
+    E.patches.forEach(q => sm("y", [q.r, 0.02, q.r], [q.x, q.t === "lake" ? 0.03 : 0.02, q.z], { sand: 0xe0c27a, snow: 0xf2f6fa, swamp: 0x4a6a3a, lake: 0x3a8ac8 }[q.t]));
+    E.mountains.forEach(m => { sm("c", [m.s * 0.9, m.s * 1.3, m.s * 0.9], [m.x, m.s * 0.65, m.z], 0x7d8190); sm("c", [m.s * 0.34, m.s * 0.5, m.s * 0.34], [m.x, m.s * 1.1, m.z], 0xffffff); });
+    E.cacti.forEach(c => addDecor(envG, { t: "cactus", x: c.x, z: c.z, s: c.s }));
+    E.pines.forEach(c => addDecor(envG, { t: "pine", x: c.x, z: c.z, s: c.s }));
+    E.reeds.forEach(c => addDecor(envG, { t: "reed", x: c.x, z: c.z }));
+    E.flowers.forEach(f => addDecor(envG, { t: "flower", x: f.x, z: f.z, s: 1, v: f.v }));
+    anim.clouds = E.clouds.map(c => { const g = new T.Group(); g.position.set(c.x, c.y, c.z); [[0, 0, 0, 1], [1.2, -0.2, 0.4, 0.75], [-1.2, -0.3, -0.3, 0.7]].forEach(o => sm("s", [c.s * o[3] * 1.4, c.s * o[3] * 0.55, c.s * o[3]], [o[0] * c.s * 0.7, o[1], o[2] * c.s * 0.5], 0xffffff, null, g)); envG.add(g); return { g, v: c.v, lim: L.seaX + 60 }; });
+    anim.foam = []; for (let i = 0; i < 7; i++) { const m = sm("b", [3 + (i % 3), 0.04, 0.35], [L.seaX + 6 + (i % 4) * 7, 0.05, -50 + i * 16], 0xdff1ff); anim.foam.push({ m, z0: -50 + i * 16, ph: i }); }
   }
   function buildBuildings(L) {
     dispose(bldG); bldG = new T.Group(); scene.add(bldG); bldPick = [];
@@ -700,7 +791,16 @@ function farm3dInit(F) {
       if (b.key === "hatch") L.eggs.forEach(e => { const m = new T.Mesh(new T.SphereGeometry(0.38, 10, 8), mat(e.ready ? 0xffd24d : 0xf3ead2)); m.scale.y = 1.3; m.position.set(e.ox, 0.5, e.oz); g.add(m); });
     });
     if (!L.bmap.hatch) L.eggs.forEach((e, i) => { const m = new T.Mesh(new T.SphereGeometry(0.38, 10, 8), mat(e.ready ? 0xffd24d : 0xf3ead2)); m.scale.y = 1.3; m.position.set(-3 + i * 0.9, 0.5, L.Y + 3); bldG.add(m); });
+    buildPaths(L);
     rebuildPick();
+  }
+  let pathG = null;
+  function buildPaths(L) {                 // مسارات ترابية من الساحة إلى كل مبنى
+    dispose(pathG); pathG = new T.Group(); scene.add(pathG);
+    L.buildings.forEach(b => {
+      const x1 = 0, z1 = 0, x2 = b.x, z2 = b.z + b.d / 2 + 1.2, len = Math.hypot(x2 - x1, z2 - z1); if (len < 2) return;
+      sm("b", [1.3, 0.03, len], [(x1 + x2) / 2, 0.025, (z1 + z2) / 2], 0xb99d6a, [0, Math.atan2(x2 - x1, z2 - z1), 0], pathG);
+    });
   }
   function buildFences(L) {
     dispose(fenceG); fenceG = new T.Group(); scene.add(fenceG);
@@ -726,11 +826,12 @@ function farm3dInit(F) {
       if (r.custom) {                          // أرضية ترابية داخل الحظيرة المخصّصة
         try {
           const shape = new T.Shape(r.poly.map(p => new T.Vector2(p[0], -p[1])));
-          const fl = new T.Mesh(new T.ShapeGeometry(shape), mat(0x8c7a4e)); fl.rotation.x = -Math.PI / 2; fl.position.y = 0.03; fenceG.add(fl);
+          const fl = new T.Mesh(new T.ShapeGeometry(shape), mat(BIOME_COL[r.biome] || 0x8c7a4e)); fl.rotation.x = -Math.PI / 2; fl.position.y = 0.03; fenceG.add(fl);
         } catch (e) { /* بلا أرضية */ }
       } else {
-        const dirt = new T.Mesh(new T.CircleGeometry(L.Y + 0.9, 36), mat(0x8c7a4e)); dirt.rotation.x = -Math.PI / 2; dirt.position.y = 0.03; fenceG.add(dirt);
+        const dirt = new T.Mesh(new T.CircleGeometry(L.Y + 0.9, 36), mat(BIOME_COL[r.biome] || 0x8c7a4e)); dirt.rotation.x = -Math.PI / 2; dirt.position.y = 0.03; fenceG.add(dirt);
       }
+      (r.decor || []).forEach(d => addDecor(fenceG, d));
     });
     const E = F.edit;
     if (E) {                                   // مقابض النقاط والمسودة أثناء التعديل
@@ -746,15 +847,18 @@ function farm3dInit(F) {
     const ringGeo = new T.RingGeometry(0.55, 0.72, 20), shadowGeo = new T.CircleGeometry(0.6, 14);
     L.pets.forEach(p => {
       p.size = p.main ? 2.5 : 1.8; p.base = p.main ? 1.4 : 1.0;
-      p.hd = p.hd || Math.random() * 6.28; p.anim = null;
+      p.hd = p.hd || Math.random() * 6.28; p.anim = null; p.fx = null; p.glow = null; p.crown = null;
       const an = mkAnimal(p, p.main || L.pets.length <= 28);
-      if (an) { p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar); petG.add(an.g); petPick.push(an.g); }
+      if (an) { if (p.main || p.rank < 28) addFx(p, an.g, 1); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar); petG.add(an.g); petPick.push(an.g); }
       else { const sp = mkSprite(emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
       const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
       const sh = new T.Mesh(shadowGeo, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })); sh.rotation.x = -Math.PI / 2; petG.add(sh); p.sh = sh;
     });
     L.actors.forEach(a => {
-      const sp = mkSprite(emojiTex(a.emoji), a.size, a.size); sp.userData = { kind: a.kind }; a.obj = sp; petG.add(sp); petPick.push(sp);
+      a.id = a.kind === "me" ? 1000 : 1001; a.sp = 0; a.g = null; a.obj = null; a.hd = a.hd || 0; a.gs = 1.35;
+      const am = window.AN3D ? mkParts(AN3D.human(a.kind === "npc" ? "npc" : a.emoji), { kind: a.kind }, true) : null;
+      if (am) { a.g = am.g; a.anim = am.anim; petG.add(am.g); petPick.push(am.g); }
+      else { const sp = mkSprite(emojiTex(a.emoji), a.size, a.size); sp.userData = { kind: a.kind }; a.obj = sp; petG.add(sp); petPick.push(sp); }
       const lab = mkSprite(textTex(a.name || ""), 4, 1); lab.userData = { kind: a.kind }; a.lab = lab; petG.add(lab); petPick.push(lab);
       const sh = new T.Mesh(shadowGeo, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })); sh.rotation.x = -Math.PI / 2; petG.add(sh); a.sh = sh;
     });
@@ -776,7 +880,7 @@ function farm3dInit(F) {
   return {
     setLayout(L) { buildAll(L); },
     refreshFences() { buildFences(F.L); },
-    moveBuilding(b) { const g = bmap[b.key]; if (g) g.position.set(b.x, 0, b.z); },
+    moveBuilding(b) { const g = bmap[b.key]; if (g) g.position.set(b.x, 0, b.z); const now = Date.now(); if (now - (anim.pt || 0) > 150) { anim.pt = now; buildPaths(F.L); } },
     toWorld(x, y, w, h) {
       ndc.set(x / w * 2 - 1, -(y / h) * 2 + 1); ray.setFromCamera(ndc, camera);
       const o = ray.ray.origin, d = ray.ray.direction;
@@ -793,15 +897,19 @@ function farm3dInit(F) {
         const bob = p.dragging ? 0.6 : p.moving ? Math.abs(Math.sin(t * 8 + p.id)) * 0.18 : Math.sin(t * 2 + p.id) * 0.03;
         if (p.g) { const sc = p.gs * Math.min(zs, 1.7), fly = window.AN3D ? AN3D.fly(p.sp) : 0; p.g.position.set(p.x, (p.dragging ? 0.7 : 0) + fly + (fly ? Math.sin(t * 2 + p.id) * 0.1 : 0), p.z); p.g.scale.setScalar(sc); animateAnimal(p, t); }
         else { p.obj.position.set(p.x, (p.base + bob) * zs, p.z); p.obj.scale.set(p.size * zs, p.size * zs, 1); }
+        if (p.fx) fxFrame(p, t, zs);
         p.ring.position.set(p.x, 0.05, p.z); p.sh.position.set(p.x, 0.04, p.z);
         p.ring.scale.setScalar(zs); p.sh.scale.setScalar(zs * (1 - bob * 0.8));
       });
       L.actors.forEach(a => {
         const bob = a.moving ? Math.abs(Math.sin(t * 9)) * 0.22 : Math.sin(t * 2) * 0.03;
-        a.obj.position.set(a.x, (a.base + bob) * zs, a.z); a.obj.scale.set(a.size * zs, a.size * zs, 1);
-        a.lab.position.set(a.x, (a.base + 1.9) * zs, a.z); a.lab.scale.set(4 * zs, 1 * zs, 1);
+        if (a.g) { a.g.position.set(a.x, 0, a.z); a.g.scale.setScalar(a.gs * Math.min(zs, 1.7)); animateAnimal(a, t); }
+        else { a.obj.position.set(a.x, (a.base + bob) * zs, a.z); a.obj.scale.set(a.size * zs, a.size * zs, 1); }
+        a.lab.position.set(a.x, (a.g ? 3.0 * Math.min(zs, 1.7) : (a.base + 1.9) * zs), a.z); a.lab.scale.set(4 * zs, 1 * zs, 1);
         a.sh.position.set(a.x, 0.04, a.z); a.sh.scale.setScalar(zs);
       });
+      anim.clouds.forEach(c => { c.g.position.x += c.v * 0.02; if (c.g.position.x > L.seaX + 40) c.g.position.x = -L.outer - 40; });
+      anim.foam.forEach(f => { f.m.position.z = f.z0 + Math.sin(t * 0.8 + f.ph) * 1.2; f.m.material.opacity = 1; });
       renderer.render(scene, camera);
     },
     pick(x, y, w, h) {
@@ -840,7 +948,7 @@ function farm2dInit(F) {
       g.fillStyle = "#58993f"; g.fillRect(0, 0, F.w, F.h);
       rect(L.seaX + 30, 0, 60, 280, "#2f78b5"); rect(L.seaX - 2.5, 0, 5, 280, "#c9b78a"); rect(L.seaX + 1.5, 6, 7, 1.8, "#7a5a3a");
       L.fences.forEach(r => {                                           // أرضية ثم سياج مع الباب
-        g.fillStyle = "#8c7a4e"; g.beginPath(); r.poly.forEach((p, i) => { const [sx, sz] = toS(p[0], p[1]); i ? g.lineTo(sx, sz) : g.moveTo(sx, sz); }); g.closePath(); g.fill();
+        g.fillStyle = BIOME_CSS[r.biome] || "#8c7a4e"; g.beginPath(); r.poly.forEach((p, i) => { const [sx, sz] = toS(p[0], p[1]); i ? g.lineTo(sx, sz) : g.moveTo(sx, sz); }); g.closePath(); g.fill();
         const n = r.poly.length, k = toS(0, 0)[2];
         for (let i = 0; i < n; i++) {
           const a = r.poly[i], b = r.poly[(i + 1) % n], gate = i === (r.gate || 0) % n, at = t => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];

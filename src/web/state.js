@@ -119,7 +119,7 @@ function buildState(P, now, quests) {
         nov: Object.fromEntries(Object.keys(X.ITEMS).map(id => [id, X.have(P, id)])),
         season: seasonView(P, now),
         posts: postsView(P),
-        world: Object.assign({ b: {}, pens: {}, av: {}, pos: {}, hidePow: false }, P.world || {}),
+        world: Object.assign({ b: {}, pens: {}, av: {}, pos: {}, biome: {}, hidePow: false }, P.world || {}),
         looks: World.LOOKS,
         tradeDisc: (() => { try { return Fy.buffs(P).trade || 0; } catch (e) { return 0; } })(),
         meta: meta(P)

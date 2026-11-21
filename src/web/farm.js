@@ -26,7 +26,7 @@ function farmOf(T, now, viewerIsOwner) {
     const eggs = T.eggs.slice(0, MAX_EGGS).map(e => ({ tier: e.tier, emoji: D.EGGS[e.tier] ? D.EGGS[e.tier].e : "🥚", ready: e.readyAt <= now }));
     return {
         uid: String(T.id), name: T.name, power: hide ? null : E.totalPower(T), hidePow: hide,
-        world: { b: w.b || {}, pens: w.pens || {}, av: w.av || {}, pos: w.pos || {} },
+        world: { b: w.b || {}, pens: w.pens || {}, av: w.av || {}, pos: w.pos || {}, biome: w.biome || {} },
         pens: [{ id: 0, name: "الحظيرة الكبرى" }].concat((T.pens || []).map(x => ({ id: x.id, name: x.name }))),
         count: T.pets.length, pets, eggs, post,
         posts: Po.POST_IDS.map(id => ({ id, e: Po.POSTS[id].e, n: Po.POSTS[id].n })),

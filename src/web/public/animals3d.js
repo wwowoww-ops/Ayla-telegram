@@ -232,6 +232,49 @@
     return P;
   }
 
+
+  // ---------- الشخصيات (بشر) ----------
+  const SKIN = "#f1c9a0";
+  const LOOK = {
+    "🧑‍🌾": { shirt: "#4a8ad0", pants: "#6a5a3a", hat: "straw", hair: "#5a3a22" },
+    "👨‍🌾": { shirt: "#c9503a", pants: "#3a4a6a", hat: "cap", hair: "#3a2a1a", beard: "#3a2a1a" },
+    "👩‍🌾": { shirt: "#e8a0c0", pants: "#7a5a8a", hat: "straw", hair: "#a8602a", braids: 1 },
+    "🧙": { shirt: "#6a3ab0", pants: "#6a3ab0", hat: "wizard", hair: "#e8e8f0", beard: "#f0f0f4", robe: 1, staff: 1 },
+    "🥷": { shirt: "#22222a", pants: "#22222a", hat: "ninja", hair: "#22222a" },
+    "🧑‍🚀": { shirt: "#f0f0f4", pants: "#e0e0e8", hat: "helmet", hair: "#222" },
+    "🦸": { shirt: "#2a5ac8", pants: "#c9302a", hat: "mask", hair: "#222", cape: "#c9302a" },
+    "🧝": { shirt: "#3a9a5a", pants: "#6a4a2a", hat: "none", hair: "#f0d878", elf: 1 },
+    "🤠": { shirt: "#c9a14a", pants: "#3a4a8a", hat: "cowboy", hair: "#5a3a22", vest: "#6a3a22" },
+    "🧑‍🎤": { shirt: "#e83a9a", pants: "#2a2a3a", hat: "spikes", hair: "#ff5ac8", shades: 1 },
+    npc: { shirt: "#7a5a3a", pants: "#5a4a30", hat: "straw", hair: "#e8e8e8", beard: "#f0f0f0", robe: 1, staff: 1, old: 1 }
+  };
+  function human(look) {
+    const o = LOOK[look] || LOOK["🧑‍🌾"], P = [], hy = 1.52;
+    if (o.robe) P.push(C([0.4, 0.95, 0.4], [0, 0.55, 0], o.shirt));
+    else [1, -1].forEach(sx => P.push(Y([0.09, 0.7, 0.09], [sx * 0.12, 0.35, 0], o.pants, { pv: [sx * 0.12, 0.7, 0], an: "leg", ph: sx > 0 ? 0 : 3.14 }), B([0.14, 0.07, 0.22], [sx * 0.12, 0.03, 0.04], "#3a2a22", { pv: [sx * 0.12, 0.7, 0], an: "leg", ph: sx > 0 ? 0 : 3.14 })));
+    P.push(B([0.5, o.robe ? 0.4 : 0.6, 0.3], [0, o.robe ? 1.1 : 1.0, 0], o.shirt));
+    if (o.vest) P.push(B([0.52, 0.45, 0.32], [0, 1.05, 0], o.vest));
+    [1, -1].forEach(sx => P.push(Y([0.07, 0.55, 0.07], [sx * 0.33, 1.02, 0], o.shirt, { pv: [sx * 0.33, 1.3, 0], an: "leg", ph: sx > 0 ? 3.14 : 0 }), S([0.075, 0.075, 0.075], [sx * 0.33, 0.72, 0], SKIN, { pv: [sx * 0.33, 1.3, 0], an: "leg", ph: sx > 0 ? 3.14 : 0 })));
+    P.push(S([0.2, 0.22, 0.2], [0, hy, 0], o.hat === "ninja" ? "#22222a" : SKIN));
+    if (o.hat !== "ninja" && o.hat !== "helmet") P.push(...eyes(hy + 0.03, 0.17, 0.08, 0.03));
+    if (o.hat === "ninja") P.push(B([0.3, 0.07, 0.04], [0, hy + 0.03, 0.17], SKIN), ...eyes(hy + 0.03, 0.2, 0.07, 0.02), B([0.42, 0.06, 0.42], [0, hy + 0.12, 0], "#d62a2a"));
+    if (!o.hat || o.hat === "none" || o.hat === "straw" || o.hat === "cap" || o.hat === "cowboy" || o.hat === "wizard" || o.hat === "mask") P.push(S([0.21, 0.13, 0.21], [0, hy + 0.1, -0.03], o.hair));
+    if (o.braids) [1, -1].forEach(sx => P.push(Y([0.04, 0.4, 0.04], [sx * 0.2, hy - 0.2, -0.05], o.hair)));
+    if (o.beard) P.push(S([0.16, o.old ? 0.26 : 0.1, 0.1], [0, hy - (o.old ? 0.2 : 0.12), 0.12], o.beard));
+    if (o.hat === "straw") P.push(Y([0.42, 0.04, 0.42], [0, hy + 0.2, 0], "#e8c86a"), Y([0.22, 0.14, 0.22], [0, hy + 0.28, 0], "#e8c86a"));
+    if (o.hat === "cap") P.push(S([0.22, 0.14, 0.22], [0, hy + 0.14, 0], "#c9503a"), B([0.22, 0.03, 0.18], [0, hy + 0.1, 0.22], "#c9503a"));
+    if (o.hat === "wizard") P.push(Y([0.4, 0.04, 0.4], [0, hy + 0.2, 0], o.shirt), C([0.24, 0.65, 0.24], [0, hy + 0.55, 0], o.shirt, { r: [-0.12, 0, 0] }), S([0.04, 0.04, 0.04], [0, hy + 0.5, 0.2], "#ffd24d"));
+    if (o.hat === "cowboy") P.push(Y([0.46, 0.04, 0.46], [0, hy + 0.2, 0], "#7a4a22"), Y([0.22, 0.2, 0.22], [0, hy + 0.3, 0], "#7a4a22"));
+    if (o.hat === "helmet") P.push(S([0.3, 0.3, 0.3], [0, hy + 0.02, 0], "#e8f4ff"), S([0.2, 0.16, 0.1], [0, hy, 0.2], "#2a4a8a"));
+    if (o.hat === "mask") P.push(B([0.4, 0.1, 0.2], [0, hy + 0.03, 0.1], "#c9302a"), B([0.12, 0.1, 0.02], [0.08, hy + 0.03, 0.21], WH), B([0.12, 0.1, 0.02], [-0.08, hy + 0.03, 0.21], WH));
+    if (o.hat === "spikes") for (let i = -2; i <= 2; i++) P.push(C([0.05, 0.22, 0.05], [i * 0.07, hy + 0.28 - Math.abs(i) * 0.02, 0], o.hair, { r: [0, 0, -i * 0.15] }));
+    if (o.shades) P.push(B([0.3, 0.06, 0.04], [0, hy + 0.03, 0.2], "#111"));
+    if (o.elf) [1, -1].forEach(sx => P.push(C([0.05, 0.22, 0.03], [sx * 0.25, hy + 0.05, 0], SKIN, { r: [0, 0, -sx * 1.2] })));
+    if (o.cape) P.push(B([0.52, 0.85, 0.04], [0, 0.95, -0.19], o.cape, { r: [0.12, 0, 0] }));
+    if (o.staff) P.push(Y([0.025, 1.5, 0.025], [0.5, 0.75, 0.12], "#7a5a3a"), S([0.07, 0.07, 0.07], [0.5, 1.55, 0.12], o.old ? "#7a5a3a" : "#ffd24d"));
+    return P;
+  }
+
   // ---------- جدول الأنواع (رقم النوع → وصفة) ----------
   const T = {
     1: () => quad({ c: "#e8a050", c2: WH, belly: 1, ear: "point", tail: "long", leg: 0.8, l: 0.8, w: 0.9, hs: 1.05, sn: 0.5, stripes: null }),
@@ -294,10 +337,11 @@
     58: () => bird({ c: "#f4f0e8", c2: "#f4f0e8", comb: 1, beak: "#f2b83a", beakT: "hook", tail: "long", tc: "#d8d0c0", wc: "#e8e0d0", leg: 0.22, bs: 1.0 })
   };
   const cache = {};
-  const FLY = { 6: 0.2, 8: 0, 27: 0, 28: 0, 37: 0.1, 43: 0.1, 44: 0.3, 53: 0.2, 56: 0.25, 57: 0.4 };   // ارتفاع التحليق عن الأرض
+  const FLY = { 6: 1.3, 11: 1.5, 15: 1.9, 22: 3.2, 33: 3.4, 39: 2.5, 43: 1.1, 44: 2.1, 57: 3.5, 56: 0.6, 37: 0.4, 53: 1.0 };   // ارتفاع التحليق عن الأرض
   window.AN3D = {
     has: id => !!T[id],
     fly: id => FLY[id] || 0,
+    human: look => human(look),
     // أجزاء النموذج (تُخزَّن لأنها بيانات ثابتة)
     parts(id) { if (!cache[id]) cache[id] = T[id] ? T[id]() : null; return cache[id]; }
   };
