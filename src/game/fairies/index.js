@@ -18,7 +18,7 @@ const SLOT_START = 1, SLOT_PRICES = [2e8, 5e9, 2e11, 8e12];   // خانات ال
 const SHOP_BASE = [3e6, 5e7, 1e9, 2e10, 4e11];               // سعر الشراء بحسب الندرة
 const SHOP_GROW = 1.6, SHOP_GROW_CAP = 8;                         // ×1.6 لكل جنية تملكها (حتى 8)
 const SHOP_W = [60, 28, 9, 2.5, 0.5];                             // أوزان الندرة في المتجر
-const CATCH_BASE = 0.012, CATCH_ZONE = 0.0012;                    // فرصة اصطياد جنية عند الفوز في الصيد (+ لكل منطقة)
+const CATCH_BASE = 0.03, CATCH_ZONE = 0.002;                     // فرصة اصطياد جنية عند الفوز في الصيد (+ لكل منطقة)
 const CATCH_W = [[80, 18, 2, 0, 0], [40, 40, 16, 4, 0], [10, 30, 35, 20, 5], [0, 10, 35, 35, 20]];  // أوزان الندرة بحسب المنطقة
 const BOSS_FAIRY_CHANCE = 0.25;                                   // فرصة جنية ملحمية+ لصاحب أعلى ضرر عند هزيمة البوس
 const RARITIES = ["شائعة", "نادرة", "ملحمية", "أسطورية", "خرافية"];
@@ -32,7 +32,7 @@ const FAM = {
     hatch: { n: "فقس",   fx: { hatch: 0.03, tier: 0.002 } },
     war:   { n: "حرب",   fx: { war: 0.02, warBoss: 0.03 } },
     luck:  { n: "حظ",    fx: { luck: 0.03 } },
-    guard: { n: "درع",   fx: { tax: 0.03, dr: 0.02 } },
+    guard: { n: "درع",   fx: { dr: 0.04 } },
     trade: { n: "تجارة", fx: { trade: 0.02 } },
     heal:  { n: "شفاء",  fx: { heal: 0.04, hp: 0.02 } },
     breed: { n: "أمومة", fx: { breed: 0.03, breedCd: 0.03 } },
@@ -54,10 +54,10 @@ const RAW = [
 // huntXp خبرة الصيد فقط، trainXp خبرة التدريب فقط، feedXp خبرة الطعام فقط، recycle عوائد تدوير الحيوانات، warm قوة التدفئة في الحضانة
 const UNIQUE_FX = {
     1: { collectG: 0.05 }, 2: { trainXp: 0.06 }, 3: { sat: 0.05 }, 4: { hatch: 0.03, tier: 0.002 }, 5: { luck: 0.04 }, 6: { time: 0.03 },
-    7: { trade: 0.025, dailyG: 0.02 }, 8: { war: 0.02, huntXp: 0.03 }, 9: { tax: 0.03 }, 10: { heal: 0.04 }, 11: { breed: 0.03, warm: 0.03 }, 12: { dailyG: 0.04, luck: 0.01 },
+    7: { trade: 0.025, dailyG: 0.02 }, 8: { war: 0.02, huntXp: 0.03 }, 9: { dr: 0.04 }, 10: { heal: 0.04 }, 11: { breed: 0.03, warm: 0.03 }, 12: { dailyG: 0.04, luck: 0.01 },
     13: { time: 0.025, huntG: 0.025 }, 14: { feedXp: 0.06, wis: 0.01 }, 15: { luck: 0.03, recycle: 0.05 }, 16: { dr: 0.03, hp: 0.02 }, 17: { warBoss: 0.04, war: 0.015 },
     18: { collectG: 0.02, trainXp: 0.02, huntXp: 0.02 }, 19: { heal: 0.03, hp: 0.03, sat: 0.02 }, 20: { huntG: 0.04, collectG: 0.03 }, 21: { time: 0.04, warm: 0.04 },
-    22: { gold: 0.01, wis: 0.01, luck: 0.01, recycle: 0.03, warm: 0.02 }, 23: { trade: 0.04, tax: 0.03, recycle: 0.04 }, 24: { gold: 0.025, dailyG: 0.03, huntG: 0.03 }
+    22: { gold: 0.01, wis: 0.01, luck: 0.01, recycle: 0.03, warm: 0.02 }, 23: { trade: 0.04, dr: 0.03, recycle: 0.04 }, 24: { gold: 0.025, dailyG: 0.03, huntG: 0.03 }
 };
 const SPECIES = {};
 RAW.forEach(([id, n, e, r, fam]) => { SPECIES[id] = { id, n, e, r, fam, fx: UNIQUE_FX[id] || null }; });
@@ -207,6 +207,24 @@ function release(P, id) {
     return { ok: true, msg: `🕊️ أطلقت ${label(f)}.` };
 }
 
+// دمج: 3 جنيات من نفس الندرة (غير الأعلى) = جنية واحدة عشوائية من الندرة التالية
+const MERGE_N = 3;
+function merge(P, ids, now = Date.now(), rng = Math.random) {
+    st(P);
+    ids = [...new Set((Array.isArray(ids) ? ids : []).map(Number))];
+    const fs = ids.map(id => get(P, id));
+    if (ids.length !== MERGE_N || fs.some(f => !f)) return { ok: false, msg: "اختر " + MERGE_N + " جنيات مختلفة." };
+    const r = sp(fs[0]).r;
+    if (fs.some(f => sp(f).r !== r)) return { ok: false, msg: "يجب أن تكون الثلاث من نفس الندرة." };
+    if (r >= RARITIES.length - 1) return { ok: false, msg: "الخرافية هي الأعلى ولا تُدمج." };
+    fs.forEach(f => { if (f.hab) removeHabitat(P, f.id, now); });
+    P.fairies = P.fairies.filter(f => !ids.includes(f.id));
+    P.fequip = P.fequip.filter(x => !ids.includes(x));
+    const n = addFairy(P, pickSpecies(r + 1, rng), now);
+    if (P.stats) P.stats.fmerge = (P.stats.fmerge || 0) + 1;
+    return { ok: true, f: n, msg: `🔮 اندمجت ${MERGE_N} جنيات ${RARITIES[r]} فصارت ${label(n)}!` };
+}
+
 // المتجر: 3 عروض تتجدد يوميًا (ثابتة لنفس اللاعب في نفس اليوم)
 function hashSeed(str) { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -350,8 +368,8 @@ function install() {
                     else { const k = 2 + Math.floor(zoneIdx / 2); require("../resources").add(P, "crystal", k); bits.push("🔷 ×" + k); }
                 }
                 const c = tryCatch(P, zoneIdx, b.luck, now, rn);
-                if (c && c.f) { bits.push(`🎉 اصطدت جنية: ${label(c.f)}`); r.fairy = c.f; }
-                else if (c && c.full) bits.push("ظهرت جنية لكن حديقتك ممتلئة!");
+                if (c && c.f) { bits.push(`🎉 اصطدت جنية: ${label(c.f)}`); r.fairy = c.f; (r.fnotes = r.fnotes || []).push(`🎉 اصطدت جنية: ${label(c.f)}`); }
+                else if (c && c.full) { bits.push("ظهرت جنية لكن حديقتك ممتلئة!"); (r.fnotes = r.fnotes || []).push("🧚 ظهرت جنية لكن حديقتك ممتلئة! أطلق أو ادمج جنيات"); }
                 if (bits.length) note(r, bits.join(" · "));
             }
         }
@@ -428,5 +446,5 @@ function install() {
 
 module.exports = {
     SPECIES, FAM, RARITIES, RANK_E, RM, MAX_LV, OWN_CAP, HOURS_PER_LV, SLOT_PRICES, st, get, sp, label, lvOf, nextLvMs, scale,
-    HABITATS, HAB_FAV, DUST_HOURS, trainedMs, inHabitat, setHabitat, removeHabitat, useDust, rename, ratesTxt, SHOP_BASE, buffOf, buffs, buffTxt, famTxt, addFairy, toggle, buySlot, slotPrice, release, shop, buy, tryCatch, score, topRows, bossMods, install
+    HABITATS, HAB_FAV, DUST_HOURS, trainedMs, inHabitat, setHabitat, removeHabitat, useDust, rename, ratesTxt, SHOP_BASE, buffOf, buffs, buffTxt, famTxt, addFairy, toggle, buySlot, slotPrice, release, merge, MERGE_N, shop, buy, tryCatch, score, topRows, bossMods, install
 };

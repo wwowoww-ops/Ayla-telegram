@@ -110,10 +110,10 @@ SUBS.rates = () => {
 };
 
 // ---------- الجنيات ----------
-let fyTab = "eq", fyEdit = null;
+let fyTab = "eq", fyEdit = null, fyMerge = [];
 SUBS.fairies = () => {
   const m = S.meta, list = S.fairies, now = Date.now() - stamp;
-  const seg = [["eq", "✅ المجهزة"], ["all", "🧚 جنياتي"], ["shop", "🛒 المتجر"]];
+  const seg = [["eq", "✅ المجهزة"], ["all", "🧚 جنياتي"], ["shop", "🛒 المتجر"], ["merge", "🔮 دمج"]];
   let h = back + `<h2>🧚 الجنيات <span class="dim">${list.length}/${m.fairyOwnCap}</span></h2><div class="seg">${seg.map(s => `<button data-ft="${s[0]}" class="${s[0] === fyTab ? "on" : ""}">${s[1]}</button>`).join("")}</div>`;
   const card = f => {
     const hab = f.hab ? m.habitats.find(x => x.id === f.hab) : null;
@@ -138,12 +138,21 @@ SUBS.fairies = () => {
     if (Object.values(bm).some(v => v)) h += `<div class="card dim">👑 بفات البوس: ${bm.atk ? "ضرر +" + Math.round(bm.atk * 100) + "% " : ""}${bm.heal ? "علاج +" + Math.round(bm.heal * 100) + "% " : ""}${bm.hp ? "حياة +" + Math.round(bm.hp * 100) + "% " : ""}${bm.dr ? "درع " + Math.round(bm.dr * 100) + "%" : ""}</div>`;
   } else if (fyTab === "all") {
     h += list.length ? list.map(card).join("") : `<div class="card dim">لا تملك جنيات. اصطدها أو اشترها من المتجر.</div>`;
+  } else if (fyTab === "merge") {
+    const sel = fyMerge.filter(id => list.some(f => f.id === id));
+    fyMerge = sel;
+    const r0 = sel.length ? list.find(f => f.id === sel[0]).rar : null;
+    h += `<div class="card dim">🔮 اختر <b>3 جنيات من نفس الندرة</b> لتصير جنية واحدة عشوائية من الندرة التالية. (الخرافية لا تُدمج، والجنيات المدموجة تُفقد.) المختارة: ${sel.length}/3</div>`;
+    h += list.filter(f => f.rar < 4).map(f => { const on = sel.includes(f.id), off = !on && r0 !== null && f.rar !== r0; return `<div class="card row" style="${off ? "opacity:.4" : ""}${on ? ";border-color:var(--gold,#ffd24d)" : ""}"><div style="font-size:34px">${f.emoji}</div><div class="grow"><b>${esc(f.name)}</b> ${f.rankEmoji}<div class="dim">Lv.${f.lv} · ${esc(f.rarName)}${f.equipped ? " · مجهزة" : ""}</div></div><button class="btn sm ${off ? "off" : on ? "sec" : ""}" data-fm="${f.id}">${on ? "✔️ إلغاء" : "اختيار"}</button></div>`; }).join("") || `<div class="card dim">لا جنيات قابلة للدمج.</div>`;
+    h += `<button class="btn" id="fmGo" style="margin-top:8px;width:100%" ${sel.length === 3 ? "" : "disabled"}>🔮 دمج الثلاث</button>`;
   } else {
     h += `<div class="dim" style="margin-bottom:8px">3 عروض تتجدد يوميًا.</div>` + S.fshop.map(o => `<div class="card row"><div style="font-size:38px">${o.emoji}</div><div class="grow"><b>${esc(o.name)}</b> ${o.rankEmoji}<div class="dim">${esc(o.rarName)} · ${esc(m.fairyFam[o.fam] || "")}</div><div class="dim" style="font-size:12px">${esc(o.buff || "")}</div></div>${o.sold ? `<span class="dim">بيعت</span>` : `<button class="btn sm ${S.player.coins >= o.price ? "" : "off"}" data-fb="${o.idx}">${fmt(o.price)}🪙</button>`}</div>`).join("");
   }
   view.innerHTML = h; bindBack();
   view.querySelectorAll("[data-ft]").forEach(b => b.onclick = () => { fyTab = b.dataset.ft; fyEdit = null; SUBS.fairies(); });
   view.querySelectorAll("[data-fe]").forEach(b => b.onclick = () => { const id = Number(b.dataset.fe); fyEdit = fyEdit && fyEdit.id === id ? null : { id, mode: null }; SUBS.fairies(); });
+  view.querySelectorAll("[data-fm]").forEach(b => b.onclick = () => { buzz(); const id = Number(b.dataset.fm); fyMerge = fyMerge.includes(id) ? fyMerge.filter(x => x !== id) : fyMerge.length < 3 ? fyMerge.concat(id) : fyMerge; SUBS.fairies(); });
+  const fmg = $("#fmGo"); if (fmg) fmg.onclick = () => { buzz("medium"); const ids = fyMerge.slice(); fyMerge = []; run("fMerge", { ids }, () => SUBS.fairies()); };
   view.querySelectorAll("[data-fb]").forEach(b => b.onclick = () => { buzz("medium"); run("fBuy", { idx: Number(b.dataset.fb) }, () => SUBS.fairies()); });
   view.querySelectorAll("[data-fa]").forEach(b => b.onclick = () => {
     const [a, id, x] = b.dataset.fa.split(":"), n = Number(id); buzz();

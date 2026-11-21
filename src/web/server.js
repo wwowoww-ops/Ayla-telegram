@@ -98,7 +98,7 @@ const ACTIONS = {
         const before = petView(P, pet, now);
         const r = E.hunt(P, int(a.zone), now, rng);
         if (!r.ok) return r;
-        return { ok: true, battle: { win: r.win, monEl: r.monEl, eff: r.eff, monPower: r.monPower, mine: r.mine, coins: r.coins || 0, levels: r.levels || 0, drops: r.drops, got: r.got || {}, notes: r.notes || [], elite: !!r.elite, pet: before, zone: int(a.zone) } };
+        return { ok: true, battle: { win: r.win, monEl: r.monEl, eff: r.eff, monPower: r.monPower, mine: r.mine, coins: r.coins || 0, levels: r.levels || 0, drops: r.drops, got: r.got || {}, notes: (r.notes || []).concat(r.fnotes || []), elite: !!r.elite, pet: before, zone: int(a.zone) } };
     },
 
     // ----- الموارد والصقل والتطور -----
@@ -122,6 +122,7 @@ const ACTIONS = {
     fDust: (P, a, now) => Fy.useDust(P, int(a.id), int(a.n), now),
     fName: (P, a) => Fy.rename(P, int(a.id), String(a.name || "")),
     fRelease: (P, a) => Fy.release(P, int(a.id)),
+    fMerge: (P, a, now) => Fy.merge(P, (Array.isArray(a.ids) ? a.ids.slice(0, 3) : []).map(int), now),
     fSlot: P => Fy.buySlot(P),
     fBuy: (P, a, now) => Fy.buy(P, int(a.idx), now),
 
