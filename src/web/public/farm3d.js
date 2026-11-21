@@ -1007,7 +1007,12 @@ function farm3dInit(F) {
     pick(x, y, w, h) {
       ndc.set(x / w * 2 - 1, -(y / h) * 2 + 1); ray.setFromCamera(ndc, camera);
       const hits = ray.intersectObjects(pickables, true);
-      return hits[0] ? hits[0].object.userData : null;
+      for (const h of hits) {                       // قد تكون أول إصابة قطعة بلا بيانات (كالتاج)، فنصعد للأب حتى نجد صاحبها
+        let o = h.object;
+        while (o && !(o.userData && o.userData.kind)) o = o.parent;
+        if (o) return o.userData;
+      }
+      return null;
     },
     dispose() { try { renderer.dispose(); } catch (e) { /* لا شيء */ } textures.forEach(t => t.dispose && t.dispose()); }
   };
