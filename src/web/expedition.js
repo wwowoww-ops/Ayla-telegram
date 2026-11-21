@@ -36,6 +36,7 @@ function claim(P, a, now, rng = Math.random) {
     const x = list(P)[i];
     if (x.end > now) return { ok: false, msg: "الرحلة لم تنتهِ بعد." };
     list(P).splice(i, 1);
+    P.cnt = P.cnt || {}; P.cnt.exp = (P.cnt.exp || 0) + 1;
     const pets = x.pets.map(id => P.pets.find(p => p.id === id)).filter(Boolean), z = ZONES[x.z];
     if (!pets.length) return { ok: true, msg: "عادت الرحلة فارغة (بيعت الحيوانات).", loot: [] };
     const inc = pets.reduce((s, p) => s + E.incomePerHour(p), 0), loot = [];

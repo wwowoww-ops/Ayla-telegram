@@ -21,6 +21,7 @@ const World = require("./world");
 const Map_ = require("./map");
 const Raid = require("./raid");
 require("./perks");
+const Cos = require("./cosmetics");
 const Exp = require("./expedition");
 const Dex = require("./dex");
 const Decor = require("./decor");
@@ -235,10 +236,12 @@ const ACTIONS = {
     allyKick: (P, a) => Map_.allyKick(P, a),
     visitList: (P, a, now) => Farm.visitList(P, a, now),
     farmView: (P, a, now) => Farm.farmView(P, a, now),
+    cosView: P => require("./cosmetics").view(P),
+    cosSet: (P, a) => require("./cosmetics").set(P, a),
     top() {
         const all = store.all();
-        const power = all.filter(p => p.pets.length).map(p => ({ name: p.name, v: E.totalPower(p) })).sort((a, b) => b.v - a.v).slice(0, 10);
-        const rich = all.map(p => ({ name: p.name, v: p.coins })).sort((a, b) => b.v - a.v).slice(0, 10);
+        const power = all.filter(p => p.pets.length).map(p => ({ name: p.name, tg: Cos.tag(p), v: E.totalPower(p) })).sort((a, b) => b.v - a.v).slice(0, 10);
+        const rich = all.map(p => ({ name: p.name, tg: Cos.tag(p), v: p.coins })).sort((a, b) => b.v - a.v).slice(0, 10);
         return { ok: true, top: { power, rich } };
     }
 };

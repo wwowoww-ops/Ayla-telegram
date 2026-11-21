@@ -53,6 +53,7 @@ function raid(P, a, now, rng = Math.random) {
     Notify.send(T, win ? "🏴‍☠️ " + String(P.name || "لاعب") + " أغار على حظيرتك" + (loot.length ? " وسرق: " + loot.join("، ") : "") + "!\n🛡️ حظيرتك محمية 6 ساعات." : "🛡️ حاول " + String(P.name || "لاعب") + " الإغارة على حظيرتك لكن حيواناتك صدّته!");
     const pc = Math.round(chance * 100);
     if (!win) return { ok: true, win: false, chance: pc, msg: "🛡️ فشلت الغارة (فرصتك " + pc + "%). دافعت حيواناته عن الحظيرة." };
+    P.cnt = P.cnt || {}; P.cnt.raid = (P.cnt.raid || 0) + 1;
     return { ok: true, win: true, chance: pc, loot, msg: loot.length ? "🏴‍☠️ نجحت الغارة على " + T.name + "! غنمت: " + loot.join("، ") : "🏴‍☠️ نجحت الغارة لكن لم تجد ما يُسرق." };
 }
 module.exports = { raid, status };

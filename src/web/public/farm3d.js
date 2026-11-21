@@ -244,7 +244,7 @@ function ownFarm() {
   (S.meta.posts || []).forEach(m => { post[m.id] = (((S.posts || {}).list || {})[m.id] || []).map(x => x.id).filter(id => ids.has(id)); });
   const seed = penSel === "all" ? "all" : String(penSel);
   return {
-    uid: S.player.id, name: S.player.name, seed, power: S.player.power, count: pets.length,
+    uid: S.player.id, name: S.player.name, tg: S.cos, seed, power: S.player.power, count: pets.length,
     pets: pets.map(p => ({ id: p.id, pen: penOf(p), sp: p.sp, emoji: p.emoji, name: p.name, rar: p.rar, rarEmoji: p.rarEmoji, rarName: p.rarName, el: p.el, elEmoji: p.elEmoji, elName: p.elName, lv: p.lv, st: p.st, main: p.main, post: p.post, pw: p.power }))
       .sort((a, b) => (b.main - a.main) || (b.pw - a.pw)),
     eggs: S.eggs.slice(0, 12).map(e => ({ tier: e.tier, emoji: e.emoji, ready: e.readyIn <= 0 })),
@@ -530,7 +530,7 @@ async function farmOpen(uid) {
     view.innerHTML = `
       <div class="pen-bar">
         <button class="btn sec sm" id="fBack" style="flex:none">↩️</button>
-        <div class="grow" style="align-self:center;font-weight:700">👀 ${esc(f.name)} <span class="dim" style="font-weight:400">${f.hidePow ? "🔒" : "⚔️ " + fmt(f.power)} · 🐾 ${f.count}</span></div>
+        <div class="grow" style="align-self:center;font-weight:700">👀 ${nameTag(f.name, f.tg)} <span class="dim" style="font-weight:400">${f.hidePow ? "🔒" : "⚔️ " + fmt(f.power)} · 🐾 ${f.count}</span></div>
         <button class="btn sm" id="fRaid" style="flex:none">🏴‍☠️ غارة</button><button class="btn sm" id="fMine" style="flex:none">🏠 حظيرتي</button>
       </div>
       <canvas id="farm"></canvas>
@@ -561,7 +561,7 @@ async function farmVisitList(q) {
   const load = async () => {
     const j = await act("visitList", { q: $("#fQ").value });
     if (!j || !j.ok) return;
-    $("#fList").innerHTML = j.list.length ? j.list.map(r => `<div class="card row"><div style="font-size:30px">${r.emoji}</div><div class="grow"><b>${esc(r.name)}</b><div class="dim">${r.power === null ? "🔒" : "⚔️ " + fmt(r.power)} · 🐾 ${r.pets}</div></div><button class="btn sm" data-u="${esc(r.uid)}">زيارة</button></div>`).join("") : `<div class="dim">لا يوجد لاعبون مطابقون.</div>`;
+    $("#fList").innerHTML = j.list.length ? j.list.map(r => `<div class="card row"><div style="font-size:30px">${r.emoji}</div><div class="grow"><b>${nameTag(r.name, r.tg)}</b><div class="dim">${r.power === null ? "🔒" : "⚔️ " + fmt(r.power)} · 🐾 ${r.pets}</div></div><button class="btn sm" data-u="${esc(r.uid)}">زيارة</button></div>`).join("") : `<div class="dim">لا يوجد لاعبون مطابقون.</div>`;
     $("#fList").querySelectorAll("[data-u]").forEach(b => b.onclick = () => { buzz(); farmOpen(b.dataset.u); });
   };
   $("#fGo").onclick = load;
@@ -1106,7 +1106,7 @@ async function farmMap(cx, cy, sel) {
   let act1 = "";
   if (sel) {
     if (chosen && chosen.me) act1 = `<b>🏡 مزرعتك</b> (${chosen.x}, ${chosen.y})`;
-    else if (chosen) act1 = `<div class="row" style="gap:6px;flex-wrap:wrap"><div class="grow"><b>${chosen.emoji} ${esc(chosen.name)}</b>${chosen.ally ? " 🤝" : ""}</div><button class="btn sm" data-a="visit">👀 زيارة</button><button class="btn sm" data-a="near">📍 انتقل بجانبه</button>${al.leader && !chosen.ally ? `<button class="btn sec sm" data-a="inv">🤝 ادعُه للتحالف</button>` : ""}</div>`;
+    else if (chosen) act1 = `<div class="row" style="gap:6px;flex-wrap:wrap"><div class="grow"><b>${chosen.emoji} ${nameTag(chosen.name, chosen.tg)}</b>${chosen.ally ? " 🤝" : ""}</div><button class="btn sm" data-a="visit">👀 زيارة</button><button class="btn sm" data-a="near">📍 انتقل بجانبه</button>${al.leader && !chosen.ally ? `<button class="btn sec sm" data-a="inv">🤝 ادعُه للتحالف</button>` : ""}</div>`;
     else act1 = `<div class="row"><div class="grow">الخانة (${sel[0]}, ${sel[1]}) فارغة</div><button class="btn sm" data-a="here">📍 انتقل هنا</button></div>`;
   }
   const inv = al.invites.map(i => `<div class="row" style="gap:6px"><div class="grow">📨 دعوة من <b>${esc(i.name)}</b> إلى «${esc(i.ally)}»</div><button class="btn sm" data-ya="${esc(i.from)}">قبول</button><button class="btn sec sm" data-no="${esc(i.from)}">رفض</button></div>`).join("");
@@ -1215,4 +1215,21 @@ SUBS.book = async () => {
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${(byR[g.r] || []).map(s => `<span title="${esc(s.n)}" style="font-size:26px;${s.have ? "" : "filter:grayscale(1) brightness(.35)"}">${s.e}</span>`).join("")}</div></div>`).join("");
   view.innerHTML = h; bindBack();
   view.querySelectorAll("[data-rc]").forEach(b => b.onclick = () => run("dexClaim", { r: Number(b.dataset.rc) }, () => SUBS.book()));
+};
+
+// ---- ألقاب وإطارات ----
+SUBS.cos = async () => {
+  view.innerHTML = back + `<h2>🎖️ ألقاب وإطارات</h2><div class="dim">جارٍ التحميل…</div>`; bindBack();
+  const j = await act("cosView", {});
+  if (!j || !j.ok) return;
+  const draw = () => {
+    let h = back + `<h2>🎖️ ألقاب وإطارات</h2><div class="card">اسمك كما يراه الآخرون:<div style="margin-top:6px;font-size:18px;text-align:center">${nameTag(S.player.name, S.cos)}</div><div class="dim" style="margin-top:6px">فتحت ${j.count} من ${j.total}. اضغط على المفتوح لتختاره.</div></div>`;
+    h += `<h3 style="margin:12px 0 6px">🖼️ الإطارات</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + j.frames.map(f => `<button class="card" data-f="${f.id}" style="text-align:center;${f.have ? "" : "opacity:.45"};border:2px solid ${j.frame === f.id ? f.c : "transparent"}"><div style="font-size:24px">${f.e || "▫️"}</div><b style="color:${f.c}">${esc(f.n)}</b><div class="dim" style="font-size:11px">${f.have ? (j.frame === f.id ? "✅ مُستخدم" : "مفتوح") : "🔒 " + esc(f.req)}</div></button>`).join("") + `</div>`;
+    h += `<h3 style="margin:12px 0 6px">🏷️ الألقاب</h3>` + j.titles.map(t => `<button class="card row" data-t="${t.id}" style="width:100%;${t.have ? "" : "opacity:.45"};border:2px solid ${j.title === t.id ? "var(--gold, #facc15)" : "transparent"}"><b class="grow" style="text-align:right">${esc(t.n)}</b><span class="dim" style="font-size:11px">${t.have ? (j.title === t.id ? "✅" : "مفتوح") : "🔒 " + esc(t.req)}</span></button>`).join("");
+    view.innerHTML = h; bindBack();
+    const pick = async (k, v) => { buzz(); const r = await act("cosSet", { [k === "t" ? "title" : "frame"]: v }); toast(r.msg || "تعذّر", !r.ok); if (r.ok) { S.cos = r.cos; j[k === "t" ? "title" : "frame"] = v; draw(); } };
+    view.querySelectorAll("[data-f]").forEach(b => b.onclick = () => pick("f", b.dataset.f));
+    view.querySelectorAll("[data-t]").forEach(b => b.onclick = () => pick("t", b.dataset.t));
+  };
+  draw();
 };

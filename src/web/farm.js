@@ -25,7 +25,7 @@ function farmOf(T, now, viewerIsOwner) {
     }).sort((a, b) => (b.main - a.main) || (hide ? (b.rar - a.rar) || (b.lv - a.lv) : (b.pw - a.pw))).slice(0, MAX_PETS);
     const eggs = T.eggs.slice(0, MAX_EGGS).map(e => ({ tier: e.tier, emoji: D.EGGS[e.tier] ? D.EGGS[e.tier].e : "🥚", ready: e.readyAt <= now }));
     return {
-        uid: String(T.id), name: T.name, power: hide ? null : E.totalPower(T), hidePow: hide,
+        uid: String(T.id), name: T.name, tg: require("./cosmetics").tag(T), power: hide ? null : E.totalPower(T), hidePow: hide,
         world: { b: w.b || {}, pens: w.pens || {}, av: w.av || {}, pos: w.pos || {}, biome: w.biome || {}, deco: Array.isArray(w.deco) ? w.deco : [] },
         pens: [{ id: 0, name: "الحظيرة الكبرى" }].concat((T.pens || []).map(x => ({ id: x.id, name: x.name }))),
         count: T.pets.length, pets, eggs, post,
@@ -38,7 +38,7 @@ let cache = { t: 0, rows: [] };
 function rows(now) {
     if (now - cache.t < CACHE_MS) return cache.rows;
     const r = store.all().filter(p => p && p.pets && p.pets.length)
-        .map(p => { const m = p.pets.find(x => x.id === p.main) || p.pets[0]; return { uid: String(p.id), name: p.name || "لاعب", power: (World.get(p).hidePow ? null : E.totalPower(p)), pets: p.pets.length, emoji: D.SPECIES[m.sp].e }; })
+        .map(p => { const m = p.pets.find(x => x.id === p.main) || p.pets[0]; return { uid: String(p.id), name: p.name || "لاعب", tg: require("./cosmetics").tag(p), power: (World.get(p).hidePow ? null : E.totalPower(p)), pets: p.pets.length, emoji: D.SPECIES[m.sp].e }; })
         .sort((a, b) => (b.power || 0) - (a.power || 0));
     cache = { t: now, rows: r };
     return r;

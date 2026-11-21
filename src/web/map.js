@@ -93,7 +93,7 @@ function mapView(P, a, now) {
     const players = [];
     store.all().forEach(p => {
         const l = p && p.world && p.world.loc; if (!l || !p.pets || !p.pets.length) return;
-        if (Math.abs(l[0] - cx) <= RADIUS && Math.abs(l[1] - cy) <= RADIUS) players.push({ uid: String(p.id), name: p.name || "لاعب", x: l[0], y: l[1], emoji: iconOf(p), me: String(p.id) === String(P.id), ally: sameAlly(P, p) });
+        if (Math.abs(l[0] - cx) <= RADIUS && Math.abs(l[1] - cy) <= RADIUS) players.push({ uid: String(p.id), name: p.name || "لاعب", tg: require("./cosmetics").tag(p), x: l[0], y: l[1], emoji: iconOf(p), me: String(p.id) === String(P.id), ally: sameAlly(P, p) });
     });
     const wait = Math.max(0, ((World.get(P).movedAt || 0) + COOLDOWN) - now);
     const Raid = require("./raid");

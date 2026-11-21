@@ -52,6 +52,13 @@ function petFace(p, px) {
     : `<span style="font-size:${px * 0.85}px;line-height:1">${p.emoji}</span>`;
 }
 
+// اسم اللاعب مع لقبه وإطاره (tg من الخادم)
+function nameTag(name, tg) {
+  const n = esc(name);
+  if (!tg) return n;
+  const fr = tg.fc ? `border:2px solid ${tg.fc};box-shadow:0 0 8px ${tg.fc}66;border-radius:10px;padding:1px 8px;display:inline-block` : "";
+  return `<span style="${fr}">${tg.fe ? tg.fe + " " : ""}${n}${tg.fe ? " " + tg.fe : ""}</span>` + (tg.t ? `<div class="dim" style="font-size:11px;margin-top:2px">${esc(tg.t)}</div>` : "");
+}
 // ---------- الاتصال بالخادم ----------
 let S = null, stamp = 0, busy = false;
 async function act(type, args) {

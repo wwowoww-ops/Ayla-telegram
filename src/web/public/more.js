@@ -4,7 +4,7 @@
 // ======================================================
 VIEWS.more = () => {
   if (sub) return SUBS[sub]();
-  const tiles = [["visit", "👥", "زيارة"], ["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["posts", "🧰", "وظائف"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "الدليل"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"], ["exp", "🧭", "استكشاف"], ["book", "📖", "كتاب المجموعة"]];
+  const tiles = [["visit", "👥", "زيارة"], ["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["posts", "🧰", "وظائف"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "الدليل"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"], ["cos", "🎖️", "ألقاب وإطارات"], ["exp", "🧭", "استكشاف"], ["book", "📖", "كتاب المجموعة"]];
   view.innerHTML = `<h2>☰ المزيد</h2><div class="grid3">${tiles.map(t => `<button class="tile" data-sub="${t[0]}"><span>${t[1]}</span>${t[2]}</button>`).join("")}</div>`;
   view.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { buzz(); sub = b.dataset.sub; SUBS[sub](); });
 };
@@ -63,7 +63,7 @@ async function loadTop() {
   const j = await act("top");
   if (!j.ok) return;
   const med = ["🥇", "🥈", "🥉"];
-  const list = (title, rows, f) => `<h2>${title}</h2>` + rows.map((r, i) => `<div class="card row"><div>${med[i] || i + 1}</div><div class="grow">${esc(r.name)}</div><b>${f(r.v)}</b></div>`).join("");
+  const list = (title, rows, f) => `<h2>${title}</h2>` + rows.map((r, i) => `<div class="card row"><div>${med[i] || i + 1}</div><div class="grow">${nameTag(r.name, r.tg)}</div><b>${f(r.v)}</b></div>`).join("");
   view.innerHTML = back + list("🏆 الأقوى", j.top.power, v => "⚔️ " + fmt(v)) + list("💎 الأغنى", j.top.rich, v => "🪙 " + fmt(v));
   bindBack();
 }
@@ -71,7 +71,7 @@ async function loadTop() {
 // ---- الملف والمخزن ----
 SUBS.profile = () => {
   const p = S.player, s = p.stats, top = [...S.pets].sort((a, b) => b.power - a.power)[0];
-  view.innerHTML = back + `<h2>👤 ${esc(p.name)}</h2>
+  view.innerHTML = back + `<h2>👤 ${nameTag(p.name, S.cos)}</h2>
     <div class="card">🪙 الرصيد <b>${fmt(p.coins)}</b><br>⚔️ القوة <b>${fmt(p.power)}</b><br>💰 الدخل <b>${fmt(p.income)}/س</b><br>🔥 المواظبة <b>${p.streak}</b> يوم</div>
     ${top ? `<div class="card row"><div>${petFace(top, 52)}</div><div class="grow">👑 أقوى حيوان<br><b>${esc(top.name)}</b> Lv.${top.lv} · ${fmt(top.power)}</div></div>` : ""}
     <div class="card">📈 الصيد ${fmt(s.hunts)} (فوز ${fmt(s.wins)})<br>المبارزات ${fmt(s.duels)} (فوز ${fmt(s.duelWins)})<br>البيض المفقوس ${fmt(s.hatched)}<br>التزاوج ${fmt(s.bred)}</div>`;
