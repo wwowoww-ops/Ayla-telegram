@@ -699,14 +699,21 @@ function farm3dInit(F) {
     g.userData = data; return { g, anim };
   }
   function animateAnimal(p, t) {
-    const mv = p.moving && !p.dragging, k = p.id * 1.7, fl = window.AN3D && AN3D.fly(p.sp) > 0;
+    const mv = p.moving && !p.dragging, k = p.id * 1.7, fl = window.AN3D && AN3D.fly(p.sp) > 0, hop = window.AN3D && AN3D.hop(p.sp);
+    const sp = p.speedNow || 1, w = mv ? 9 + (p.speed || 1) * 2 : 0;
     p.anim.forEach(a => {
-      if (a.an === "leg") a.o.rotation.x = mv ? Math.sin(t * 9 + a.ph + k) * 0.6 : 0;
-      else if (a.an === "wing") a.o.rotation.z = a.ph * Math.sin(t * (fl ? 14 : 10) + k) * (fl ? 0.6 : mv ? 0.55 : 0.06);
-      else if (a.an === "tail") a.o.rotation.y = Math.sin(t * (mv ? 7 : 2.5) + a.ph + k) * (mv ? 0.35 : 0.22);
+      if (a.an === "leg") a.o.rotation.x = hop ? (mv ? -Math.abs(Math.sin(t * 7 + k)) * 0.9 + 0.3 : 0) : mv ? Math.sin(t * w + a.ph + k) * 0.7 : Math.sin(t * 1.2 + k + a.ph) * 0.03;
+      else if (a.an === "wing") a.o.rotation.z = a.ph * Math.sin(t * (fl ? 15 : 10) + k) * (fl ? 0.7 : mv ? 0.5 : 0.06);
+      else if (a.an === "tail") a.o.rotation.y = Math.sin(t * (mv ? 8 : 2.5) + a.ph + k) * (mv ? 0.4 : 0.25);
     });
-    if (mv && (p.tx || p.tz)) { const want = Math.atan2(p.tx - p.x, p.tz - p.z); let d = want - p.hd; d = Math.atan2(Math.sin(d), Math.cos(d)); p.hd += d * 0.2; }
+    let tw = 0;
+    if (mv && (p.tx || p.tz)) { const want = Math.atan2(p.tx - p.x, p.tz - p.z); let d = want - p.hd; d = Math.atan2(Math.sin(d), Math.cos(d)); p.hd += d * 0.18; tw = Math.max(-1, Math.min(1, d)); }
     p.g.rotation.y = p.hd;
+    const bob = hop ? (mv ? Math.abs(Math.sin(t * 7 + k)) * 0.32 : 0) : mv ? Math.abs(Math.sin(t * w * 0.5 + k)) * 0.07 : 0;
+    p.bobY = bob + (fl ? Math.sin(t * 2 + k) * 0.12 : 0);
+    p.g.rotation.z = (mv ? Math.sin(t * w * 0.5 + k) * 0.05 : 0) + (fl ? -tw * 0.35 : 0);             // ميل الجسم أثناء المشي والانعطاف
+    p.g.rotation.x = fl ? (mv ? 0.12 : 0) : hop && mv ? -0.12 : 0;
+    p.br = 1 + Math.sin(t * 2 + k) * 0.018;                                                         // تنفّس
   }
 
   // مجسّم بسيط من الهندسة المشتركة
@@ -729,32 +736,12 @@ function farm3dInit(F) {
   }
   // ---- تأثيرات الحيوانات: جزيئات عنصرها + هالة الندرة + تاج الأساسي ----
   const FX_MODE = { fire: "rise", water: "rise", plant: "rise", earth: "rise", dark: "rise", poison: "rise", metal: "rise", ice: "fall", wind: "orbit", light: "orbit", thunder: "flash" };
-  function addFx(p, g, gs) {
+  function addFx(p, g) {                 // التاج للحيوان الأساسي فقط
     p.fx = [];
-    const n = p.rar >= 4 ? 3 : 2, tex = emojiTex(p.elEmoji || "✨");
-    for (let i = 0; i < n; i++) {
-      const sp = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0 })); sp.scale.set(0.6, 0.6, 1); g.add(sp);
-      p.fx.push({ sp, ph: i / n, mode: FX_MODE[p.el] || "rise" });
-    }
-    if (p.rar >= 5) {
-      const glow = new T.Mesh(new T.CircleGeometry(1.1, 20), new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.16, depthWrite: false }));
-      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.06; g.add(glow); p.glow = glow;
-    }
     if (p.main) { const cr = new T.Sprite(new T.SpriteMaterial({ map: emojiTex("👑"), transparent: true, depthWrite: false })); cr.scale.set(0.9, 0.9, 1); g.add(cr); p.crown = cr; }
   }
-  function fxFrame(p, t, zs) {
-    const gs = p.gs, fly = p.fly || 0, top = fly + 1.5 * gs;
-    p.fx.forEach(f => {
-      const u = (t * 0.45 + f.ph) % 1, sp = f.sp;
-      let x = 0, y = 0, z = 0, o = Math.sin(Math.PI * u);
-      if (f.mode === "rise") { x = Math.sin(u * 7 + f.ph * 9) * 0.35 * gs; y = fly + 0.3 * gs + u * 1.4 * gs; }
-      else if (f.mode === "fall") { x = Math.sin(u * 5 + f.ph * 9) * 0.5 * gs; y = fly + top - u * 1.6 * gs; }
-      else if (f.mode === "orbit") { const a = t * 1.6 + f.ph * 6.28; x = Math.cos(a) * 0.7 * gs; z = Math.sin(a) * 0.7 * gs; y = fly + 0.7 * gs + Math.sin(a * 2) * 0.2; o = 0.9; }
-      else { x = Math.sin(f.ph * 40) * 0.5 * gs; y = fly + 0.5 * gs + u * 0.9; z = Math.cos(f.ph * 40) * 0.4 * gs; o = Math.random() < 0.15 ? 0.2 : 1; }
-      sp.position.set(x, y, z); sp.material.opacity = Math.max(0, Math.min(1, o)); const k = 0.36 * Math.min(zs, 1.5) * (1 - u * 0.3); sp.scale.set(k, k, 1);
-    });
-    if (p.glow) { const k = (1 + 0.12 * Math.sin(t * 3 + p.id)) * gs; p.glow.scale.set(k, k, k); }
-    if (p.crown) { p.crown.position.set(0, fly + 1.5 * gs + Math.sin(t * 2.5) * 0.08, 0); }
+  function fxFrame(p, t) {
+    if (p.crown) { const tall = window.AN3D && AN3D.tall ? AN3D.tall(p.sp) : 1.4; p.crown.position.set(0, tall + 0.35 + Math.sin(t * 2.5) * 0.06, 0); }
   }
 
   function buildEnv(L) {
@@ -797,7 +784,7 @@ function farm3dInit(F) {
   let pathG = null;
   function buildPaths(L) {                 // مسارات ترابية من الساحة إلى كل مبنى
     dispose(pathG); pathG = new T.Group(); scene.add(pathG);
-    L.buildings.filter(b => b.type === "post").forEach(b => {
+    [].forEach(b => {
       const x1 = 0, z1 = 0, x2 = b.x, z2 = b.z + b.d / 2 + 1.2, len = Math.hypot(x2 - x1, z2 - z1); if (len < 2) return;
       sm("b", [0.9, 0.03, len], [(x1 + x2) / 2, 0.022, (z1 + z2) / 2], 0x86ad4c, [0, Math.atan2(x2 - x1, z2 - z1), 0], pathG);
     });
@@ -849,7 +836,7 @@ function farm3dInit(F) {
       p.size = p.main ? 2.5 : 1.8; p.base = p.main ? 1.4 : 1.0;
       p.hd = p.hd || Math.random() * 6.28; p.anim = null; p.fx = null; p.glow = null; p.crown = null;
       const an = mkAnimal(p, p.main || L.pets.length <= 28);
-      if (an) { if (p.main || p.rank < 12) addFx(p, an.g, 1); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar) * (L.pets.length > 40 ? 0.88 : 1); petG.add(an.g); petPick.push(an.g); }
+      if (an) { if (p.main) addFx(p, an.g); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar) * (L.pets.length > 40 ? 0.88 : 1); petG.add(an.g); petPick.push(an.g); }
       else { const sp = mkSprite(emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
       const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
       const sh = new T.Mesh(shadowGeo, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })); sh.rotation.x = -Math.PI / 2; petG.add(sh); p.sh = sh;
@@ -895,15 +882,15 @@ function farm3dInit(F) {
       const zs = Math.max(1, cam.d / 42);
       L.pets.forEach(p => {
         const bob = p.dragging ? 0.6 : p.moving ? Math.abs(Math.sin(t * 8 + p.id)) * 0.18 : Math.sin(t * 2 + p.id) * 0.03;
-        if (p.g) { const sc = p.gs * Math.min(zs, 1.7), fly = window.AN3D ? AN3D.fly(p.sp) : 0; p.g.position.set(p.x, (p.dragging ? 0.7 : 0) + fly + (fly ? Math.sin(t * 2 + p.id) * 0.1 : 0), p.z); p.g.scale.setScalar(sc); animateAnimal(p, t); }
+        if (p.g) { const sc = p.gs * Math.min(zs, 1.7), fly = window.AN3D ? AN3D.fly(p.sp) : 0; animateAnimal(p, t); p.g.position.set(p.x, (p.dragging ? 0.7 : 0) + fly + (p.bobY || 0), p.z); p.g.scale.set(sc, sc * (p.br || 1), sc); }
         else { p.obj.position.set(p.x, (p.base + bob) * zs, p.z); p.obj.scale.set(p.size * zs, p.size * zs, 1); }
-        if (p.fx) fxFrame(p, t, zs);
+        if (p.crown) fxFrame(p, t);
         p.ring.position.set(p.x, 0.05, p.z); p.sh.position.set(p.x, 0.04, p.z);
         p.ring.scale.setScalar(zs); p.sh.scale.setScalar(zs * (1 - bob * 0.8));
       });
       L.actors.forEach(a => {
         const bob = a.moving ? Math.abs(Math.sin(t * 9)) * 0.22 : Math.sin(t * 2) * 0.03;
-        if (a.g) { a.g.position.set(a.x, 0, a.z); a.g.scale.setScalar(a.gs * Math.min(zs, 1.7)); animateAnimal(a, t); }
+        if (a.g) { animateAnimal(a, t); a.g.position.set(a.x, a.bobY || 0, a.z); a.g.scale.setScalar(a.gs * Math.min(zs, 1.7)); }
         else { a.obj.position.set(a.x, (a.base + bob) * zs, a.z); a.obj.scale.set(a.size * zs, a.size * zs, 1); }
         a.lab.position.set(a.x, (a.g ? 3.0 * Math.min(zs, 1.7) : (a.base + 1.9) * zs), a.z); a.lab.scale.set(4 * zs, 1 * zs, 1);
         a.sh.position.set(a.x, 0.04, a.z); a.sh.scale.setScalar(zs);

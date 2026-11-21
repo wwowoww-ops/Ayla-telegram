@@ -365,6 +365,8 @@ function openPet(id) {
         <div style="margin-top:4px"><span class="tag" style="color:${RAR_COLOR[p.rar]}">${p.rarEmoji} ${p.rarName}</span> <span class="tag">${p.elEmoji} ${p.elName}</span> <span class="tag">${p.grade}</span>${p.st ? ` <span class="tag">${"⭐".repeat(p.st)}</span>` : ""}</div>
       </div>
     </div>
+    ${p.par && p.par.length ? `<div class="card" style="margin:10px 0 0">👪 الأبوان: ${p.par.map(x => `${x.emoji} <b>${esc(x.name)}</b>${x.mine ? "" : " <span class=dim>(لم يعد عندك)</span>"}`).join(" و ")}</div>` : ""}
+    ${p.kids && p.kids.length ? `<div class="card" style="margin:8px 0 0">👶 الأبناء (${p.kids.length}): ${p.kids.map(x => `${x.emoji} ${esc(x.name)}`).join("، ")}</div>` : ""}
     <div style="margin:12px 0 4px" class="dim">المستوى ${p.lv}/${S.meta.lvCap}${p.lv < S.meta.lvCap ? ` · الخبرة ${p.xp}/${p.xpNeed}` : ""}</div>
     <div class="bar"><i style="width:${p.lv >= S.meta.lvCap ? 100 : Math.min(100, p.xp / p.xpNeed * 100)}%"></i></div>
     <div style="margin:10px 0 4px" class="dim">الجوع ${p.hunger}%</div>

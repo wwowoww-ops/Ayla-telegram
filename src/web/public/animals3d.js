@@ -9,13 +9,14 @@
   const C = (s, p, c, o) => Object.assign({ k: "c", s, p, c }, o);
   const Y = (s, p, c, o) => Object.assign({ k: "y", s, p, c }, o);
   const DK = "#1c1c22", WH = "#f4f4f0", PI = "#e89aa5", OR = "#f0a030";
-  const eyes = (y, z, x, r, o) => [S([r, r, r], [x, y, z], DK, Object.assign({ hi: 1 }, o)), S([r, r, r], [-x, y, z], DK, Object.assign({ hi: 1 }, o))];
+  const eyes = (y, z, x, r, o) => [S([r * 1.55, r * 1.55, r * 0.9], [x, y, z - r * 0.25], WH, { hi: 1 }), S([r * 1.55, r * 1.55, r * 0.9], [-x, y, z - r * 0.25], WH, { hi: 1 }), S([r, r, r], [x, y, z + r * 0.15], DK, Object.assign({ hi: 1 }, o)), S([r, r, r], [-x, y, z + r * 0.15], DK, Object.assign({ hi: 1 }, o))];
 
   // ---------- ذوات الأربع ----------
   function quad(o) {
     const P = [], L = o.leg == null ? 1 : o.leg, legH = 0.34 * L, bw = o.w || 1, bh = o.h || 1, bl = o.l || 1, hs = o.hs || 1;
     const by = legH + 0.27 * bh, neck = o.neck || 0, c = o.c, c2 = o.c2 || o.c;
-    P.push(S([0.28 * bw, 0.27 * bh, 0.5 * bl], [0, by, 0], c));
+    P.push(S([0.28 * bw, 0.27 * bh, 0.5 * bl], [0, by, 0], c), S([0.27 * bw, 0.26 * bh, 0.3 * bl], [0, by + 0.01, -0.24 * bl], c), S([0.27 * bw, 0.27 * bh, 0.3 * bl], [0, by + 0.02, 0.24 * bl], c));
+    if (!o.neck) P.push(S([0.15 * hs, 0.15 * hs, 0.17 * hs], [0, by + 0.1 * bh, 0.38 * bl], o.hc || c));
     if (o.belly) P.push(S([0.24 * bw, 0.2 * bh, 0.42 * bl], [0, by - 0.08, 0.02], c2));
     const hy = by + 0.16 * bh + neck, hz = 0.46 * bl + 0.1 + (neck ? 0.06 : 0);
     if (neck) P.push(Y([0.1 * hs, neck + 0.22, 0.1 * hs], [0, by + 0.08 + neck / 2, 0.4 * bl], c, { r: [0.35, 0, 0] }));
@@ -28,7 +29,7 @@
     P.push(...eyes(hy + 0.05 * hs, hz + 0.14 * hs, 0.09 * hs, 0.035 * hs));
     if (o.patch) P.push(S([0.06, 0.07, 0.04], [0.09 * hs, hy + 0.05 * hs, hz + 0.16 * hs], DK, { hi: 1 }), S([0.06, 0.07, 0.04], [-0.09 * hs, hy + 0.05 * hs, hz + 0.16 * hs], DK, { hi: 1 }));
     const ec = o.ec || c, ez = hz - 0.04;
-    if (o.ear === "point") P.push(C([0.075, 0.17, 0.075], [0.12 * hs, hy + 0.2 * hs, ez], ec), C([0.075, 0.17, 0.075], [-0.12 * hs, hy + 0.2 * hs, ez], ec));
+    if (o.ear === "point") P.push(C([0.075, 0.17, 0.075], [0.12 * hs, hy + 0.2 * hs, ez], ec), C([0.075, 0.17, 0.075], [-0.12 * hs, hy + 0.2 * hs, ez], ec), C([0.04, 0.11, 0.03], [0.12 * hs, hy + 0.19 * hs, ez + 0.03], PI, { hi: 1 }), C([0.04, 0.11, 0.03], [-0.12 * hs, hy + 0.19 * hs, ez + 0.03], PI, { hi: 1 }));
     else if (o.ear === "round") P.push(S([0.08, 0.08, 0.04], [0.14 * hs, hy + 0.17 * hs, ez], ec), S([0.08, 0.08, 0.04], [-0.14 * hs, hy + 0.17 * hs, ez], ec));
     else if (o.ear === "bigRound") P.push(S([0.14, 0.14, 0.05], [0.2 * hs, hy + 0.12 * hs, ez], ec), S([0.14, 0.14, 0.05], [-0.2 * hs, hy + 0.12 * hs, ez], ec));
     else if (o.ear === "long") P.push(B([0.07, 0.36, 0.05], [0.08 * hs, hy + 0.3, ez - 0.02], ec, { r: [0, 0, -0.12] }), B([0.07, 0.36, 0.05], [-0.08 * hs, hy + 0.3, ez - 0.02], ec, { r: [0, 0, 0.12] }));
@@ -59,7 +60,7 @@
     else if (o.tail === "horse") P.push(S([0.07, 0.3, 0.07], [0, ty - 0.12, tz - 0.12], o.mc || tc, { r: [0.25, 0, 0], pv: [0, ty, tz], an: "tail" }));
     // الأرجل
     const lw = o.lw || 0.075, lc = o.lc || c, lz = 0.3 * bl, lx = 0.17 * bw;
-    [[1, 1, 0], [-1, 1, 3.14], [1, -1, 3.14], [-1, -1, 0]].forEach(l => P.push(Y([lw, legH, lw], [l[0] * lx, legH / 2, l[1] * lz], lc, { pv: [l[0] * lx, legH, l[1] * lz], an: "leg", ph: l[2] })));
+    [[1, 1, 0], [-1, 1, 3.14], [1, -1, 3.14], [-1, -1, 0]].forEach(l => P.push(Y([lw, legH, lw], [l[0] * lx, legH / 2, l[1] * lz], lc, { pv: [l[0] * lx, legH, l[1] * lz], an: "leg", ph: l[2] }), S([lw * 1.35, 0.045, lw * 1.8], [l[0] * lx, 0.03, l[1] * lz + 0.035], o.fc || lc, { pv: [l[0] * lx, legH, l[1] * lz], an: "leg", ph: l[2] })));
     return P;
   }
 
@@ -81,6 +82,7 @@
     if (o.owl) P.push(S([0.07, 0.07, 0.03], [0.07, hy + 0.03, hz + 0.17], "#ffe27a", { hi: 1 }), S([0.07, 0.07, 0.03], [-0.07, hy + 0.03, hz + 0.17], "#ffe27a", { hi: 1 }), C([0.05, 0.12, 0.05], [0.12, hy + 0.2, hz], c), C([0.05, 0.12, 0.05], [-0.12, hy + 0.2, hz], c));
     if (o.crest) P.push(C([0.05, 0.22, 0.05], [0, hy + 0.24 * sz, hz - 0.02], o.crest, { r: [-0.2, 0, 0] }), C([0.04, 0.16, 0.04], [0.05, hy + 0.2 * sz, hz - 0.04], o.crest, { r: [-0.2, 0, 0.3] }), C([0.04, 0.16, 0.04], [-0.05, hy + 0.2 * sz, hz - 0.04], o.crest, { r: [-0.2, 0, -0.3] }));
     if (o.comb) P.push(S([0.04, 0.09, 0.07], [0, hy + 0.2, hz + 0.02], "#e0302a"), S([0.03, 0.06, 0.03], [0, hy - 0.14, hz + 0.2], "#e0302a"));
+    P.push(S([0.2 * sz, 0.16 * sz, 0.14 * sz], [0, by - 0.1, 0.24 * sz], c2, { hi: 1 }));
     const ww = o.ww || 1;
     const wing = sx => B([0.05, 0.26 * sz, 0.4 * ww], [sx * (0.3 * sz + 0.02), by + 0.02, -0.02], o.wc || c, { pv: [sx * 0.28 * sz, by + 0.14, 0], an: "wing", ph: sx > 0 ? 1 : -1, r: [0.1, 0, sx * 0.25] });
     P.push(wing(1), wing(-1));
@@ -336,11 +338,14 @@
     57: () => comet({}),
     58: () => bird({ c: "#f4f0e8", c2: "#f4f0e8", comb: 1, beak: "#f2b83a", beakT: "hook", tail: "long", tc: "#d8d0c0", wc: "#e8e0d0", leg: 0.22, bs: 1.0 })
   };
+  const HOP = { 3: 1, 4: 1, 5: 1, 41: 1, 38: 0 };   // أنواع تقفز بدل المشي
   const cache = {};
   const FLY = { 6: 1.3, 11: 1.5, 15: 1.9, 22: 3.2, 33: 3.4, 39: 2.5, 43: 1.1, 44: 2.1, 57: 3.5, 56: 0.6, 37: 0.4, 53: 1.0 };   // ارتفاع التحليق عن الأرض
   window.AN3D = {
     has: id => !!T[id],
     fly: id => FLY[id] || 0,
+    hop: id => !!HOP[id],
+    tall(id) { const ps = this.parts(id); let m = 0; (ps || []).forEach(q => { const h = q.p[1] + (q.k === "c" || q.k === "y" ? q.s[1] / 2 : q.s[1]); if (h > m) m = h; }); return Math.min(m, 3.2); },
     human: look => human(look),
     // أجزاء النموذج (تُخزَّن لأنها بيانات ثابتة)
     parts(id) { if (!cache[id]) cache[id] = T[id] ? T[id]() : null; return cache[id]; }

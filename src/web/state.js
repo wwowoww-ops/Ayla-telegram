@@ -25,6 +25,8 @@ function petView(P, pet, now) {
         hunger: Math.round(E.hungerNow(pet, now)),
         power: E.power(pet), income: E.incomePerHour(pet),
         main: pet.id === P.main,
+        par: (pet.par || []).map(x => { const q = D.SPECIES[x.sp]; return q ? { emoji: q.e, name: x.n || q.n, el: D.ELEMENTS[x.el] ? D.ELEMENTS[x.el].e : "", mine: x.own === String(P.id) && P.pets.some(z => z.id === x.id) } : null; }).filter(Boolean),
+        kids: P.pets.filter(c => c.par && c.par.some(x => x.id === pet.id && x.own === String(P.id))).slice(0, 12).map(c => { const q = D.SPECIES[c.sp]; return { emoji: q.e, name: c.nick || q.n }; }),
         pen: pet.pen || 0, fx: Number.isFinite(pet.fx) ? pet.fx : null, fy: Number.isFinite(pet.fy) ? pet.fy : null,
         cd: {
             train: Math.max(0, pet.cdTrain - now), play: Math.max(0, pet.cdPlay - now),

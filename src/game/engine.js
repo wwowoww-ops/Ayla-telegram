@@ -169,6 +169,7 @@ function hatch(P, eggId, now, rng) {
     P.eggs.splice(i, 1);
     const pet = makePet(P, spId, el, q, now, gen);
     if (elb && elb !== el && D.ELEMENTS[elb]) pet.elb = elb;
+    if (egg.pre && Array.isArray(egg.pre.par)) pet.par = egg.pre.par.slice(0, 2);
     P.stats.hatched++;
     return { ok: true, pet, msg: "فقست!" };
 }
@@ -389,6 +390,7 @@ function bredEggData(a, b, rng, boost = 0) {
     return { tier: Math.min(D.EGGS.length - 1, rr), pre: Object.assign({ sp: spId, el, q, gen }, elb ? { elb } : {}), mutated, elMut: !!elb };
 }
 // تزاوج مشترك بين لاعبين: حيوانا الطرفين يرتاحان، والبيضة تذهب لمن يُحدَّد
+const parSnap = (o, p) => ({ id: p.id, own: String(o.id), sp: p.sp, n: p.nick || "", el: p.el });   // بصمة الأب/الأم تُحفظ في الجيل
 function breedPair(PA, a, PB, b, costA, costB, eggTo, now, rng) {
     for (const [P, p, c] of [[PA, a, costA], [PB, b, costB]]) {
         if (!p) return fail("حيوان غير موجود.");
@@ -398,6 +400,7 @@ function breedPair(PA, a, PB, b, costA, costB, eggTo, now, rng) {
     }
     PA.coins -= costA; PB.coins -= costB;
     const d = bredEggData(a, b, rng);
+    d.pre.par = [parSnap(PA, a), parSnap(PB, b)];
     const W = eggTo === "b" ? PB : eggTo === "a" ? PA : (rng() < 0.5 ? PA : PB);
     addEggToBag(W, d.tier, { pre: d.pre, bred: true });
     a.cdBreed = b.cdBreed = now + C.BREED_CD;
@@ -434,6 +437,7 @@ function breed(P, aId, bId, now, rng, useStone) {
     try { boost += require("./posts").extra(P).mut || 0; } catch (e) { /* لا وظائف */ }   // مختبر التزاوج
     P.coins -= cost;
     const d = bredEggData(a, b, rng, boost), mutated = d.mutated;
+    d.pre.par = [parSnap(P, a), parSnap(P, b)];
     addEggToBag(P, d.tier, { pre: d.pre, bred: true });
     a.cdBreed = b.cdBreed = now + C.BREED_CD;
     P.stats.bred++;
