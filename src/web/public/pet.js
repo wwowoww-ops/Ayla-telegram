@@ -31,6 +31,8 @@ function openPet(id) {
     <div class="grid2" style="margin:12px 0"><div class="card" style="margin:0">⚔️ القوة<br><b>${fmt(p.power)}</b></div><div class="card" style="margin:0">💰 الدخل<br><b>${fmt(p.income)}/س</b></div></div>
     <div class="dim" style="margin-bottom:6px">إطعام</div>
     <div class="scroll-x">${foods.length ? foods.map(f => { const m = S.meta.foods.find(x => x.id === f.id); return `<button class="pick" data-feed="${f.id}"><span class="em">${m.emoji}</span>${esc(m.name)}<br>×${f.count}${m.el && m.el === p.el ? " ✨" : ""}</button>`; }).join("") : `<span class="dim">لا طعام. اشترِ من المتجر.</span>`}</div>
+    ${p.par && p.par.length ? `<div class="card" style="margin:10px 0 0">👪 الأبوان: ${p.par.map(x => `${x.emoji} <b>${esc(x.name)}</b>${x.mine ? "" : " <span class=dim>(لم يعد عندك)</span>"}`).join(" و ")}</div>` : ""}
+    ${p.kids && p.kids.length ? `<div class="card" style="margin:8px 0 0">👶 الأبناء (${p.kids.length}): ${p.kids.map(x => `${x.emoji} ${esc(x.name)}`).join("، ")}</div>` : ""}
     ${petExtras(p)}
     <div class="dim" style="margin:12px 0 6px">الحظيرة</div>
     <div class="scroll-x">${[{ id: 0, name: "🏡 الكبرى" }].concat(S.pens).map(x => `<button class="pick ${penOf(p) === x.id ? "on" : ""}" data-pen="${x.id}">${esc(x.name)}</button>`).join("")}</div>
