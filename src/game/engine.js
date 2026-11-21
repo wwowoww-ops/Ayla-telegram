@@ -6,7 +6,7 @@ const { C } = D;
 const floor = Math.floor;
 const clampCoins = n => Math.min(C.MAX_COINS, Math.max(0, floor(n)));
 const fail = msg => ({ ok: false, msg });
-const SUF = [[1e15, "Qa"], [1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]];
+const SUF = [[1e24, "Sp"], [1e21, "Sx"], [1e18, "Qi"], [1e15, "Qa"], [1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]];
 
 // 1,234 ثم 12.5K ثم 3.2M ... ثم 4.1Qa
 function fmt(n) {

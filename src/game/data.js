@@ -160,7 +160,7 @@ const RES_KEYS = Object.keys(RES);
 const C = {
     LV_CAP: 50,
     MAX_STARS: 5,
-    MAX_COINS: 9e15,
+    MAX_COINS: 1e300,
     HUNGER_MS: 6 * 60 * 1000,       // نقطة جوع كل 6 دقائق
     BASE_SLOTS: 12, BASE_HATCH: 2,
     TRAIN_CD: 15 * 60 * 1000, PLAY_CD: 10 * 60 * 1000, HUNT_CD: 10 * 60 * 1000,
