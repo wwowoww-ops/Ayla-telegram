@@ -630,12 +630,44 @@ function farm3dInit(F) {
   };
   const mkSprite = (tex, w, h) => { const sp = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); sp.scale.set(w, h, 1); return sp; };
   const mat = (color, extra) => new T.MeshLambertMaterial(Object.assign({ color, flatShading: true }, extra || {}));
-  const dispose = g => { if (!g) return; scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !o.isSprite) o.material.dispose(); }); };
+  const dispose = g => { if (!g) return; scene.remove(g); g.traverse(o => { if (o.geometry && !(o.geometry.userData && o.geometry.userData.shared)) o.geometry.dispose(); if (o.material && !o.isSprite && !(o.material.userData && o.material.userData.shared)) o.material.dispose(); }); };
   const boxIn = (g, w, h, d, color, x, y, z) => { const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat(color)); m.position.set(x, y, z); g.add(m); return m; };
 
   let envG = null, bldG = null, fenceG = null, petG = null;
   const bmap = {};                      // مفتاح المبنى → مجموعته
   let pickables = [], bldPick = [], petPick = [];
+
+  // ---- مجسّمات الحيوانات: هندسة ومواد مشتركة، وكل نوع يُبنى من أجزاء AN3D ----
+  const GEO = {}, MATS = {};
+  const geo = k => GEO[k] || (GEO[k] = (() => { const g = k === "s" ? new T.SphereGeometry(1, 10, 8) : k === "b" ? new T.BoxGeometry(1, 1, 1) : k === "c" ? new T.ConeGeometry(1, 1, 8) : new T.CylinderGeometry(1, 1, 1, 8); g.userData = { shared: true }; return g; })());
+  const smat = col => MATS[col] || (MATS[col] = (() => { const m = new T.MeshLambertMaterial({ color: new T.Color(col), flatShading: true }); m.userData = { shared: true }; return m; })());
+  function mkAnimal(p, hi) {
+    const parts = window.AN3D && AN3D.parts(p.sp);
+    if (!parts) return null;
+    const g = new T.Group(), anim = [], data = Object.assign({ kind: "pet" }, p);
+    parts.forEach(pt => {
+      if (pt.hi && !hi) return;
+      const m = new T.Mesh(geo(pt.k), smat(pt.c || "#888888"));
+      m.scale.set(pt.s[0], pt.s[1], pt.s[2]); m.userData = data;
+      if (pt.r) m.rotation.set(pt.r[0], pt.r[1], pt.r[2]);
+      if (pt.pv) {
+        const pv = new T.Group(); pv.position.set(pt.pv[0], pt.pv[1], pt.pv[2]);
+        m.position.set(pt.p[0] - pt.pv[0], pt.p[1] - pt.pv[1], pt.p[2] - pt.pv[2]); pv.add(m); g.add(pv);
+        if (pt.an) anim.push({ o: pv, an: pt.an, ph: pt.ph || 0 });
+      } else { m.position.set(pt.p[0], pt.p[1], pt.p[2]); g.add(m); }
+    });
+    g.userData = data; return { g, anim };
+  }
+  function animateAnimal(p, t) {
+    const mv = p.moving && !p.dragging, k = p.id * 1.7, fl = window.AN3D && AN3D.fly(p.sp) > 0;
+    p.anim.forEach(a => {
+      if (a.an === "leg") a.o.rotation.x = mv ? Math.sin(t * 9 + a.ph + k) * 0.6 : 0;
+      else if (a.an === "wing") a.o.rotation.z = a.ph * Math.sin(t * (fl ? 14 : 10) + k) * (fl ? 0.6 : mv ? 0.55 : 0.06);
+      else if (a.an === "tail") a.o.rotation.y = Math.sin(t * (mv ? 7 : 2.5) + a.ph + k) * (mv ? 0.35 : 0.22);
+    });
+    if (mv && (p.tx || p.tz)) { const want = Math.atan2(p.tx - p.x, p.tz - p.z); let d = want - p.hd; d = Math.atan2(Math.sin(d), Math.cos(d)); p.hd += d * 0.2; }
+    p.g.rotation.y = p.hd;
+  }
 
   function buildEnv(L) {
     dispose(envG); envG = new T.Group(); scene.add(envG);
@@ -708,7 +740,10 @@ function farm3dInit(F) {
     const ringGeo = new T.RingGeometry(0.55, 0.72, 20), shadowGeo = new T.CircleGeometry(0.6, 14);
     L.pets.forEach(p => {
       p.size = p.main ? 2.5 : 1.8; p.base = p.main ? 1.4 : 1.0;
-      const sp = mkSprite(emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp);
+      p.hd = p.hd || Math.random() * 6.28; p.anim = null;
+      const an = mkAnimal(p, p.main || L.pets.length <= 28);
+      if (an) { p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar); petG.add(an.g); petPick.push(an.g); }
+      else { const sp = mkSprite(emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
       const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
       const sh = new T.Mesh(shadowGeo, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })); sh.rotation.x = -Math.PI / 2; petG.add(sh); p.sh = sh;
     });
@@ -750,7 +785,8 @@ function farm3dInit(F) {
       const zs = Math.max(1, cam.d / 42);
       L.pets.forEach(p => {
         const bob = p.dragging ? 0.6 : p.moving ? Math.abs(Math.sin(t * 8 + p.id)) * 0.18 : Math.sin(t * 2 + p.id) * 0.03;
-        p.obj.position.set(p.x, (p.base + bob) * zs, p.z); p.obj.scale.set(p.size * zs, p.size * zs, 1);
+        if (p.g) { const sc = p.gs * Math.min(zs, 1.7), fly = window.AN3D ? AN3D.fly(p.sp) : 0; p.g.position.set(p.x, (p.dragging ? 0.7 : 0) + fly + (fly ? Math.sin(t * 2 + p.id) * 0.1 : 0), p.z); p.g.scale.setScalar(sc); animateAnimal(p, t); }
+        else { p.obj.position.set(p.x, (p.base + bob) * zs, p.z); p.obj.scale.set(p.size * zs, p.size * zs, 1); }
         p.ring.position.set(p.x, 0.05, p.z); p.sh.position.set(p.x, 0.04, p.z);
         p.ring.scale.setScalar(zs); p.sh.scale.setScalar(zs * (1 - bob * 0.8));
       });
@@ -764,7 +800,7 @@ function farm3dInit(F) {
     },
     pick(x, y, w, h) {
       ndc.set(x / w * 2 - 1, -(y / h) * 2 + 1); ray.setFromCamera(ndc, camera);
-      const hits = ray.intersectObjects(pickables, false);
+      const hits = ray.intersectObjects(pickables, true);
       return hits[0] ? hits[0].object.userData : null;
     },
     dispose() { try { renderer.dispose(); } catch (e) { /* لا شيء */ } textures.forEach(t => t.dispose && t.dispose()); }
