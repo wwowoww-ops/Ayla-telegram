@@ -731,13 +731,13 @@ function farm3dInit(F) {
   const FX_MODE = { fire: "rise", water: "rise", plant: "rise", earth: "rise", dark: "rise", poison: "rise", metal: "rise", ice: "fall", wind: "orbit", light: "orbit", thunder: "flash" };
   function addFx(p, g, gs) {
     p.fx = [];
-    const n = p.rar >= 4 ? 5 : p.rar >= 2 ? 3 : 2, tex = emojiTex(p.elEmoji || "✨");
+    const n = p.rar >= 4 ? 3 : 2, tex = emojiTex(p.elEmoji || "✨");
     for (let i = 0; i < n; i++) {
       const sp = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0 })); sp.scale.set(0.6, 0.6, 1); g.add(sp);
       p.fx.push({ sp, ph: i / n, mode: FX_MODE[p.el] || "rise" });
     }
-    if (p.rar >= 3) {
-      const glow = new T.Mesh(new T.CircleGeometry(1.1, 20), new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.28, depthWrite: false }));
+    if (p.rar >= 5) {
+      const glow = new T.Mesh(new T.CircleGeometry(1.1, 20), new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.16, depthWrite: false }));
       glow.rotation.x = -Math.PI / 2; glow.position.y = 0.06; g.add(glow); p.glow = glow;
     }
     if (p.main) { const cr = new T.Sprite(new T.SpriteMaterial({ map: emojiTex("👑"), transparent: true, depthWrite: false })); cr.scale.set(0.9, 0.9, 1); g.add(cr); p.crown = cr; }
@@ -751,7 +751,7 @@ function farm3dInit(F) {
       else if (f.mode === "fall") { x = Math.sin(u * 5 + f.ph * 9) * 0.5 * gs; y = fly + top - u * 1.6 * gs; }
       else if (f.mode === "orbit") { const a = t * 1.6 + f.ph * 6.28; x = Math.cos(a) * 0.7 * gs; z = Math.sin(a) * 0.7 * gs; y = fly + 0.7 * gs + Math.sin(a * 2) * 0.2; o = 0.9; }
       else { x = Math.sin(f.ph * 40) * 0.5 * gs; y = fly + 0.5 * gs + u * 0.9; z = Math.cos(f.ph * 40) * 0.4 * gs; o = Math.random() < 0.15 ? 0.2 : 1; }
-      sp.position.set(x, y, z); sp.material.opacity = Math.max(0, Math.min(1, o)); const k = 0.5 * Math.min(zs, 1.7) * (1 - u * 0.3); sp.scale.set(k, k, 1);
+      sp.position.set(x, y, z); sp.material.opacity = Math.max(0, Math.min(1, o)); const k = 0.36 * Math.min(zs, 1.5) * (1 - u * 0.3); sp.scale.set(k, k, 1);
     });
     if (p.glow) { const k = (1 + 0.12 * Math.sin(t * 3 + p.id)) * gs; p.glow.scale.set(k, k, k); }
     if (p.crown) { p.crown.position.set(0, fly + 1.5 * gs + Math.sin(t * 2.5) * 0.08, 0); }
@@ -775,7 +775,7 @@ function farm3dInit(F) {
     E.pines.forEach(c => addDecor(envG, { t: "pine", x: c.x, z: c.z, s: c.s }));
     E.reeds.forEach(c => addDecor(envG, { t: "reed", x: c.x, z: c.z }));
     E.flowers.forEach(f => addDecor(envG, { t: "flower", x: f.x, z: f.z, s: 1, v: f.v }));
-    anim.clouds = E.clouds.map(c => { const g = new T.Group(); g.position.set(c.x, c.y, c.z); [[0, 0, 0, 1], [1.2, -0.2, 0.4, 0.75], [-1.2, -0.3, -0.3, 0.7]].forEach(o => sm("s", [c.s * o[3] * 1.4, c.s * o[3] * 0.55, c.s * o[3]], [o[0] * c.s * 0.7, o[1], o[2] * c.s * 0.5], 0xffffff, null, g)); envG.add(g); return { g, v: c.v, lim: L.seaX + 60 }; });
+    anim.clouds = E.clouds.map(c => { const g = new T.Group(); g.position.set(c.x, 0.07, c.z); const m = new T.Mesh(new T.CircleGeometry(c.s * 2.2, 14), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.scale.set(1.6, 1, 1); g.add(m); envG.add(g); return { g, v: c.v * 3, lim: L.seaX + 60 }; });
     anim.foam = []; for (let i = 0; i < 7; i++) { const m = sm("b", [3 + (i % 3), 0.04, 0.35], [L.seaX + 6 + (i % 4) * 7, 0.05, -50 + i * 16], 0xdff1ff); anim.foam.push({ m, z0: -50 + i * 16, ph: i }); }
   }
   function buildBuildings(L) {
@@ -797,9 +797,9 @@ function farm3dInit(F) {
   let pathG = null;
   function buildPaths(L) {                 // مسارات ترابية من الساحة إلى كل مبنى
     dispose(pathG); pathG = new T.Group(); scene.add(pathG);
-    L.buildings.forEach(b => {
+    L.buildings.filter(b => b.type === "post").forEach(b => {
       const x1 = 0, z1 = 0, x2 = b.x, z2 = b.z + b.d / 2 + 1.2, len = Math.hypot(x2 - x1, z2 - z1); if (len < 2) return;
-      sm("b", [1.3, 0.03, len], [(x1 + x2) / 2, 0.025, (z1 + z2) / 2], 0xb99d6a, [0, Math.atan2(x2 - x1, z2 - z1), 0], pathG);
+      sm("b", [0.9, 0.03, len], [(x1 + x2) / 2, 0.022, (z1 + z2) / 2], 0x86ad4c, [0, Math.atan2(x2 - x1, z2 - z1), 0], pathG);
     });
   }
   function buildFences(L) {
@@ -849,7 +849,7 @@ function farm3dInit(F) {
       p.size = p.main ? 2.5 : 1.8; p.base = p.main ? 1.4 : 1.0;
       p.hd = p.hd || Math.random() * 6.28; p.anim = null; p.fx = null; p.glow = null; p.crown = null;
       const an = mkAnimal(p, p.main || L.pets.length <= 28);
-      if (an) { if (p.main || p.rank < 28) addFx(p, an.g, 1); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar); petG.add(an.g); petPick.push(an.g); }
+      if (an) { if (p.main || p.rank < 12) addFx(p, an.g, 1); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar) * (L.pets.length > 40 ? 0.88 : 1); petG.add(an.g); petPick.push(an.g); }
       else { const sp = mkSprite(emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
       const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
       const sh = new T.Mesh(shadowGeo, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })); sh.rotation.x = -Math.PI / 2; petG.add(sh); p.sh = sh;
