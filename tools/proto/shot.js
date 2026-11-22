@@ -1,1 +1,0 @@
-const {chromium}=require("playwright");(async()=>{const b=await chromium.launch(),p=await b.newPage({viewport:{width:1000,height:700}});await p.goto("file://"+__dirname+"/scene.html");await p.screenshot({path:process.argv[2]});await b.close()})()
