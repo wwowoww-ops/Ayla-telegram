@@ -53,7 +53,7 @@ const qLow = () => {
   try { const v = localStorage.getItem("ayla_q"); if (v) return v === "low"; } catch (e) { /* لا شيء */ }
   return (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || false;   // الأجهزة الضعيفة: جودة منخفضة تلقائيًا
 };
-const artOnG = () => { try { return localStorage.getItem("ayla_art") !== "0"; } catch (e) { return true; } };
+const artOnG = () => { try { return localStorage.getItem("ayla_art") === "1"; } catch (e) { return false; } };
 const applyFx = () => document.documentElement.classList.toggle("lowfx", !!qLow());
 applyFx();
 const DECO_E = { tree: "🌳", flowers: "🌷", lamp: "🏮", bench: "🪑", tent: "⛺", fountain: "⛲", statue: "🗿", windmill: "🌬️" };
@@ -780,11 +780,11 @@ function farm3dInit(F) {
   let pickables = [], bldPick = [], petPick = [];
 
   // ---- مجسّمات الحيوانات: هندسة ومواد مشتركة، وكل نوع يُبنى من أجزاء AN3D ----
-  const GEO = {}, MATS = {};
-  const geo = k => GEO[k] || (GEO[k] = (() => { const g = k === "s" ? new T.SphereGeometry(1, 10, 8) : k === "b" ? new T.BoxGeometry(1, 1, 1) : k === "c" ? new T.ConeGeometry(1, 1, 8) : new T.CylinderGeometry(1, 1, 1, 8); g.userData = { shared: true }; return g; })());
-  const smat = col => MATS[col] || (MATS[col] = (() => { const m = new T.MeshLambertMaterial({ color: new T.Color(col), flatShading: true }); m.userData = { shared: true }; return m; })());
+  const GEO = {}, MATS = {}, SEG = (() => { try { return qLow() ? 14 : 24; } catch (e) { return 16; } })();   // أجزاء أكثر = أسطح ناعمة مستديرة
+  const geo = k => GEO[k] || (GEO[k] = (() => { const g = k === "s" ? new T.SphereGeometry(1, SEG, Math.round(SEG * 0.75)) : k === "b" ? new T.BoxGeometry(1, 1, 1) : k === "c" ? new T.ConeGeometry(1, 1, SEG - 4) : new T.CylinderGeometry(1, 1, 1, SEG - 4); g.userData = { shared: true }; return g; })());
+  const smat = col => MATS[col] || (MATS[col] = (() => { const m = new T.MeshLambertMaterial({ color: new T.Color(col), emissive: new T.Color(col).multiplyScalar(0.18) }); m.userData = { shared: true }; return m; })());
   // وضع الرسومات: دائرة ملساء بصورة النوع (رسمتك) تحيط بها حلقة لون الندرة، بدل المجسّم المركّب من أشكال
-  const artOn = () => { try { return localStorage.getItem("ayla_art") !== "0"; } catch (e) { return true; } };
+  const artOn = () => { try { return localStorage.getItem("ayla_art") === "1"; } catch (e) { return false; } };
   const hasArt = sp => !!(S && S.meta && S.meta.species.some(x => x.id === sp && x.img));
   function artTex(sp, rar, emoji) {
     const key = "art" + sp + "_" + rar;
