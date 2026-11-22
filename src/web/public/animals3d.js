@@ -158,9 +158,9 @@
     const P = [];
     P.push(S([0.42, 0.28, 0.5], [0, 0.34, 0], o.c), S([0.3, 0.12, 0.36], [0, 0.55, 0], o.c2 || o.c));
     P.push(S([0.38, 0.1, 0.46], [0, 0.2, 0], "#c9b87a"));
-    P.push(S([0.15, 0.14, 0.17], [0, 0.34, 0.62], "#7fb06a"), ...eyes(0.4, 0.72, 0.07, 0.03));
-    [[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach((l, i) => P.push(Y([0.08, 0.16, 0.08], [l[0] * 0.3, 0.08, l[1] * 0.32], "#7fb06a", { pv: [l[0] * 0.3, 0.16, l[1] * 0.32], an: "leg", ph: i % 3 ? 3.14 : 0 })));
-    P.push(C([0.06, 0.14, 0.06], [0, 0.3, -0.55], "#7fb06a", { r: [-1.57, 0, 0] }));
+    P.push(S([0.15, 0.14, 0.17], [0, 0.34, 0.62], (o.sk || "#7fb06a")), ...eyes(0.4, 0.72, 0.07, 0.03));
+    [[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach((l, i) => P.push(Y([0.08, 0.16, 0.08], [l[0] * 0.3, 0.08, l[1] * 0.32], (o.sk || "#7fb06a"), { pv: [l[0] * 0.3, 0.16, l[1] * 0.32], an: "leg", ph: i % 3 ? 3.14 : 0 })));
+    P.push(C([0.06, 0.14, 0.06], [0, 0.3, -0.55], (o.sk || "#7fb06a"), { r: [-1.57, 0, 0] }));
     return P;
   }
   function frog(o) {
@@ -228,9 +228,17 @@
     P.push(...eyes(0.7, 0.2, 0.1, 0.04));
     return P;
   }
+  // فينيق الأبد: طائر كوني بنفسجي بجناحين واسعين وذيل لهب وتاج نجوم (كان كرة مذنّب لا تشبه حيوانًا)
   function comet(o) {
-    const P = bird({ c: "#ff9a3a", c2: "#ffd24d", tail: "flame", ww: 1.2, crest: "#ff4a4a", beak: "#ffd24d", bs: 1.05 });
-    P.push(S([0.16, 0.16, 0.16], [0, 1.25, -0.2], "#fff6a8", { hi: 1 }));
+    const P = bird({ c: "#5a3ad0", c2: "#c9a8ff", wc: "#3a7ae0", tail: "flame", ww: 1.8, crest: "#8ae0ff", beak: "#ffd24d", bs: 1.1, leg: 0.2, eyeC: "#8ae0ff" });
+    [1, -1].forEach(sx => P.push(S([0.045, 0.045, 0.045], [sx * 0.62, 0.95, -0.05], "#fff6a8", { hi: 1 }), S([0.04, 0.04, 0.04], [sx * 0.16, 1.28, 0.1], "#fff6a8", { hi: 1 })));
+    return P;
+  }
+  // حارس الزمن: سلحفاة ذهبية عتيقة تحمل ساعة رملية على ظهرها (كانت ساعة رملية بعينين)
+  function guardian(o) {
+    const P = turtle({ c: "#b98a3a", c2: "#ffd24d", sk: "#d9b25a" });
+    P.push(Y([0.12, 0.03, 0.12], [0, 0.66, 0], "#fff1b0"), Y([0.12, 0.03, 0.12], [0, 1.0, 0], "#fff1b0"));
+    P.push(C([0.1, 0.16, 0.1], [0, 0.76, 0], "#bfe6ff"), C([0.1, 0.16, 0.1], [0, 0.91, 0], "#bfe6ff", { r: [3.14, 0, 0] }), S([0.035, 0.035, 0.035], [0, 0.71, 0], "#ffd24d", { hi: 1 }));
     return P;
   }
 
@@ -334,13 +342,23 @@
     53: () => squid({ c: "#2a2a7a", c2: "#5a4ac0", n: 10, tc: "#4a3aa8", eyeC: "#8ae0ff", stars: 1 }),
     54: () => dragon({ c: "#4a2a9a", c2: "#8a5ae0", wc: "#2a6ac0", back: "#8ae0ff", belly: 1 }),
     55: () => quad({ c: "#aec8e8", c2: WH, belly: 1, ear: "point", antler: "#8ae0ff", tail: "fluff", leg: 1.8, l: 1.0, neck: 0.25, hs: 0.85, sn: 1.2, w: 0.85, ec: "#8ab0d8" }),
-    56: () => hourglass({}),
+    56: () => guardian({}),
     57: () => comet({}),
-    58: () => bird({ c: "#f4f0e8", c2: "#f4f0e8", comb: 1, beak: "#f2b83a", beakT: "hook", tail: "long", tc: "#d8d0c0", wc: "#e8e0d0", leg: 0.22, bs: 1.0 })
+    58: () => bird({ c: "#f4f0e8", c2: "#f4f0e8", comb: 1, beak: "#f2b83a", beakT: "hook", tail: "long", tc: "#d8d0c0", wc: "#e8e0d0", leg: 0.22, bs: 1.0 }),
+    59: () => dragon({ c: "#bfe6ff", c2: WH, wc: "#7ac0f0", back: "#8ae0ff", belly: 1 }),
+    60: () => quad({ c: "#c8d8ec", c2: WH, belly: 1, ear: "point", tail: "bushy", tip: "#8ad0ff", leg: 1.05, l: 1.15, w: 1.05, hs: 1.05, sn: 1.3, lc: "#9fb6d0" }),
+    61: () => quad({ c: "#e8f2ff", c2: WH, belly: 1, ear: "point", ec: "#8ab0d8", tail: "bushy", tip: "#8ad0ff", leg: 0.9, hs: 1.05, sn: 1.3, lc: "#8ab0d8" }),
+    62: () => quad({ c: "#f0f0ff", c2: WH, ear: "long", tail: "fluff", leg: 0.8, l: 0.85, hs: 1.0, sn: 0.6 }),
+    63: () => quad({ c: "#25232e", c2: "#3a3646", ear: "point", tail: "up", leg: 0.9, l: 0.95, hs: 1.05, sn: 0.6, snc: "#3a3646" }),
+    64: () => quad({ c: WH, c2: WH, hc: "#4a4a50", ec: "#4a4a50", ear: "floppy", tail: "fluff", leg: 0.8, l: 1.0, w: 1.35, h: 1.35, hs: 0.95, sn: 0.8, snc: "#4a4a50", lc: "#4a4a50" }),
+    65: () => quad({ c: "#5a2a1a", c2: "#ff7a2a", ear: "round", horn: "bull", tail: "thin", hump: "#5a2a1a", back: "#ff7a1a", leg: 0.85, l: 1.2, w: 1.35, h: 1.35, hs: 1.05, sn: 0.8 }),
+    66: () => fish({ c: "#6a9ad0", c2: WH, k: 1.5, fat: 0.9, flukes: 1, fin: 0.8 }),
+    67: () => squid({ c: "#ff9ad8", c2: "#ffc8ec", n: 12, tc: "#ff7ac8", eyeC: "#ffffff", stars: 1 }),
+    68: () => dragon({ c: "#3a9a4a", c2: "#8ad05a", wc: "#2a7a3a", back: "#b05ae0", belly: 1 })
   };
-  const HOP = { 3: 1, 4: 1, 5: 1, 41: 1, 38: 0 };   // أنواع تقفز بدل المشي
+  const HOP = { 3: 1, 4: 1, 5: 1, 41: 1, 62: 1, 38: 0 };   // أنواع تقفز بدل المشي
   const cache = {};
-  const FLY = { 6: 1.3, 11: 1.5, 15: 1.9, 22: 3.2, 33: 3.4, 39: 2.5, 43: 1.1, 44: 2.1, 57: 3.5, 56: 0.6, 37: 0.4, 53: 1.0 };   // ارتفاع التحليق عن الأرض
+  const FLY = { 6: 1.3, 11: 1.5, 15: 1.9, 22: 3.2, 33: 3.4, 39: 2.5, 43: 1.1, 44: 2.1, 57: 3.5, 56: 0.5, 37: 0.4, 53: 1.0, 67: 0.8 };   // ارتفاع التحليق عن الأرض
   window.AN3D = {
     has: id => !!T[id],
     fly: id => FLY[id] || 0,
