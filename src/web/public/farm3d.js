@@ -1132,12 +1132,12 @@ async function farmMap(cx, cy, sel) {
   view.innerHTML = `<button class="btn sec sm" id="fBack" style="margin-bottom:8px">↩️ رجوع</button><h2>🗺️ العالم المشترك</h2>
     <div class="dim" style="font-size:12px;margin:4px 0 8px">مزرعتك في (${j.loc[0]}, ${j.loc[1]}). ${hrs > 0 ? "⏳ الانتقال متاح بعد " + hrs + " ساعة." : "✅ يمكنك الانتقال الآن."} قفزة الانتقال حتى ${j.hop} خانات (${j.hopAlly} مع الحلفاء)، وبين غير الحلفاء يلزم فراغ خانة واحدة على الأقل.</div>
     <div class="row" style="gap:6px;margin-bottom:6px"><button class="btn sec sm" data-m="-1,0">⬅️</button><button class="btn sec sm" data-m="0,-1">⬆️</button><button class="btn sec sm" data-m="0,1">⬇️</button><button class="btn sec sm" data-m="1,0">➡️</button><button class="btn sec sm" id="mHome">🏡</button></div>
-    <div class="mgrid" style="display:grid;grid-template-columns:repeat(${N},1fr);gap:2px;direction:ltr">${cells}</div>
+    <div class="mgrid" style="display:grid;grid-template-columns:repeat(${N},minmax(0,1fr));gap:2px;direction:ltr;width:100%;max-width:100%">${cells}</div>
     <div class="card" style="margin-top:8px;min-height:40px">${act1 || '<span class="dim">اضغط على خانة أو لاعب.</span>'}</div>
     ${inv ? `<div class="card" style="margin-top:8px">${inv}</div>` : ""}
     <div class="card" style="margin-top:8px"><b>🏴‍☠️ الغارات</b><div class="dim" style="font-size:12px;margin:4px 0">لك ${j.raidSt.left} محاولات اليوم${j.raidSt.shield ? " · 🛡️ درعك " + Math.ceil(j.raidSt.shield / 3600000) + " س" : ""}. زر «غارة» في حظيرة أي لاعب (ليس حليفًا). تُسرق بيضة وبعض الموارد النادرة فقط، لا حيوانات ولا عملات.</div>${j.raids.length ? j.raids.map(r => `<div class="dim" style="font-size:12px">${r.ok ? "🏴‍☠️" : "🛡️"} ${esc(r.n)} ${r.ok ? "سرق منك: " + esc(r.loot || "لا شيء") : "فشل في الغارة عليك"}</div>`).join("") : `<div class="dim" style="font-size:12px">لا غارات عليك حتى الآن.</div>`}</div>
     <div class="card" style="margin-top:8px">${alBox}</div>
-    <style>.mc{aspect-ratio:1;border:0;border-radius:6px;background:#2d5a2f;font-size:18px;padding:0}.mc.pl{background:#6b3a3a}.mc.al{background:#2f5f7a}.mc.me{background:#7c3aed}.mc.on{outline:2px solid #ffd24d}</style>`;
+    <style>.mc{aspect-ratio:1;min-width:0;overflow:hidden;border:0;border-radius:5px;background:#2d5a2f;font-size:clamp(9px,${Math.floor(300 / N)}px,18px);line-height:1;padding:0;box-shadow:none}.mc::after{display:none}.mc.pl{background:#6b3a3a}.mc.al{background:#2f5f7a}.mc.me{background:#7c3aed}.mc.on{outline:2px solid #ffd24d}</style>`;
   const reload = (x, y, s) => farmMap(x, y, s);
   $("#fBack").onclick = () => { buzz(); go("pen"); };
   $("#mHome").onclick = () => reload(j.loc[0], j.loc[1], null);
