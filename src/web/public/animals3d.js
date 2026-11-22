@@ -13,12 +13,12 @@
 
   // ---------- ذوات الأربع ----------
   function quad(o) {
-    const P = [], L = o.leg == null ? 1 : o.leg, legH = 0.34 * L, bw = o.w || 1, bh = o.h || 1, bl = o.l || 1, hs = o.hs || 1;
-    const by = legH + 0.27 * bh, neck = o.neck || 0, c = o.c, c2 = o.c2 || o.c;
-    P.push(S([0.28 * bw, 0.27 * bh, 0.5 * bl], [0, by, 0], c), S([0.27 * bw, 0.26 * bh, 0.3 * bl], [0, by + 0.01, -0.24 * bl], c), S([0.27 * bw, 0.27 * bh, 0.3 * bl], [0, by + 0.02, 0.24 * bl], c));
-    if (!o.neck) P.push(S([0.15 * hs, 0.15 * hs, 0.17 * hs], [0, by + 0.1 * bh, 0.38 * bl], o.hc || c));
-    if (o.belly) P.push(S([0.24 * bw, 0.2 * bh, 0.42 * bl], [0, by - 0.08, 0.02], c2));
-    const hy = by + 0.16 * bh + neck, hz = 0.46 * bl + 0.1 + (neck ? 0.06 : 0);
+    const P = [], L = o.leg == null ? 1 : o.leg, legH = 0.24 * L, bw = o.w || 1, bh = o.h || 1, bl = o.l || 1, hs = (o.hs || 1) * 1.3;   // رأس أكبر وأرجل أقصر وأسمك: شكل لطيف بدل «الحشرة»
+    const by = legH + 0.29 * bh, neck = o.neck || 0, c = o.c, c2 = o.c2 || o.c;
+    P.push(S([0.34 * bw, 0.3 * bh, 0.56 * bl], [0, by, 0], c), S([0.32 * bw, 0.29 * bh, 0.34 * bl], [0, by - 0.005, -0.18 * bl], c), S([0.31 * bw, 0.3 * bh, 0.34 * bl], [0, by + 0.01, 0.18 * bl], c));   // جسم واحد متصل بدل ثلاث كرات متفاوتة (كانت تشبه جسم الحشرة)
+    if (!o.neck) P.push(S([0.14 * hs, 0.14 * hs, 0.15 * hs], [0, by + 0.08 * bh, 0.36 * bl], o.hc || c));
+    if (o.belly) P.push(S([0.3 * bw, 0.22 * bh, 0.5 * bl], [0, by - 0.07, 0.03], c2));
+    const hy = by + 0.12 * bh + neck, hz = 0.44 * bl + 0.04 * hs + (neck ? 0.06 : 0);
     if (neck) P.push(Y([0.1 * hs, neck + 0.22, 0.1 * hs], [0, by + 0.08 + neck / 2, 0.4 * bl], c, { r: [0.35, 0, 0] }));
     P.push(S([0.2 * hs, 0.19 * hs, 0.21 * hs], [0, hy, hz], o.hc || c));
     const sn = o.sn == null ? 1 : o.sn;
@@ -59,27 +59,27 @@
     else if (o.tail === "croc") P.push(Y([0.1, 0.9, 0.1], [0, ty - 0.08, tz - 0.38], tc, { r: [-1.45, 0, 0], pv: [0, ty, tz], an: "tail" }));
     else if (o.tail === "horse") P.push(S([0.07, 0.3, 0.07], [0, ty - 0.12, tz - 0.12], o.mc || tc, { r: [0.25, 0, 0], pv: [0, ty, tz], an: "tail" }));
     // الأرجل
-    const lw = o.lw || 0.075, lc = o.lc || c, lz = 0.3 * bl, lx = 0.17 * bw;
-    [[1, 1, 0], [-1, 1, 3.14], [1, -1, 3.14], [-1, -1, 0]].forEach(l => P.push(Y([lw, legH, lw], [l[0] * lx, legH / 2, l[1] * lz], lc, { pv: [l[0] * lx, legH, l[1] * lz], an: "leg", ph: l[2] }), S([lw * 1.35, 0.045, lw * 1.8], [l[0] * lx, 0.03, l[1] * lz + 0.035], o.fc || lc, { pv: [l[0] * lx, legH, l[1] * lz], an: "leg", ph: l[2] })));
+    const lw = o.lw || 0.115, lc = o.lc || c, lz = 0.27 * bl, lx = 0.2 * bw;
+    [[1, 1, 0], [-1, 1, 3.14], [1, -1, 3.14], [-1, -1, 0]].forEach(l => P.push(Y([lw, legH, lw], [l[0] * lx, legH / 2, l[1] * lz], lc, { pv: [l[0] * lx, legH, l[1] * lz], an: "leg", ph: l[2] }), S([lw * 1.25, 0.06, lw * 1.7], [l[0] * lx, 0.04, l[1] * lz + 0.03], o.fc || lc, { pv: [l[0] * lx, legH, l[1] * lz], an: "leg", ph: l[2] })));
     return P;
   }
 
   // ---------- الطيور ----------
   function bird(o) {
-    const P = [], up = o.up, c = o.c, c2 = o.c2 || c, legH = o.leg == null ? 0.22 : o.leg, sz = o.bs || 1;
+    const P = [], up = o.up, c = o.c, c2 = o.c2 || c, legH = o.leg == null ? 0.16 : o.leg, sz = o.bs || 1;
     const by = legH + 0.3 * sz;
     P.push(S([0.28 * sz, 0.3 * sz * (up ? 1.25 : 1), 0.32 * sz], [0, by, 0], c, up ? { r: [0.15, 0, 0] } : {}));
     P.push(S([0.2 * sz, 0.2 * sz * (up ? 1.2 : 1), 0.2 * sz], [0, by - 0.05, 0.08 * sz], c2));
     const neck = o.neck || 0, hy = by + 0.3 * sz * (up ? 1.2 : 0.7) + neck, hz = up ? 0.04 : 0.2 * sz;
     if (neck) P.push(Y([0.07, neck + 0.1, 0.07], [0, by + 0.18 + neck / 2, 0.12 * sz], c));
-    P.push(S([0.19 * sz, 0.18 * sz, 0.19 * sz], [0, hy, hz], o.hc || c));
-    if (o.face) P.push(S([0.14 * sz, 0.12 * sz, 0.06], [0, hy, hz + 0.14 * sz], o.face));
+    P.push(S([0.25 * sz, 0.24 * sz, 0.24 * sz], [0, hy, hz], o.hc || c));
+    if (o.face) P.push(S([0.14 * sz, 0.12 * sz, 0.06], [0, hy, hz + 0.2 * sz], o.face));
     const bk = o.beak || OR;
-    if (o.beakT === "flat") P.push(B([0.14, 0.04, 0.2], [0, hy - 0.04, hz + 0.26 * sz], bk));
-    else if (o.beakT === "hook") P.push(C([0.06, 0.2, 0.06], [0, hy - 0.04, hz + 0.24 * sz], bk, { r: [1.9, 0, 0] }));
-    else P.push(C([0.055, 0.17, 0.055], [0, hy - 0.02, hz + 0.24 * sz], bk, { r: [1.57, 0, 0] }));
-    P.push(...eyes(hy + 0.04 * sz, hz + 0.13 * sz, 0.085 * sz, 0.032, o.eyeC ? { c: o.eyeC } : {}));
-    if (o.owl) P.push(S([0.07, 0.07, 0.03], [0.07, hy + 0.03, hz + 0.17], "#ffe27a", { hi: 1 }), S([0.07, 0.07, 0.03], [-0.07, hy + 0.03, hz + 0.17], "#ffe27a", { hi: 1 }), C([0.05, 0.12, 0.05], [0.12, hy + 0.2, hz], c), C([0.05, 0.12, 0.05], [-0.12, hy + 0.2, hz], c));
+    if (o.beakT === "flat") P.push(B([0.14, 0.04, 0.2], [0, hy - 0.04, hz + 0.32 * sz], bk));
+    else if (o.beakT === "hook") P.push(C([0.06, 0.2, 0.06], [0, hy - 0.04, hz + 0.3 * sz], bk, { r: [1.9, 0, 0] }));
+    else P.push(C([0.055, 0.17, 0.055], [0, hy - 0.02, hz + 0.3 * sz], bk, { r: [1.57, 0, 0] }));
+    P.push(...eyes(hy + 0.05 * sz, hz + 0.19 * sz, 0.1 * sz, 0.04, o.eyeC ? { c: o.eyeC } : {}));
+    if (o.owl) P.push(S([0.07, 0.07, 0.03], [0.08, hy + 0.04, hz + 0.23], "#ffe27a", { hi: 1 }), S([0.07, 0.07, 0.03], [-0.08, hy + 0.04, hz + 0.23], "#ffe27a", { hi: 1 }), C([0.05, 0.12, 0.05], [0.12, hy + 0.2, hz], c), C([0.05, 0.12, 0.05], [-0.12, hy + 0.2, hz], c));
     if (o.crest) P.push(C([0.05, 0.22, 0.05], [0, hy + 0.24 * sz, hz - 0.02], o.crest, { r: [-0.2, 0, 0] }), C([0.04, 0.16, 0.04], [0.05, hy + 0.2 * sz, hz - 0.04], o.crest, { r: [-0.2, 0, 0.3] }), C([0.04, 0.16, 0.04], [-0.05, hy + 0.2 * sz, hz - 0.04], o.crest, { r: [-0.2, 0, -0.3] }));
     if (o.comb) P.push(S([0.04, 0.09, 0.07], [0, hy + 0.2, hz + 0.02], "#e0302a"), S([0.03, 0.06, 0.03], [0, hy - 0.14, hz + 0.2], "#e0302a"));
     P.push(S([0.2 * sz, 0.16 * sz, 0.14 * sz], [0, by - 0.1, 0.24 * sz], c2, { hi: 1 }));
@@ -94,7 +94,7 @@
     else P.push(B([0.2, 0.04, 0.2], [0, by, -0.34 * sz], o.tc || c, { r: [0.4, 0, 0] }));
     const lc = o.lc || OR;
     if (up) [1, -1].forEach(sx => P.push(B([0.14, 0.04, 0.2], [sx * 0.1, 0.03, 0.06], lc, { pv: [sx * 0.1, 0.2, 0], an: "leg", ph: sx > 0 ? 0 : 3.14 })));
-    else [1, -1].forEach(sx => P.push(Y([0.03, legH, 0.03], [sx * 0.1, legH / 2, 0.02], lc, { pv: [sx * 0.1, legH, 0.02], an: "leg", ph: sx > 0 ? 0 : 3.14 })));
+    else [1, -1].forEach(sx => P.push(Y([0.05, legH, 0.05], [sx * 0.11, legH / 2, 0.02], lc, { pv: [sx * 0.1, legH, 0.02], an: "leg", ph: sx > 0 ? 0 : 3.14 })));
     return P;
   }
 
