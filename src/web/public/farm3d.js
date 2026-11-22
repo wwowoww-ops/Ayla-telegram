@@ -49,7 +49,12 @@ function loadThree() {
 }
 
 // ---------- أدوات ----------
-const qLow = () => { try { return localStorage.getItem("ayla_q") === "low"; } catch (e) { return false; } };
+const qLow = () => {
+  try { const v = localStorage.getItem("ayla_q"); if (v) return v === "low"; } catch (e) { /* لا شيء */ }
+  return (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || false;   // الأجهزة الضعيفة: جودة منخفضة تلقائيًا
+};
+const applyFx = () => document.documentElement.classList.toggle("lowfx", !!qLow());
+applyFx();
 const DECO_E = { tree: "🌳", flowers: "🌷", lamp: "🏮", bench: "🪑", tent: "⛺", fountain: "⛲", statue: "🗿", windmill: "🌬️" };
 // طقس ووقت اليوم من ساعة جهاز اللاعب: ليل وفجر ونهار، ومطر في بعض الأيام
 function weatherNow() {
@@ -447,7 +452,7 @@ function editPanel(F) {
   const un = $("#eaUndo"); if (un) un.onclick = () => { E.draft.pop(); editPanel(F); farmRedraw(F); };
   const cl = $("#eaClose"); if (cl) cl.onclick = () => editCommitDraft(F);
   el.querySelectorAll("[data-ps]").forEach(b => b.onclick = () => editPreset(F, b.dataset.ps));
-  $("#eaQ").onclick = () => { try { localStorage.setItem("ayla_q", qLow() ? "normal" : "low"); } catch (e) { /* لا شيء */ } buzz(); editPanel(F); if (F.r.quality) F.r.quality(); toast(qLow() ? "جودة منخفضة: أسرع على الأجهزة الضعيفة" : "جودة عادية"); };
+  $("#eaQ").onclick = () => { try { localStorage.setItem("ayla_q", qLow() ? "normal" : "low"); } catch (e) { /* لا شيء */ } buzz(); editPanel(F); if (F.r.quality) F.r.quality(); applyFx(); toast(qLow() ? "جودة منخفضة: أسرع على الأجهزة الضعيفة" : "جودة عادية"); };
   if (E.tool === "deco") decoShopLoad(F);
   $("#eaPow").onclick = () => { F.W.hidePow = !F.W.hidePow; saveWorld(F, { hidePow: F.W.hidePow }); buzz(); editPanel(F); toast(F.W.hidePow ? "🔒 لن يرى الزوّار قوة حيواناتك" : "👁️ سيرى الزوّار قوة حيواناتك"); };
   $("#eaUnpin").onclick = () => {

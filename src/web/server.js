@@ -273,9 +273,15 @@ function tooMany(id) {
     return h.n > 25;
 }
 
-function send(res, code, body, type) {
-    res.writeHead(code, { "Content-Type": type || "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
-    res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body));
+const zlib = require("zlib");
+function send(res, code, body, type, extra) {
+    let buf = typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body);
+    const h = Object.assign({ "Content-Type": type || "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" }, extra || {});
+    const ae = (res.__req && res.__req.headers["accept-encoding"]) || "";
+    if (/gzip/.test(ae) && buf.length > 1024 && !/image\//.test(h["Content-Type"])) { buf = zlib.gzipSync(buf, { level: 6 }); h["Content-Encoding"] = "gzip"; h["Vary"] = "Accept-Encoding"; }   // الحالة 68KB تصير ~9KB: مهم على الشبكات الضعيفة
+    h["Content-Length"] = Buffer.byteLength(buf);
+    res.writeHead(code, h);
+    res.end(buf);
 }
 
 function readBody(req) {
@@ -287,10 +293,16 @@ function readBody(req) {
     });
 }
 
+// ملفات ثابتة: مضغوطة ومخزّنة مؤقتًا في المتصفح مع ETag حتى لا تُحمَّل 250KB في كل فتحة
 function serveFile(res, file) {
-    fs.readFile(file, (err, data) => {
-        if (err) return send(res, 404, "not found", "text/plain");
-        send(res, 200, data, TYPES[path.extname(file)] || "application/octet-stream");
+    fs.stat(file, (e1, st) => {
+        if (e1 || !st.isFile()) return send(res, 404, "not found", "text/plain");
+        const etag = '"' + st.size.toString(36) + "-" + Math.floor(st.mtimeMs).toString(36) + '"';
+        if (res.__req && res.__req.headers["if-none-match"] === etag) { res.writeHead(304, { ETag: etag, "Cache-Control": "no-cache" }); return res.end(); }
+        fs.readFile(file, (err, data) => {
+            if (err) return send(res, 404, "not found", "text/plain");
+            send(res, 200, data, TYPES[path.extname(file)] || "application/octet-stream", { ETag: etag, "Cache-Control": "no-cache" });
+        });
     });
 }
 
@@ -298,6 +310,7 @@ function createServer(botToken, opts = {}) {
     const validate = opts.validate || validateInitData;
 
     return http.createServer(async (req, res) => {
+        res.__req = req;
         try {
             const url = req.url.split("?")[0];
 

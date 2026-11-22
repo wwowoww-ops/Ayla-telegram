@@ -117,9 +117,16 @@ async function frameFill(root) {
 }
 let frameTick = 0;
 setInterval(() => {
+  if (document.hidden) return;
   frameTick++;
-  document.querySelectorAll(".fa[data-fid] img").forEach(im => { const f = FRAME_CACHE[im.parentNode.dataset.fid]; if (f && f.uris.length > 1) im.src = f.uris[frameTick % f.uris.length]; });
-}, 140);
+  const low = document.documentElement.classList.contains("lowfx");
+  document.querySelectorAll(".fa[data-fid] img").forEach(im => {
+    const f = FRAME_CACHE[im.parentNode.dataset.fid]; if (!f || f.uris.length < 2) return;
+    const r = im.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;      // خارج الشاشة: لا تحريك
+    if (low && !im.closest("#top") && frameTick % 2) return;                                   // الأجهزة الضعيفة: نصف السرعة خارج الشريط العلوي
+    im.src = f.uris[frameTick % f.uris.length];
+  });
+}, 160);
 
 // ---------- صوت وجزيئات (إحساس اللعبة) ----------
 let AC = null;
@@ -158,12 +165,15 @@ document.addEventListener("pointerdown", e => {
 // ---------- الاتصال بالخادم ----------
 let S = null, stamp = 0, busy = false;
 async function act(type, args) {
+  const ac = typeof AbortController !== "undefined" ? new AbortController() : null, to = ac ? setTimeout(() => ac.abort(), 20000) : 0;   // لا نترك الطلب معلّقًا للأبد على الشبكة الضعيفة
   try {
     const r = await fetch("/api/act", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Init-Data": tg ? tg.initData : "" },
-      body: JSON.stringify({ type, args: args || {} })
+      body: JSON.stringify({ type, args: args || {} }),
+      signal: ac ? ac.signal : undefined
     });
+    clearTimeout(to);
     const j = await r.json();
     if (j.state) { S = j.state; stamp = Date.now(); }
     const notes = j.notes || [];
@@ -172,15 +182,16 @@ async function act(type, args) {
     if (r.status === 401) fatal(j.msg);
     return j;
   } catch (e) {
-    return { ok: false, msg: "تعذر الاتصال. تحقق من الإنترنت." };
+    clearTimeout(to);
+    return { ok: false, msg: e && e.name === "AbortError" ? "الشبكة بطيئة، أعد المحاولة." : "تعذر الاتصال. تحقق من الإنترنت." };
   }
 }
 // ينفذ أمرًا ويعرض رسالته ثم يحدّث الواجهة
 async function run(type, args, after) {
-  if (busy) return null;
+  if (busy) { toast("⏳ لحظة، العملية السابقة لم تنتهِ بعد"); return null; }
   busy = true;
-  const j = await act(type, args);
-  busy = false;
+  let j;
+  try { j = await act(type, args); } finally { busy = false; }
   if (j.msg) toast(j.msg, !j.ok);
   if (j.ok && type === "collect") { floatGain((j.msg.match(/[\d.,]+\s?[A-Za-z]*\s?🪙|🪙\s?[\d.,]+\s?[A-Za-z]*/) || ["+🪙"])[0], lastTap[0], lastTap[1]); sfx("big"); sparkle(lastTap[0], lastTap[1], 10, ["🪙", "✨"]); }
   update();
