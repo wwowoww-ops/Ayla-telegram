@@ -1,4 +1,5 @@
 
+const IMGS = (() => { try { return new Set(require("fs").readdirSync(require("path").join(__dirname, "..", "..", "images")).map(f => parseInt(f, 10)).filter(Boolean)); } catch (e) { return new Set(); } })();   // الأنواع التي لها رسمة
 // يحوّل بيانات اللاعب إلى شكل مناسب للواجهة (أرقام جاهزة بلا منطق في الصفحة)
 const D = require("../game/data");
 const E = require("../game/engine");
@@ -47,7 +48,7 @@ function eggView(egg, now, P) {   // warm/warmWait: تدفئة البيض
 function meta(P) {
     return {
         elements: D.ELEMENTS, beats: D.BEATS, beatsAll: D.BEATS_ALL,
-        species: Object.values(D.SPECIES).map(x => ({ id: x.id, n: x.n, e: x.e, r: x.r, els: x.els })),
+        species: Object.values(D.SPECIES).map(x => ({ id: x.id, n: x.n, e: x.e, r: x.r, els: x.els, img: IMGS.has(x.id) ? 1 : 0 })),
         rarities: D.RARITIES.map(r => ({ n: r.n, e: r.e })),
         novItems: Object.entries(X.ITEMS).map(([id, it]) => ({ id, n: it.n, e: it.e, price: it.price, d: it.d })), warmMax: X.warmMax(P),
         zones: D.ZONES.map((z, i) => ({ i, name: z.n, power: z.power, coins: z.coins, els: z.els, elite: z.elite || 0 })),

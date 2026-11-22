@@ -53,6 +53,7 @@ const qLow = () => {
   try { const v = localStorage.getItem("ayla_q"); if (v) return v === "low"; } catch (e) { /* لا شيء */ }
   return (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || false;   // الأجهزة الضعيفة: جودة منخفضة تلقائيًا
 };
+const artOnG = () => { try { return localStorage.getItem("ayla_art") !== "0"; } catch (e) { return true; } };
 const applyFx = () => document.documentElement.classList.toggle("lowfx", !!qLow());
 applyFx();
 const DECO_E = { tree: "🌳", flowers: "🌷", lamp: "🏮", bench: "🪑", tent: "⛺", fountain: "⛲", statue: "🗿", windmill: "🌬️" };
@@ -440,6 +441,7 @@ function editPanel(F) {
     ${E.tool === "draw" ? `<div class="row" style="gap:6px;margin-bottom:8px"><select id="eaPen" class="grow" style="padding:8px;border-radius:10px;background:var(--card2);color:inherit;border:1px solid var(--line)">${pensOpts}</select><button class="btn sm" id="eaUndo">↩️ تراجع</button><button class="btn sm" id="eaClose" ${E.draft.length < 3 ? "disabled" : ""}>⭕ إغلاق (${E.draft.length})</button></div><div class="dim" style="font-size:12px;margin:2px 0 6px">أو اختر شكلًا جاهزًا للحظيرة المحددة:</div><div class="scroll-x" style="margin-bottom:8px;display:flex;gap:6px;overflow-x:auto">${PRESETS.map(q => `<button class="btn sec sm" style="flex:none;white-space:nowrap" data-ps="${q[0]}">${q[1]}</button>`).join("")}</div>` : ""}
     ${E.tool === "deco" ? `<div id="decoShop" class="scroll-x" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:8px"><span class="dim">جارٍ تحميل المتجر…</span></div>` : ""}
     <div class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="btn sec sm" id="eaArt">${artOnG() ? "🎨 الشكل: رسومات" : "🧊 الشكل: مجسّمات"}</button>
       <button class="btn sec sm" id="eaQ">${qLow() ? "🎚️ الجودة: منخفضة" : "🎚️ الجودة: عادية"}</button>
       <button class="btn sec sm" id="eaPow">${F.W.hidePow ? "🔒 قوة الحيوانات مخفية عن الزوّار" : "👁️ قوة الحيوانات ظاهرة للزوّار"}</button>
       <button class="btn sec sm" id="eaUnpin">🔓 فكّ تثبيت الحيوانات</button>
@@ -453,6 +455,7 @@ function editPanel(F) {
   const cl = $("#eaClose"); if (cl) cl.onclick = () => editCommitDraft(F);
   el.querySelectorAll("[data-ps]").forEach(b => b.onclick = () => editPreset(F, b.dataset.ps));
   $("#eaQ").onclick = () => { try { localStorage.setItem("ayla_q", qLow() ? "normal" : "low"); } catch (e) { /* لا شيء */ } buzz(); editPanel(F); if (F.r.quality) F.r.quality(); applyFx(); toast(qLow() ? "جودة منخفضة: أسرع على الأجهزة الضعيفة" : "جودة عادية"); };
+  $("#eaArt").onclick = () => { try { localStorage.setItem("ayla_art", artOnG() ? "0" : "1"); } catch (e) { /* لا شيء */ } buzz(); toast("جارٍ تطبيق الشكل…"); mountOwn(); };
   if (E.tool === "deco") decoShopLoad(F);
   $("#eaPow").onclick = () => { F.W.hidePow = !F.W.hidePow; saveWorld(F, { hidePow: F.W.hidePow }); buzz(); editPanel(F); toast(F.W.hidePow ? "🔒 لن يرى الزوّار قوة حيواناتك" : "👁️ سيرى الزوّار قوة حيواناتك"); };
   $("#eaUnpin").onclick = () => {
@@ -780,7 +783,24 @@ function farm3dInit(F) {
   const GEO = {}, MATS = {};
   const geo = k => GEO[k] || (GEO[k] = (() => { const g = k === "s" ? new T.SphereGeometry(1, 10, 8) : k === "b" ? new T.BoxGeometry(1, 1, 1) : k === "c" ? new T.ConeGeometry(1, 1, 8) : new T.CylinderGeometry(1, 1, 1, 8); g.userData = { shared: true }; return g; })());
   const smat = col => MATS[col] || (MATS[col] = (() => { const m = new T.MeshLambertMaterial({ color: new T.Color(col), flatShading: true }); m.userData = { shared: true }; return m; })());
-  function mkAnimal(p, hi) { return mkParts(window.AN3D && AN3D.parts(p.sp), Object.assign({ kind: "pet" }, p), hi); }
+  // وضع الرسومات: دائرة ملساء بصورة النوع (رسمتك) تحيط بها حلقة لون الندرة، بدل المجسّم المركّب من أشكال
+  const artOn = () => { try { return localStorage.getItem("ayla_art") !== "0"; } catch (e) { return true; } };
+  const hasArt = sp => !!(S && S.meta && S.meta.species.some(x => x.id === sp && x.img));
+  function artTex(sp, rar, emoji) {
+    const key = "art" + sp + "_" + rar;
+    if (textures.has(key)) return textures.get(key);
+    const cv = document.createElement("canvas"); cv.width = cv.height = 256; const g = cv.getContext("2d");
+    const col = RAR_COLOR[rar] || "#ffffff", tex = new T.CanvasTexture(cv);
+    const ring = () => { g.lineWidth = 14; g.strokeStyle = col; g.beginPath(); g.arc(128, 128, 118, 0, 6.2832); g.stroke(); g.lineWidth = 4; g.strokeStyle = "rgba(255,255,255,.85)"; g.beginPath(); g.arc(128, 128, 109, 0, 6.2832); g.stroke(); };
+    g.fillStyle = "#2a2050"; g.beginPath(); g.arc(128, 128, 118, 0, 6.2832); g.fill(); g.font = "130px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(emoji || "🐾", 128, 138); ring();
+    const im = new Image();
+    im.onload = () => { g.clearRect(0, 0, 256, 256); g.save(); g.beginPath(); g.arc(128, 128, 114, 0, 6.2832); g.clip(); g.drawImage(im, 8, 8, 240, 240); g.restore(); ring(); tex.needsUpdate = true; };
+    im.src = "/img/" + sp;
+    textures.set(key, tex); return tex;
+  }
+  function mkAnimal(p, hi) {
+    if (artOn() && hasArt(p.sp)) return null;     // يُرسم كدائرة مصوّرة (المسار الاحتياطي للأسفل)
+    return mkParts(window.AN3D && AN3D.parts(p.sp), Object.assign({ kind: "pet" }, p), hi); }
   function mkParts(parts, data, hi) {
     if (!parts) return null;
     const g = new T.Group(), anim = [];
@@ -936,7 +956,7 @@ function farm3dInit(F) {
       p.hd = p.hd || Math.random() * 6.28; p.anim = null; p.fx = null; p.glow = null; p.crown = null;
       const an = mkAnimal(p, p.main || L.pets.length <= (qLow() ? 10 : 28));
       if (an) { if (p.main) addFx(p, an.g); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar) * (L.pets.length > 40 ? 0.88 : 1); petG.add(an.g); petPick.push(an.g); }
-      else { const sp = mkSprite(emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
+      else { const art = artOn() && hasArt(p.sp); const sp = mkSprite(art ? artTex(p.sp, p.rar, p.emoji) : emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
       const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
       const sh = new T.Mesh(shadowGeo, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })); sh.rotation.x = -Math.PI / 2; petG.add(sh); p.sh = sh;
     });
