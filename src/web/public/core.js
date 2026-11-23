@@ -278,3 +278,30 @@ setInterval(() => {
 setInterval(async () => { if (!busy && !document.hidden && $("#overlay").classList.contains("hidden")) { await act("state"); update(); } }, 60000);
 document.addEventListener("visibilitychange", async () => { if (!document.hidden && !busy) { await act("state"); update(); } });
 const ts = ms => Date.now() + ms;   // وقت مطلق من مدة متبقية
+// ===== بيض برسم يدلّ على فئته (نفس ألوان نقوش المزرعة ثلاثية الأبعاد) =====
+const EGG_ART = [
+  { c: ["#fff6de", "#e3d2a8"], dot: "#9a7a4a" }, { c: ["#e8a15a", "#a8601e"], band: "#f7d3a0" }, { c: ["#f2f5f9", "#aab4c4"], band: "#ffffff", shine: 1 },
+  { c: ["#ffe38a", "#e0a020"], band: "#fff6c0", shine: 1 }, { c: ["#a066f0", "#5a22b0"], crown: "#ffd24d" }, { c: ["#3a3a8a", "#12123a"], dot: "#ffffa8" },
+  { c: ["#2a2438", "#07050c"], ring: "#b07aff" }, { c: ["#7a4ae0", "#2a1068"], dot: "#6af0ff", dot2: "#ff7ad8" }, { c: ["#fffbe0", "#ffe27a"], ring: "#ffffff", halo: 1 }
+];
+const _eggSvg = {};
+function eggSvg(tier, px) {
+  const t = Math.max(0, Math.min(EGG_ART.length - 1, tier | 0)), k = t + ":" + px;
+  if (_eggSvg[k]) return _eggSvg[k];
+  const L = EGG_ART[t], id = "eg" + t + "_" + px;
+  const dots = L.dot ? [[40, 62, 3.2], [58, 50, 2.6], [66, 74, 3.4], [46, 82, 2.4], [52, 36, 2.2], [34, 46, 2.4]].map((d, i) => `<circle cx="${d[0]}" cy="${d[1]}" r="${d[2]}" fill="${i % 2 && L.dot2 ? L.dot2 : L.dot}"/>`).join("") : "";
+  const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 100 100"><defs><radialGradient id="${id}" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="${L.c[0]}"/><stop offset="1" stop-color="${L.c[1]}"/></radialGradient></defs>`
+    + (L.halo ? `<circle cx="50" cy="55" r="44" fill="#fff6a8" opacity=".35"/>` : "")
+    + `<ellipse cx="50" cy="92" rx="26" ry="5" fill="#000" opacity=".25"/><path d="M50 8C72 8 84 44 84 64c0 18-15 28-34 28S16 82 16 64C16 44 28 8 50 8Z" fill="url(#${id})" stroke="rgba(0,0,0,.45)" stroke-width="2.5"/>`
+    + (L.band ? `<path d="M17 62Q50 76 83 62L84 70Q50 84 16 70Z" fill="${L.band}" opacity=".9"/>` : "") + dots
+    + (L.ring ? `<ellipse cx="50" cy="60" rx="40" ry="9" fill="none" stroke="${L.ring}" stroke-width="3" transform="rotate(-14 50 60)"/>` : "")
+    + (L.crown ? `<path d="M36 22l5 8 9-12 9 12 5-8 2 14H34Z" fill="${L.crown}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"/>` : "")
+    + (L.shine ? `<ellipse cx="36" cy="36" rx="7" ry="13" fill="#fff" opacity=".55" transform="rotate(20 36 36)"/>` : `<ellipse cx="37" cy="34" rx="5" ry="10" fill="#fff" opacity=".28" transform="rotate(20 37 34)"/>`)
+    + `</svg>`;
+  return (_eggSvg[k] = s);
+}
+const _eggImg = {};
+function eggImage(tier, px) {          // لرسم الكانفس
+  const k = tier + ":" + px; if (_eggImg[k]) return _eggImg[k];
+  const im = new Image(); im.src = "data:image/svg+xml;utf8," + encodeURIComponent(eggSvg(tier, px)); return (_eggImg[k] = im);
+}

@@ -64,7 +64,7 @@ function nurDraw() {
       g.addColorStop(0, "rgba(255,209,102,.8)"); g.addColorStop(1, "rgba(255,209,102,0)");
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, 66, 0, 7); ctx.fill();
     }
-    ctx.save(); ctx.translate(c.x, c.y + 14); ctx.rotate(rot); ctx.font = "58px serif"; ctx.fillText(egg.emoji, 0, -10); ctx.restore();
+    ctx.save(); ctx.translate(c.x, c.y + 14); ctx.rotate(rot); { const im = eggImage(egg.tier, 72); if (im.complete && im.naturalWidth) ctx.drawImage(im, -36, -52, 72, 72); else { ctx.font = "58px serif"; ctx.fillText(egg.emoji, 0, -10); } } ctx.restore();
     ctx.font = "bold 12px system-ui"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.fillStyle = ready ? "#ffd166" : "#fff";
     const txt = ready ? "اضغط للفقس!" : dur(left);
     ctx.strokeText(txt, c.x, c.y + 52); ctx.fillText(txt, c.x, c.y + 52);
@@ -111,7 +111,7 @@ function eggSheet(id) {
   const wait = egg.warmWait - t, can = left > 0 && honey > 0 && egg.warm < max && wait <= 0;
   const why = left <= 0 ? "البيضة جاهزة" : egg.warm >= max ? "وصلت أقصى تدفئة" : honey < 1 ? "لا عسل عندك، اشتره من النوادر" : wait > 0 ? "انتظر " + dur(wait) + " قبل التدفئة التالية" : "";
   $("#sheet").innerHTML = `<div class="panel">
-    <div class="row"><div style="font-size:60px">${egg.emoji}</div><div class="grow"><div style="font-size:19px;font-weight:800">${esc(egg.name)}${egg.bred ? " 🧬" : ""}</div>
+    <div class="row"><div style="line-height:0">${eggSvg(egg.tier, 64)}</div><div class="grow"><div style="font-size:19px;font-weight:800">${esc(egg.name)}${egg.bred ? " 🧬" : ""}</div>
       <div class="dim">⏳ ${left > 0 ? "تفقس بعد " + dur(left) : "جاهزة"}</div></div></div>
     <div class="card" style="margin-top:12px"><div class="row"><div style="font-size:32px">🍯</div><div class="grow"><b>عسل الحضانة</b><div class="dim">عندك ${honey} · يقصّر 10% من مدة البيضة · التدفئات ${egg.warm}/${max}</div></div></div>
       <button class="btn ${can ? "" : "off"}" id="warmBtn" style="width:100%;margin-top:10px">🍯 دفّئ البيضة</button>

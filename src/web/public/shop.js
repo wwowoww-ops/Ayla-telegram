@@ -22,7 +22,7 @@ VIEWS.shop = () => {
         w ? `<span class="tag" style="color:${RAR_COLOR[i]}">${m.rarities[i].e} ${Math.round(w / tot * 1000) / 10}%</span>` : ""
       ).join(" ");
 
-      h += `<div class="card row"><div style="font-size:42px">${e.emoji}</div><div class="grow"><b>${esc(e.name)}</b><div class="dim">⏳ ${dur(e.min * 60000)}</div><div style="margin-top:4px">${chances}</div></div>` +
+      h += `<div class="card row"><div style="line-height:0">${eggSvg(e.tier, 48)}</div><div class="grow"><b>${esc(e.name)}</b><div class="dim">⏳ ${dur(e.min * 60000)}</div><div style="margin-top:4px">${chances}</div></div>` +
         `<button class="btn sm ${coins < e.price ? "off" : ""}" data-egg="${e.tier}">${fmt(e.price)} 🪙</button></div>`;
     });
 

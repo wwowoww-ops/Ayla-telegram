@@ -18,7 +18,7 @@ VIEWS.hatch = () => {
       <button class="btn sec grow ${n && free > 0 ? "" : "off"}" id="pAll">📥 ضع الكل</button>
     </div>
     <h3 class="dim" style="margin:14px 0 6px">🎒 محفظة البيض (${n})</h3>` +
-    (n ? S.eggBag.map(e => `<div class="card row"><div style="font-size:34px">${e.emoji}</div><div class="grow"><b>${esc(e.name)}</b>${e.bred ? ` <span class="tag">🧬 تزاوج</span>` : ""}</div><button class="btn sm ${free > 0 ? "" : "off"}" data-pe="${e.id}">📥 ضع</button></div>`).join("")
+    (n ? S.eggBag.map(e => `<div class="card row"><div style="line-height:0">${eggSvg(e.tier, 40)}</div><div class="grow"><b>${esc(e.name)}</b>${e.bred ? ` <span class="tag">🧬 تزاوج</span>` : ""}</div><button class="btn sm ${free > 0 ? "" : "off"}" data-pe="${e.id}">📥 ضع</button></div>`).join("")
       : `<div class="card dim">فارغة. ما تشتريه أو تحصل عليه يأتي هنا لتضعه بنفسك.</div>`));
   $("#hAll").onclick = async () => { if (!ready) return toast("لا بيض جاهز", true); buzz("medium"); const j = await run("hatchAll", {}); if (j && j.ok && j.reveals) revealMany(j.reveals); };
   $("#pAll").onclick = () => { if (n && free > 0) { buzz(); run("placeAll", {}); } else toast(n ? "الحضانة ممتلئة" : "المحفظة فارغة", true); };
@@ -90,7 +90,7 @@ SUBS.rates = () => {
   let h = back + `<h2>📊 النسب</h2><h3 class="dim">🥚 نسب الفقس</h3>`;
   m.eggs.forEach(e => {
     const tot = e.w.reduce((a, b) => a + b, 0);
-    h += `<div class="card"><b>${e.emoji} ${esc(e.name)}</b><div style="margin-top:4px">` + e.w.map((w, i) => w ? `<span class="tag" style="color:${RAR_COLOR[i]}">${m.rarities[i].e} ${Math.round(w / tot * 1000) / 10}%</span>` : "").join(" ") + `</div></div>`;
+    h += `<div class="card"><b>${eggSvg(e.tier, 24)} ${esc(e.name)}</b><div style="margin-top:4px">` + e.w.map((w, i) => w ? `<span class="tag" style="color:${RAR_COLOR[i]}">${m.rarities[i].e} ${Math.round(w / tot * 1000) / 10}%</span>` : "").join(" ") + `</div></div>`;
   });
   h += `<h3 class="dim">⚔️ غنائم الصيد (عند الفوز)</h3><div class="card dim">🪙 عملات: دائمًا<br>🥚 بيضة المنطقة (في المحفظة): 8%<br>🔷 بلورات: 75%<br>💠 جوهرة عنصر الوحش: 40%<br>✨ غبار الجنيات: 3% + 0.5% لكل مرحلة (من المرحلة 4)<br>🌟 مهارة الحيوان: 30% + 4% لكل ندرة (مضاعف ×1.25 / ×1.5 / ×2)<br>👑 وحوش النخبة من المرحلة 9</div>`;
   h += `<h3 class="dim">🧬 التزاوج</h3><div class="card dim">طفرة لندرة أعلى: 12% (20% إذا كان الأبوان نخبة) · الجودة أقوى من الفقس العادي وتزيد مع الجيل.</div>`;
@@ -180,7 +180,7 @@ SUBS.market = async () => {
     const kinds = [["f", "🧚 جنية"], ["e", "🥚 بيضة"], ["r", "🔷 مورد"]];
     h += `<div class="seg">${kinds.map(k => `<button data-mk="${k[0]}" class="${k[0] === mkSell.kind ? "on" : ""}">${k[1]}</button>`).join("")}</div><div class="scroll-x">`;
     if (mkSell.kind === "f") h += S.fairies.filter(f => !f.equipped).map(f => `<button class="pick ${mkSell.ref === f.id ? "on" : ""}" data-mr="${f.id}"><span class="em">${f.emoji}</span>${esc(f.name)}<br>Lv${f.lv}</button>`).join("") || `<div class="dim">لا جنيات غير مجهزة.</div>`;
-    else if (mkSell.kind === "e") h += S.eggBag.map(e => `<button class="pick ${mkSell.ref === e.id ? "on" : ""}" data-mr="${e.id}"><span class="em">${e.emoji}</span>${esc(e.name)}</button>`).join("") || `<div class="dim">المحفظة فارغة.</div>`;
+    else if (mkSell.kind === "e") h += S.eggBag.map(e => `<button class="pick ${mkSell.ref === e.id ? "on" : ""}" data-mr="${e.id}"><span class="em">${eggSvg(e.tier, 30)}</span>${esc(e.name)}</button>`).join("") || `<div class="dim">المحفظة فارغة.</div>`;
     else h += Object.keys(S.res || {}).map(k => `<button class="pick ${mkSell.ref === k ? "on" : ""}" data-mr="${k}"><span class="em">${resMeta(k).emoji}</span>×${fmt(S.res[k])}</button>`).join("") || `<div class="dim">لا موارد.</div>`;
     h += `</div>`;
     if (mkSell.kind === "r") h += `<div class="row" style="margin-top:8px"><span class="dim">الكمية</span><input id="mq" type="number" min="1" value="${mkSell.qty}" style="width:90px"></div>`;
