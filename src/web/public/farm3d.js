@@ -180,7 +180,7 @@ function farmLayout(f, W) {
   fences.forEach(r => { r.biome = (W.biome && W.biome[r.def ? "0" : r.id]) || "dirt"; r.decor = decorFor(r, rnd); });
   const regionOf = pen => regions[String(pen)] || regions["0"];
   const hatchB = bmap.hatch;
-  const eggs = f.eggs.map((e, i) => ({ emoji: e.emoji, ready: e.ready, ox: 3 + (i % 4) * 0.9, oz: 2.6 + Math.floor(i / 4) * 0.9 }));
+  const eggs = f.eggs.map((e, i) => ({ emoji: e.emoji, tier: e.tier, ready: e.ready, ox: 3 + (i % 4) * 0.9, oz: 2.6 + Math.floor(i / 4) * 0.9 }));
   const L = { env, Y, ring, outer, seaX, buildings, bmap, trees, rocks, regions, fences, regionOf, eggs, hatchB, W, pets: [], actors: [] };
   L.pets = f.pets.map(p => {
     const anchor = W.pos && W.pos[p.id];
@@ -884,19 +884,142 @@ function farm3dInit(F) {
     anim.clouds = E.clouds.map(c => { const g = new T.Group(); g.position.set(c.x, 0.07, c.z); const m = new T.Mesh(new T.CircleGeometry(c.s * 2.2, 14), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.scale.set(1.6, 1, 1); g.add(m); envG.add(g); return { g, v: c.v * 3, lim: L.seaX + 60 }; });
     anim.foam = []; for (let i = 0; i < 7; i++) { const m = sm("b", [3 + (i % 3), 0.04, 0.35], [L.seaX + 6 + (i % 4) * 7, 0.05, -50 + i * 16], 0xdff1ff); anim.foam.push({ m, z0: -50 + i * 16, ph: i }); }
   }
+  // ===== مباني ذات معنى: كل مبنى يشبه وظيفته (حضانة = كوخ بسقف قشّ وبيضة ذهبية، خزينة = قبو بقبة ذهبية ...) =====
+  const roofG = (g, w, d, y, col) => { const a = 0.55, hw = w / 2 + 0.25; [1, -1].forEach(s => sm("b", [hw / Math.cos(a), 0.16, d + 0.7], [s * hw * 0.5, y + hw * 0.5 * Math.tan(a), 0], col, [0, 0, -s * a], g)); return y + hw * Math.tan(a); };
+  const awning = (g, w, y, z, c1, c2) => { for (let i = 0; i < 6; i++) sm("b", [w / 6, 0.12, 1.4], [-w / 2 + (i + 0.5) * w / 6, y, z], i % 2 ? c2 : c1, [0.45, 0, 0], g); };
+  const door = (g, x, y, z, col, w, h) => { sm("b", [w || 0.8, h || 1.3, 0.12], [x, y, z], col, null, g); };
+  const crate = (g, x, y, z, s, col) => sm("b", [s, s, s], [x, y + s / 2, z], col || 0xb98a50, null, g);
+  const BUILD = {
+    hatch(g, b) {                                                         // كوخ حضانة: جدار دائري + سقف قشّ + بيضة ذهبية + جمر دافئ
+      sm("y", [1.5, 1.7, 1.5], [0, 0.85, 0], 0xe8d8b0, null, g); sm("c", [2.1, 1.9, 2.1], [0, 2.6, 0], 0xd9a441, null, g);
+      sm("s", [0.36, 0.48, 0.36], [0, 3.8, 0], 0xffd24d, null, g);
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; sm("s", [0.2, 0.12, 0.2], [Math.cos(a) * 1.75, 0.1, Math.sin(a) * 1.75], 0xc9a14a, null, g); }
+      door(g, 0, 0.6, 1.5, 0x6b4a2a, 0.7, 1.2); sm("s", [0.16, 0.16, 0.16], [0.85, 1.2, 1.35], 0xffb347, null, g); return 3.6;
+    },
+    boss(g, b) {                                                          // برج حرس: حجر + شرفات + راية حمراء
+      sm("y", [1.15, 3.2, 1.15], [0, 1.6, 0], 0x6b6f7d, null, g);
+      for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; sm("b", [0.38, 0.45, 0.38], [Math.cos(a) * 1.05, 3.4, Math.sin(a) * 1.05], 0x858a99, null, g); }
+      sm("y", [0.05, 1.6, 0.05], [0, 4.2, 0], 0x4a3a2a, null, g); sm("b", [0.9, 0.5, 0.06], [0.48, 4.7, 0], 0xd23a3a, null, g);
+      door(g, 0, 0.6, 1.12, 0x4a3a2a, 0.6, 1.2); [-1, 1].forEach(s => sm("s", [0.3, 0.38, 0.1], [s * 1.7, 0.5, 1.1], 0x3f7ad6, null, g)); return 4.9;
+    },
+    hunt(g, b) {                                                          // نزل صيد: خشب + سقف أخضر + قرون + هدف
+      boxIn(g, b.w, 1.9, b.d, 0x9a6a3a, 0, 0.95, 0); const t = roofG(g, b.w, b.d, 1.9, 0x3f6b3a);
+      [-1, 1].forEach(s => { sm("y", [0.05, 0.7, 0.05], [s * 0.45, 2.55, b.d / 2 + 0.2], 0xf0e6cf, [0, 0, -s * 0.5], g); sm("y", [0.04, 0.4, 0.04], [s * 0.75, 2.8, b.d / 2 + 0.2], 0xf0e6cf, [0, 0, -s * 0.9], g); });
+      sm("y", [0.55, 0.06, 0.55], [1.4, 1.0, b.d / 2 + 0.1], 0xffffff, [1.5708, 0, 0], g); sm("y", [0.36, 0.07, 0.36], [1.4, 1.0, b.d / 2 + 0.12], 0xd23a3a, [1.5708, 0, 0], g); sm("y", [0.15, 0.08, 0.15], [1.4, 1.0, b.d / 2 + 0.14], 0xffffff, [1.5708, 0, 0], g);
+      door(g, -0.8, 0.65, b.d / 2 + 0.05, 0x5a3a1a); return t;
+    },
+    lab(g, b) {                                                           // مختبر: قاعدة + قبة زجاجية بنفسجية + أنابيب فقاعات
+      boxIn(g, b.w, 1.2, b.d, 0xcfc4e8, 0, 0.6, 0); sm("s", [1.4, 1.2, 1.4], [0, 1.6, 0], 0xb690ff, null, g);
+      [[-1.5, 0x5be08a], [1.5, 0xff7ab8]].forEach(([x, c]) => { sm("y", [0.22, 1.6, 0.22], [x, 1.9, 0.3], c, null, g); sm("s", [0.18, 0.18, 0.18], [x, 2.95, 0.3], c, null, g); sm("s", [0.1, 0.1, 0.1], [x + 0.15, 3.3, 0.3], c, null, g); });
+      door(g, 0, 0.5, b.d / 2 + 0.05, 0x7a5ac0, 0.8, 1.0); return 3.2;
+    },
+    farm(g, b) {                                                          // حظيرة الراعي: إسطبل أحمر + باب بحرف X + كومة قش
+      boxIn(g, b.w, 1.9, b.d, 0xc0392b, 0, 0.95, 0); const t = roofG(g, b.w, b.d, 1.9, 0x7a2a22);
+      sm("b", [1.2, 0.12, 0.1], [0, 0.95, b.d / 2 + 0.06], 0xffffff, [0, 0, 0.7], g); sm("b", [1.2, 0.12, 0.1], [0, 0.95, b.d / 2 + 0.06], 0xffffff, [0, 0, -0.7], g);
+      sm("y", [0.55, 0.9, 0.55], [b.w / 2 + 0.9, 0.55, 0.6], 0xe6c24a, [0, 0, 1.5708], g); return t;
+    },
+    vault(g, b) {                                                         // قبو الخزينة: حجر + قبة ذهبية + باب ثقيل + سبائك
+      boxIn(g, b.w, 1.9, b.d, 0x8a8f9c, 0, 0.95, 0); sm("s", [1.6, 1.0, 1.4], [0, 2.0, 0], 0xf2c14e, null, g);
+      door(g, 0, 0.8, b.d / 2 + 0.05, 0x4a3a28, 1.1, 1.5); sm("s", [0.1, 0.1, 0.1], [0.35, 0.8, b.d / 2 + 0.14], 0xffd24d, null, g);
+      [[-b.w / 2 - 0.6, 0], [-b.w / 2 - 0.6, 0.25]].forEach(([x, y], i) => sm("b", [0.55, 0.25, 0.3], [x, 0.13 + y, 0.6 - i * 0.05], 0xffd24d, null, g)); return 3.0;
+    },
+    gym(g, b) {                                                           // نادي: مظلّة مفتوحة + بار حديد بأقراص
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => sm("y", [0.14, 2.0, 0.14], [x * b.w * 0.42, 1.0, z * b.d * 0.4], 0x8a6a4a, null, g));
+      boxIn(g, b.w + 0.3, 0.18, b.d + 0.3, 0xd98b4c, 0, 2.05, 0); sm("y", [0.07, 2.2, 0.07], [0, 0.85, 0], 0x555a66, [0, 0, 1.5708], g);
+      [-1, 1].forEach(s => [0, 1].forEach(k => sm("y", [0.5 - k * 0.12, 0.12, 0.5 - k * 0.12], [s * (1.0 + k * 0.14), 0.85, 0], 0x2f3340, [0, 0, 1.5708], g))); return 2.2;
+    },
+    market(g, b) {                                                        // سوق: بسطة + مظلّة مخطّطة + صناديق فاكهة
+      boxIn(g, b.w, 0.9, 1.1, 0xb98a50, 0, 0.45, 0.5); [-1, 1].forEach(s => sm("y", [0.08, 2.2, 0.08], [s * b.w * 0.45, 1.1, -0.3], 0x6b4a2a, null, g));
+      awning(g, b.w + 0.2, 2.25, 0.1, 0xd23a3a, 0xffffff);
+      [[-1.1, 0xd23a3a], [-0.3, 0xffa23a], [0.5, 0x6ad06a], [1.2, 0xffd24d]].forEach(([x, c]) => { sm("s", [0.22, 0.22, 0.22], [x, 1.1, 0.5], c, null, g); sm("s", [0.22, 0.22, 0.22], [x + 0.2, 1.1, 0.7], c, null, g); }); return 2.5;
+    },
+    shop(g, b) {                                                          // متجر: بيت + نافذة عرض + مظلّة زرقاء + عملة
+      boxIn(g, b.w, 1.8, b.d, 0xf3e6c8, 0, 0.9, 0); const t = roofG(g, b.w, b.d, 1.8, 0x3f6ad6);
+      sm("b", [1.6, 0.8, 0.1], [-0.7, 1.0, b.d / 2 + 0.05], 0xbfe6ff, null, g); awning(g, 1.8, 1.7, b.d / 2 + 0.3, 0x3f6ad6, 0xffffff); door(g, 1.0, 0.65, b.d / 2 + 0.05, 0x7a4a2a);
+      sm("y", [0.4, 0.08, 0.4], [1.4, 2.3, b.d / 2 + 0.1], 0xffd24d, [1.5708, 0, 0], g); return t;
+    },
+    nov(g, b) {                                                           // نوادر: خيمة بنفسجية + نجوم + بلّورة
+      sm("c", [2.0, 2.6, 2.0], [0, 1.4, 0], 0x7a4ac0, null, g); sm("y", [2.05, 0.22, 2.05], [0, 0.12, 0], 0xf2c14e, null, g); sm("s", [0.18, 0.18, 0.18], [0, 2.8, 0], 0xffd24d, null, g);
+      sm("b", [0.5, 0.5, 0.5], [1.7, 0.6, 0.8], 0x6ad0ff, [0.6, 0.6, 0], g); door(g, 0, 0.55, 1.0, 0x2a1a4a, 0.7, 1.1); return 3.0;
+    },
+    breed(g, b) {                                                         // تزاوج: لولب DNA وردي/أزرق على قاعدة دائرية
+      sm("y", [1.5, 0.25, 1.5], [0, 0.12, 0], 0xe8d8f0, null, g); sm("y", [0.1, 3.0, 0.1], [0, 1.6, 0], 0xcfc4e8, null, g);
+      for (let i = 0; i < 10; i++) { const a = i * 0.75, y = 0.5 + i * 0.28; sm("s", [0.2, 0.2, 0.2], [Math.cos(a) * 0.7, y, Math.sin(a) * 0.7], 0xff7ab8, null, g); sm("s", [0.2, 0.2, 0.2], [-Math.cos(a) * 0.7, y, -Math.sin(a) * 0.7], 0x4ab0ff, null, g); } return 3.4;
+    },
+    season(g, b) {                                                        // موسم: منصّة تتويج + كأس ذهبية
+      boxIn(g, b.w * 0.8, 0.9, b.d * 0.8, 0xc8a050, 0, 0.45, 0); sm("y", [0.45, 0.8, 0.45], [0, 1.3, 0], 0xffd24d, null, g); sm("s", [0.6, 0.4, 0.6], [0, 1.95, 0], 0xffd24d, null, g);
+      [-1, 1].forEach(s => sm("s", [0.22, 0.3, 0.1], [s * 0.62, 1.95, 0], 0xffd24d, null, g)); sm("y", [0.12, 0.3, 0.12], [0, 0.95, 0], 0xffd24d, null, g); return 2.5;
+    },
+    fairies(g, b) {                                                       // جنيات: فطر عملاق + نقاط بيضاء + أضواء
+      sm("y", [0.7, 1.7, 0.7], [0, 0.85, 0], 0xf6efe0, null, g); sm("s", [1.7, 0.95, 1.7], [0, 2.0, 0], 0xe0457a, null, g);
+      [[0.8, 2.5, 0.6], [-0.7, 2.4, 0.9], [0.1, 2.85, -0.3], [-0.9, 2.2, -0.6]].forEach(p => sm("s", [0.22, 0.12, 0.22], p, 0xffffff, null, g));
+      door(g, 0, 0.5, 0.7, 0x8a4a2a, 0.45, 0.9); [[1.9, 1.2], [-1.9, 1.6], [1.5, 2.4]].forEach(([x, y]) => sm("s", [0.12, 0.12, 0.12], [x, y, 0.3], 0xfff08a, null, g)); return 3.2;
+    },
+    recycle(g, b) {                                                       // تدوير: حاوية خضراء + ثلاثة أسهم دائرية
+      sm("y", [0.85, 1.3, 0.85], [0, 0.65, 0], 0x3fa65a, null, g); sm("y", [0.95, 0.16, 0.95], [0, 1.38, 0], 0x2f7a42, null, g);
+      for (let i = 0; i < 3; i++) { const a = i * 2.094; sm("c", [0.22, 0.45, 0.22], [Math.cos(a) * 1.5, 1.4, Math.sin(a) * 1.5], 0x7ae08a, [0, 0, 0], g); sm("s", [0.15, 0.15, 0.15], [Math.cos(a + 0.5) * 1.5, 1.2, Math.sin(a + 0.5) * 1.5], 0x7ae08a, null, g); } return 2.0;
+    },
+    quests(g, b) {                                                        // مهام: لوحة إعلانات + أوراق + دبّوس
+      [-1, 1].forEach(s => sm("y", [0.1, 2.3, 0.1], [s * 1.5, 1.15, 0], 0x6b4a2a, null, g)); boxIn(g, 3.4, 1.6, 0.18, 0xb98a50, 0, 1.7, 0);
+      [[-1.0, 1.9, 0xffffff], [0, 1.6, 0xfff08a], [1.0, 1.9, 0xffc8d8], [0.5, 1.3, 0xffffff]].forEach(([x, y, c]) => sm("b", [0.6, 0.75, 0.05], [x, y, 0.12], c, null, g)); sm("s", [0.08, 0.08, 0.08], [0, 1.95, 0.17], 0xd23a3a, null, g); return 2.6;
+    },
+    top(g, b) {                                                           // ترتيب: منصّة 1-2-3 ذهب/فضّة/برونز
+      [[0, 1.5, 0xffd24d], [-1.15, 1.05, 0xcfd6e0], [1.15, 0.75, 0xcd7f32]].forEach(([x, h, c]) => boxIn(g, 1.05, h, 1.1, c, x, h / 2, 0)); sm("s", [0.3, 0.3, 0.3], [0, 1.95, 0], 0xffe066, null, g); return 2.4;
+    },
+    visit(g, b) {                                                         // زيارة: بوّابة خشبية مقوّسة + فانوس
+      [-1, 1].forEach(s => boxIn(g, 0.4, 2.4, 0.4, 0x8a5a2a, s * 1.4, 1.2, 0)); boxIn(g, 3.6, 0.4, 0.5, 0x8a5a2a, 0, 2.5, 0); sm("c", [0.45, 0.4, 0.45], [0, 2.9, 0], 0xd23a3a, null, g);
+      sm("s", [0.2, 0.26, 0.2], [0, 2.0, 0], 0xffd24d, null, g); sm("y", [0.015, 0.3, 0.015], [0, 2.25, 0], 0x444444, null, g); return 3.2;
+    },
+    map(g, b) {                                                           // خريطة: عمود لافتات متجهة
+      sm("y", [0.12, 2.8, 0.12], [0, 1.4, 0], 0x6b4a2a, null, g);
+      [[2.6, 0.4, 0xe0b040], [2.1, -0.3, 0x5aa66b], [1.6, 0.9, 0x4f7cc9]].forEach(([y, r, c]) => { sm("b", [1.5, 0.4, 0.08], [0.6 * Math.cos(r), y, 0.6 * Math.sin(r)], c, [0, -r, 0], g); sm("c", [0.22, 0.4, 0.08], [1.4 * Math.cos(r), y, 1.4 * Math.sin(r)], c, [0, -r, -1.5708], g); }); sm("s", [0.2, 0.2, 0.2], [0, 3.0, 0], 0xffd24d, null, g); return 3.2;
+    },
+    exp(g, b) {                                                           // استكشاف: خيمة رحّالة + راية + بوصلة
+      sm("c", [1.9, 2.1, 1.9], [0, 1.1, 0], 0xd8b66a, null, g); sm("y", [0.04, 1.0, 0.04], [0, 2.6, 0], 0x4a3a2a, null, g); sm("b", [0.6, 0.35, 0.05], [0.32, 2.9, 0], 0xd23a3a, null, g);
+      door(g, 0, 0.5, 0.85, 0x3a2a1a, 0.6, 1.0); crate(g, 1.5, 0, 0.9, 0.55, 0x6a8a4a); sm("y", [0.3, 0.05, 0.3], [-1.5, 0.15, 0.9], 0xf0e6cf, null, g); sm("y", [0.06, 0.02, 0.2], [-1.5, 0.2, 0.9], 0xd23a3a, [0, 0.6, 0], g); return 3.2;
+    },
+    book(g, b) {                                                          // كتاب: مكتبة + كتاب مفتوح على السطح + رفوف ملوّنة
+      boxIn(g, b.w, 1.8, b.d, 0x7a4a2a, 0, 0.9, 0); [-1, 1].forEach(s => sm("b", [1.3, 0.1, 1.2], [s * 0.62, 2.05, 0], 0xfff8e8, [0, 0, -s * 0.25], g)); sm("b", [0.12, 0.2, 1.25], [0, 1.98, 0], 0xb8402a, null, g);
+      [0xd23a3a, 0x3f6ad6, 0x5aa66b, 0xffd24d, 0xb86bd1].forEach((c, i) => sm("b", [0.35, 0.6, 0.08], [-1.2 + i * 0.6, 1.1, b.d / 2 + 0.05], c, null, g)); door(g, 0, 0.4, b.d / 2 + 0.05, 0x3a2a1a, 0.5, 0.8); return 2.6;
+    },
+    bag(g, b) {                                                           // مخزن: مستودع خشبي + صناديق + كيس
+      boxIn(g, b.w, 1.6, b.d, 0xa0784a, 0, 0.8, 0); roofG(g, b.w, b.d, 1.6, 0x6a4a2a); crate(g, b.w / 2 + 0.5, 0, 0.5, 0.7); crate(g, b.w / 2 + 0.5, 0.7, 0.5, 0.55, 0xc9a060); crate(g, b.w / 2 + 1.2, 0, 0.2, 0.55); sm("s", [0.4, 0.5, 0.4], [-b.w / 2 - 0.5, 0.5, 0.5], 0xe6d2a0, null, g);
+      door(g, 0, 0.6, b.d / 2 + 0.05, 0x4a2a1a, 1.0, 1.2); return 2.9;
+    }
+  };
+  // أنواع البيض: لون القشرة + نقوش ترمز إلى الفئة (عادي = نقاط بنّية، برونزي = حزام، فضي = لمعة، ذهبي، ملكي = تاج، كوني = نجوم، عدم = حلقة بنفسجية، مجرّة = نجوم ملوّنة، أزل = هالة)
+  const EGG_LOOK = [
+    { c: 0xf3ead2, dot: 0x9a7a4a }, { c: 0xcd7f32, band: 0xf0c080 }, { c: 0xc9d1dc, band: 0xffffff }, { c: 0xf2c14e, band: 0xfff0a0 },
+    { c: 0x7a3fd0, crown: 0xffd24d }, { c: 0x23235e, dot: 0xffffa8 }, { c: 0x14101c, ring: 0xa66bff }, { c: 0x4a2a9a, dot: 0x6af0ff, dot2: 0xff7ad8 }, { c: 0xfff1a8, ring: 0xffffff, halo: 1 }
+  ];
+  function mkEgg(tier, ready) {
+    const L = EGG_LOOK[Math.max(0, Math.min(EGG_LOOK.length - 1, tier | 0))], g = new T.Group();
+    sm("y", [0.55, 0.08, 0.55], [0, 0.04, 0], ready ? 0xffd24d : 0xb08a4a, null, g);                      // عشّ (ذهبي متوهّج عند الجاهزية)
+    for (let i = 0; i < 9; i++) { const a = i / 9 * 6.283; sm("s", [0.1, 0.07, 0.1], [Math.cos(a) * 0.5, 0.1, Math.sin(a) * 0.5], 0xc9a14a, null, g); }
+    const e = sm("s", [0.38, 0.5, 0.38], [0, 0.6, 0], L.c, null, g);
+    if (L.dot) for (let i = 0; i < 6; i++) { const a = i * 2.4, y = 0.35 + (i % 3) * 0.2, r = 0.38 * Math.sqrt(1 - Math.pow((y - 0.6) / 0.5, 2)); sm("s", [0.05, 0.05, 0.05], [Math.cos(a) * r, y + 0.0, Math.sin(a) * r], i % 2 && L.dot2 ? L.dot2 : L.dot, null, g); }
+    if (L.band) sm("y", [0.39, 0.07, 0.39], [0, 0.6, 0], L.band, null, g);
+    if (L.ring) sm("y", [0.5, 0.025, 0.5], [0, 0.6, 0], L.ring, [0.35, 0, 0.2], g);
+    if (L.crown) { sm("c", [0.2, 0.2, 0.2], [0, 1.15, 0], L.crown, null, g); }
+    if (L.halo) sm("s", [0.1, 0.1, 0.1], [0, 1.3, 0], 0xffffff, null, g);
+    if (ready) { sm("b", [0.05, 0.3, 0.05], [0.08, 0.72, 0.36], 0x3a2a1a, [0, 0, 0.5], g); sm("b", [0.05, 0.22, 0.05], [-0.06, 0.6, 0.37], 0x3a2a1a, [0, 0, -0.6], g); sm("s", [0.08, 0.08, 0.08], [0, 1.42, 0], 0xfff08a, null, g); }   // تشقّق + شرارة = جاهزة
+    return g;
+  }
   function buildBuildings(L) {
     dispose(bldG); bldG = new T.Group(); scene.add(bldG); bldPick = [];
     Object.keys(bmap).forEach(k => delete bmap[k]);
     L.buildings.forEach(b => {
       const g = new T.Group(); g.position.set(b.x, 0, b.z); bldG.add(g); bmap[b.key] = g;
-      boxIn(g, b.w, b.h, b.d, b.color, 0, b.h / 2, 0);
-      boxIn(g, b.w + 0.5, 0.3, b.d + 0.5, b.type === "post" ? 0x6b4a35 : 0x3d3d4a, 0, b.h + 0.15, 0);
-      const data = { kind: "bld", key: b.key };
-      const sign = mkSprite(emojiTex(b.e), b.type === "post" ? 2.4 : 2.2, b.type === "post" ? 2.4 : 2.2); sign.position.set(0, b.h + (b.type === "post" ? 2 : 1.7), 0); sign.userData = data; g.add(sign); bldPick.push(sign);
-      const lab = mkSprite(textTex(b.n), 5, 1.25); lab.position.set(0, b.h + (b.type === "post" ? 3.6 : 3.1), 0); lab.userData = data; g.add(lab); bldPick.push(lab);
-      if (b.key === "hatch") L.eggs.forEach(e => { const m = new T.Mesh(new T.SphereGeometry(0.38, 10, 8), mat(e.ready ? 0xffd24d : 0xf3ead2)); m.scale.y = 1.3; m.position.set(e.ox, 0.5, e.oz); g.add(m); });
+      const mk = BUILD[b.key] || BUILD[b.id];
+      let top = b.h;
+      if (mk) top = mk(g, b) || b.h;
+      else { boxIn(g, b.w, b.h, b.d, b.color, 0, b.h / 2, 0); boxIn(g, b.w + 0.5, 0.3, b.d + 0.5, b.type === "post" ? 0x6b4a35 : 0x3d3d4a, 0, b.h + 0.15, 0); }
+      const data = { kind: "bld", key: b.key }; g.userData = data; bldPick.push(g);
+      const sign = mkSprite(emojiTex(b.e), 1.8, 1.8); sign.position.set(0, top + 1.1, 0); sign.userData = data; g.add(sign); bldPick.push(sign);
+      const lab = mkSprite(textTex(b.n), 5, 1.25); lab.position.set(0, top + 2.4, 0); lab.userData = data; g.add(lab); bldPick.push(lab);
+      if (b.key === "hatch") L.eggs.forEach(e => { const m = mkEgg(e.tier, e.ready); m.position.set(e.ox, 0, e.oz); g.add(m); });
     });
-    if (!L.bmap.hatch) L.eggs.forEach((e, i) => { const m = new T.Mesh(new T.SphereGeometry(0.38, 10, 8), mat(e.ready ? 0xffd24d : 0xf3ead2)); m.scale.y = 1.3; m.position.set(-3 + i * 0.9, 0.5, L.Y + 3); bldG.add(m); });
+    if (!L.bmap.hatch) L.eggs.forEach((e, i) => { const m = mkEgg(e.tier, e.ready); m.position.set(-3 + i * 0.9, 0, L.Y + 3); bldG.add(m); });
     buildPaths(L);
     rebuildPick();
   }
