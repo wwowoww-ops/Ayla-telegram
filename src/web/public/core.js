@@ -305,3 +305,45 @@ function eggImage(tier, px) {          // لرسم الكانفس
   const k = tier + ":" + px; if (_eggImg[k]) return _eggImg[k];
   const im = new Image(); im.src = "data:image/svg+xml;utf8," + encodeURIComponent(eggSvg(tier, px)); return (_eggImg[k] = im);
 }
+
+// ===== أيقونات مرسومة للعناصر والموارد (تستبدل الإيموجي المقابلة تلقائيًا في كل الشاشات) =====
+const IC_O = 'stroke="#1b1b2a" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"';
+const IC_SVG = {
+  "🔥": `<linearGradient id="gf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd24d"/><stop offset="1" stop-color="#ff4a1f"/></linearGradient><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-4 3-7 1 1 1 2 2 3 1-2 1-5 1-8Z" fill="url(#gf)" ${IC_O}/><path d="M12 22a3.4 3.4 0 0 1-3.4-3.4c0-2 2-3 3.4-5 1.4 2 3.4 3 3.4 5A3.4 3.4 0 0 1 12 22Z" fill="#fff0a0"/>`,
+  "💧": `<linearGradient id="gw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fe6ff"/><stop offset="1" stop-color="#2f7ae0"/></linearGradient><path d="M12 2C9 8 5 11 5 15a7 7 0 0 0 14 0c0-4-4-7-7-13Z" fill="url(#gw)" ${IC_O}/><path d="M9 14.5a3.5 3.5 0 0 0 2.5 3.2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity=".8"/>`,
+  "🌿": `<path d="M12 22V10" stroke="#2a6a2a" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12C5 12 3 7 3 4c5 0 9 2 9 8Z" fill="#6ad05a" ${IC_O}/><path d="M12 15c6 0 9-4 9-8-6 0-9 3-9 8Z" fill="#3fa645" ${IC_O}/>`,
+  "🪨": `<path d="M3 17l3-8 5-4 6 3 4 7-3 5H6Z" fill="#b08a5a" ${IC_O}/><path d="M6 9l5 3 6-4M11 12l-1 9M11 12l7 5" fill="none" stroke="#7a5a32" stroke-width="1.1"/><path d="M6 9l5-4 3 1-5 4Z" fill="#d8b88a"/>`,
+  "⚡": `<path d="M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.2Z" fill="#ffe14a" ${IC_O}/><path d="M12.4 5 8 12h4.4" fill="none" stroke="#fff8c0" stroke-width="1.4" stroke-linecap="round"/>`,
+  "🔆": `<circle cx="12" cy="12" r="5" fill="#fff3a0" ${IC_O}/><g stroke="#f0b020" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></g><circle cx="10.5" cy="10.5" r="1.6" fill="#fff"/>`,
+  "🌑": `<circle cx="12" cy="12" r="9.5" fill="#2a2342" ${IC_O}/><path d="M16 5a8 8 0 1 0 3 9 6.5 6.5 0 0 1-3-9Z" fill="#7a5ac0"/><circle cx="8" cy="9" r="1.2" fill="#fff" opacity=".8"/><circle cx="14" cy="17" r=".8" fill="#fff" opacity=".7"/>`,
+  "❄️": `<g stroke="#e8fbff" stroke-width="2.4" stroke-linecap="round"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="M9.5 3.5 12 6l2.5-2.5M9.5 20.5 12 18l2.5 2.5"/></g><g stroke="#3a9ae0" stroke-width="1" stroke-linecap="round" opacity=".7"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/></g><circle cx="12" cy="12" r="2.2" fill="#9ae0ff" stroke="#1b1b2a" stroke-width="1"/>`,
+  "🌪️": `<g fill="none" stroke-linecap="round" stroke-width="2.6"><path d="M3 7h13a3 3 0 1 0-3-3" stroke="#6ad0c0"/><path d="M3 12h16a3 3 0 1 1-3 3" stroke="#3a9aa0"/><path d="M3 17h9a2.6 2.6 0 1 1-2.6 2.6" stroke="#9af0e0"/></g>`,
+  "☣️": `<linearGradient id="gp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d89aff"/><stop offset="1" stop-color="#6a2aa8"/></linearGradient><path d="M12 2C9 8 5 11 5 15a7 7 0 0 0 14 0c0-4-4-7-7-13Z" fill="url(#gp)" ${IC_O}/><circle cx="10" cy="15" r="1.8" fill="#c8ff6a"/><circle cx="14.2" cy="12.5" r="1.2" fill="#c8ff6a"/><circle cx="14" cy="17" r=".9" fill="#c8ff6a"/>`,
+  "⚙️": `<path d="M12 2l2 2.6 3.2-.7.7 3.2 2.6 2-1.3 3 1.3 3-2.6 2-.7 3.2-3.2-.7L12 22l-2-2.6-3.2.7-.7-3.2-2.6-2 1.3-3-1.3-3 2.6-2 .7-3.2 3.2.7Z" fill="#aab4c4" ${IC_O}/><circle cx="12" cy="12" r="3.6" fill="#5a6678" ${IC_O}/><circle cx="12" cy="12" r="1.3" fill="#d8e0ec"/>`,
+  "🔷": `<linearGradient id="gc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bff0ff"/><stop offset=".55" stop-color="#4aa8ff"/><stop offset="1" stop-color="#2a4ad0"/></linearGradient><path d="M12 2 20 9l-8 13L4 9Z" fill="url(#gc)" ${IC_O}/><path d="M4 9h16M12 2l-3 7 3 13 3-13-3-7" fill="none" stroke="#fff" stroke-width="1" opacity=".65"/><path d="M12 2 9 9h6Z" fill="#e8fbff" opacity=".9"/>`
+};
+const IC_RE = /(?:🔥|💧|🌿|🪨|⚡|🔆|🌑|❄️?|🌪️?|☣️?|⚙️?|🔷)/g;
+let _icN = 0;
+function icHTML(ch) {
+  const k = ch.replace(/️/g, ""), key = Object.keys(IC_SVG).find(x => x.replace(/️/g, "") === k);
+  if (!key) return ch;
+  const id = ++_icN, body = IC_SVG[key].replace(/id="(g[a-z])"/g, `id="$1${id}"`).replace(/url\(#(g[a-z])\)/g, `url(#$1${id})`);
+  return `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+}
+function icWalk(root) {
+  if (!root || root.nodeType === 8) return;
+  if (root.nodeType === 3) {
+    const t = root.nodeValue; IC_RE.lastIndex = 0; if (!IC_RE.test(t)) return;
+    const p = root.parentNode; if (!p || /^(SCRIPT|STYLE|TEXTAREA|INPUT|OPTION|TITLE|SVG)$/i.test(p.nodeName) || (p.closest && p.closest("svg,textarea,input,option"))) return;
+    const sp = document.createElement("span"); sp.className = "icw"; sp.innerHTML = esc(t).replace(IC_RE, icHTML); p.replaceChild(sp, root); return;
+  }
+  if (root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA|INPUT|SVG|CANVAS|SELECT)$/i.test(root.nodeName) || root.classList.contains("icw")) return;
+  Array.from(root.childNodes).forEach(icWalk);
+}
+(function () {
+  let q = new Set(), raf = 0;
+  const flush = () => { raf = 0; const a = q; q = new Set(); a.forEach(n => { if (n.isConnected) icWalk(n); }); };
+  const mo = new MutationObserver(ms => { ms.forEach(m => { if (m.type === "characterData") q.add(m.target); else m.addedNodes.forEach(n => q.add(n)); }); if (!raf) raf = requestAnimationFrame(flush); });
+  const start = () => { icWalk(document.body); mo.observe(document.body, { childList: true, subtree: true, characterData: true }); };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+})();
