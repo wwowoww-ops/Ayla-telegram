@@ -219,6 +219,13 @@ const ACTIONS = {
     worldSave: (P, a) => World.save(P, a && a.world),
     raid: (P, a, now) => Raid.raid(P, a, now),
     allyDonate: (P, a) => Map_.allyDonate(P, a),
+    towerClimb: (P, a, now) => require("./tower").climb(P, now, rng),
+    towerWeek: (P, a, now) => require("./tower").claimWeek(P, now),
+    towerTop() {
+        const all = store.all();
+        const rows = all.filter(p => p.tower && p.tower.f > 1).map(p => ({ name: p.name, tg: Cos.tag(p), v: p.tower.f - 1 })).sort((a, b) => b.v - a.v).slice(0, 10);
+        return { ok: true, rows };
+    },
     expStart: (P, a, now) => Exp.start(P, a, now),
     expClaim: (P, a, now) => Exp.claim(P, a, now),
     dexView: P => Dex.view(P),
