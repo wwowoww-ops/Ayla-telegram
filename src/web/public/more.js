@@ -20,7 +20,7 @@ SUBS.breed = () => {
   if (breedA && !ok.find(p => p.id === breedA)) breedA = null;
   if (breedB && !ok.find(p => p.id === breedB)) breedB = null;
   const pick = (cur, key) => `<div class="scroll-x">${ok.length ? ok.map(p => `<button class="pick ${cur === p.id ? "on" : ""} ${key === "b" && p.id === breedA || key === "a" && p.id === breedB ? "off" : ""}" data-p="${key}:${p.id}"><span class="em">${p.emoji}</span>${esc(p.name)}<br>Lv.${p.lv} ${p.elEmoji}</button>`).join("") : `<span class="dim">لا حيوان مؤهل (المستوى ${m.breedLv}+ وراحة بعد كل مرة)</span>`}</div>`;
-  let h = back + `<h2>🧬 التزاوج</h2><div class="dim">النتيجة بيضة بجودة أبويها، وفرصة طفرة 12% لندرة أعلى. 🧬 اختر أبوين بعنصرين مختلفين: فرصة 10% لعنصر ثانٍ، وتزيد 5% مع كل محاولة بلا حظ.</div><h3 class="dim">الأول</h3>${pick(breedA, "a")}<h3 class="dim">الثاني</h3>${pick(breedB, "b")}`;
+  let h = back + `<h2>🧬 التزاوج</h2><div class="dim">النتيجة بيضة بجودة أبويها، وفرصة طفرة 12% لندرة أعلى. 🧬 اختر أبوين بعنصرين مختلفين: فرصة 10% لعنصر ثانٍ.</div><h3 class="dim">الأول</h3>${pick(breedA, "a")}<h3 class="dim">الثاني</h3>${pick(breedB, "b")}`;
   if (breedA && breedB) {
     const a = S.pets.find(p => p.id === breedA), b = S.pets.find(p => p.id === breedB);
     const cost = m.eggs[Math.min(6, Math.max(a.rar, b.rar))].price * 2;
