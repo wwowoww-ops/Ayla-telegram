@@ -224,6 +224,8 @@ const ACTIONS = {
     allyDonate: (P, a) => Map_.allyDonate(P, a),
     profileOf: (P, a, now) => require("./profile").of(P, a, now),
     fishCast: (P, a, now) => require("./fishing").cast(P, now, rng),
+    fishBook: (P, a, now) => ({ ok: true, book: require("./fishing").book(P, now) }),
+    fishClaim: (P, a, now) => require("./fishing").claim(P, a, now),
     towerClimb: (P, a, now) => require("./tower").climb(P, now, rng),
     towerWeek: (P, a, now) => require("./tower").claimWeek(P, now),
     towerTop() {

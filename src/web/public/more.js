@@ -4,8 +4,17 @@
 // ======================================================
 VIEWS.more = () => {
   if (sub) return SUBS[sub]();
-  const tiles = [["tower", "🗼", "برج الأزل"], ["fish", "🎣", "صيد البحر"], ["visit", "👥", "زيارة"], ["season", "🏆", "الموسم"], ["shop", "🛍️", "النوادر"], ["recycle", "♻️", "تدوير"], ["posts", "🧰", "وظائف"], ["breed", "🧬", "تزاوج"], ["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["top", "🏆", "الترتيب"], ["profile", "👤", "ملفي"], ["bag", "🎒", "المخزن"], ["elements", "🔮", "العناصر"], ["collection", "🐾", "حيواناتي"], ["guide", "📖", "كتاب المجموعة"], ["fairies", "🧚", "الجنيات"], ["market", "🏪", "السوق"], ["rates", "📊", "النسب"], ["boss", "👑", "الزعماء"], ["cos", "🎖️", "إطارات وألقاب"], ["exp", "🧭", "استكشاف"]];
-  view.innerHTML = `<h2>☰ المزيد</h2><div class="grid3">${tiles.map(t => `<button class="tile" data-sub="${t[0]}"><span>${t[1]}</span>${t[2]}</button>`).join("")}</div>`;
+  const GROUPS = [
+    ["🎮", "مغامرات", [["tower", "🗼", "برج الأزل"], ["fish", "🎣", "صيد البحر"], ["exp", "🧭", "استكشاف"], ["boss", "👑", "الزعماء"]]],
+    ["🐾", "حيواناتي", [["collection", "🐾", "حيواناتي"], ["breed", "🧬", "تزاوج"], ["posts", "🧰", "وظائف"], ["fairies", "🧚", "الجنيات"], ["garden", "🌸", "حديقة الجنيات"], ["recycle", "♻️", "تدوير"]]],
+    ["🛍️", "متاجر", [["shop", "🛍️", "النوادر"], ["market", "🏪", "السوق"], ["bag", "🎒", "المخزن"]]],
+    ["🏆", "تقدّمي", [["quests", "🎯", "مهام"], ["ach", "🏅", "إنجازات"], ["season", "🏆", "الموسم"], ["top", "📈", "الترتيب"]]],
+    ["📖", "معلومات", [["guide", "📖", "كتاب المجموعة"], ["elements", "🔮", "العناصر"], ["rates", "📊", "النسب"]]],
+    ["👤", "أنا والآخرون", [["profile", "👤", "ملفي"], ["cos", "🎖️", "إطارات وألقاب"], ["visit", "👥", "زيارة"]]]
+  ];
+  let openG = 0; try { openG = Number(localStorage.getItem("ayla_more_g") || 0); } catch (e) { /* لا شيء */ }
+  view.innerHTML = `<h2>☰ المزيد</h2>` + GROUPS.map((g, i) => `<details class="mg" data-g="${i}" ${i === openG ? "open" : ""}><summary><span>${g[0]}</span> ${g[1]} <small class="dim">(${g[2].length})</small></summary><div class="grid3">${g[2].map(t => `<button class="tile" data-sub="${t[0]}"><span>${t[1]}</span>${t[2]}</button>`).join("")}</div></details>`).join("");
+  view.querySelectorAll("details.mg").forEach(d => d.addEventListener("toggle", () => { if (d.open) { view.querySelectorAll("details.mg").forEach(o => { if (o !== d) o.open = false; }); try { localStorage.setItem("ayla_more_g", d.dataset.g); } catch (e) { /* لا شيء */ } } }));
   view.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { buzz(); sub = b.dataset.sub; SUBS[sub](); });
 };
 const back = `<button class="btn sec sm" id="back" style="margin-bottom:8px">↩️ رجوع</button>`;

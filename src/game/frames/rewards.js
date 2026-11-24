@@ -14,6 +14,8 @@ const L = [
     ["ally2", "إمبراطور التحالف", "🏛️", "ارفع تحالفك إلى المستوى 8", P => lv(P) >= 8, { pal: "gold", metal: "gold", top: "crown", side: "chains", fx: "sparkle" }],
     ["dex", "عالم الأنواع", "📚", "أكمل ندرتين في كتاب المجموعة", P => dex(P).groups >= 2, { pal: "purple", metal: "silver", top: "gemrow", n: 5, side: "runes", fx: "stars" }],
     ["dex2", "الموسوعة", "🌈", "اكتشف كل الأنواع", P => dex(P).full, { pal: "gold", metal: "silver", top: "gemrow", n: 5, side: "tendril", fx: "sparkle", hue: 1 }],
+    ["angler", "الصيّاد", "🎣", "اصطد 100 مرة من البحر", P => cnt(P, "fish") >= 100, { pal: "blue", metal: "silver", top: "halo", side: "tendril", fx: "sparkle" }],
+    ["seaking", "ملك البحار", "🔱", "اجمع كل أنواع الأسماك", P => { try { return require("../../web/fishing").haveCount(P) >= require("../../web/fishing").SPECIES_COUNT; } catch (e) { return false; } }, { pal: "gold", metal: "gold", top: "crown", side: "tendril", fx: "stars" }],
     ["streak", "الوفيّ", "🔥", "14 يومًا متتاليًا", P => (P.streak || 0) >= 14, { pal: "rose", metal: "rose", top: "hearts", side: "tendril", fx: "petals" }]
 ];
 const REWARDS = L.map(([id, name, e, text, unlock, spec]) => ({ id: "rw_" + id, name: "إطار " + name, e, cat: "reward", price: null, ach: null, text, unlock, frames: 16, square: true, win: WIN, draw: compose(spec) }));
