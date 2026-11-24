@@ -70,16 +70,23 @@ async function loadTop() {
 }
 
 // ---- بروفايل لاعب ----
+function proAvatar(p, px) {
+  const img = src => `<img alt="" src="${esc(src)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
+  if (p.av && p.av.mode === "photo" && p.av.data) return img(p.av.data);
+  if (p.av && p.av.mode === "tg" && p.av.url) return img(p.av.url);
+  return p.top ? petFace({ sp: p.top.sp, emoji: p.top.emoji }, px) : "🐾";
+}
 SUBS.pro = async (uid, backFn) => {
   view.innerHTML = back + `<div class="dim">جارٍ التحميل…</div>`; bindBack();
   const j = await act("profileOf", { uid });
   if (!j || !j.ok) { if (j && j.msg) toast(j.msg, true); return; }
   const p = j.p, t = p.top;
-  view.innerHTML = `<button class="btn sec sm" id="proBack" style="margin-bottom:8px">↩️ رجوع</button><h2>👤 ${nameTag(p.name, p.tg)}</h2>
+  view.innerHTML = `<button class="btn sec sm" id="proBack" style="margin-bottom:8px">↩️ رجوع</button><div style="display:flex;justify-content:center;margin:6px 0" id="proAv">${framedHTML(proAvatar(p, 96), p.tg && p.tg.fid, 130)}</div><h2>${nameTag(p.name, p.tg)}</h2>
     <div class="card">📅 اليوم <b>${p.days}</b> في اللعبة · 🔥 مواظبة <b>${p.streak}</b> يوم<br>⚔️ القوة الكلية <b>${fmt(p.power)}</b><br>🐾 الحظيرة <b>${p.pets}/${p.slots}</b>${p.bestRar ? `<br>${p.bestRar.e} أندر ما يملك: <b>${esc(p.bestRar.n)}</b> ×${p.bestRar.count}` : ""}<br>📖 الكتاب <b>${p.dex.have}/${p.dex.total}</b></div>
     ${t ? `<div class="card row"><div style="font-size:44px">${t.emoji}</div><div class="grow">👑 أقوى حيوان<br><b>${esc(t.name)}</b> ${t.rarEmoji} Lv.${t.lv}${t.st ? " " + "⭐".repeat(Math.min(5, t.st)) : ""}<div class="dim">${t.elEmoji}${t.elb ? " " + t.elb : ""} · ⚔️ ${fmt(t.power)}</div></div></div>` : ""}
     <div class="card">🥚 البيض المفقوس <b>${fmt(p.hatched)}</b><br>🧬 التزاوج <b>${fmt(p.bred)}</b><br>🏹 الصيد <b>${fmt(p.hunts)}</b> (فوز ${fmt(p.wins)})<br>⚔️ المبارزات <b>${fmt(p.duels)}</b> (فوز ${fmt(p.duelWins)})<br>🧭 رحلات الاستكشاف <b>${fmt(p.exp)}</b> · 🛡️ غارات ناجحة <b>${fmt(p.raid)}</b><br>🗼 أعلى طابق في البرج <b>${p.tower}</b></div>
     ${j.self ? "" : `<button class="btn" id="proVisit" style="width:100%">🏡 زيارة حظيرته</button>`}`;
+  try { frameFill($("#proAv")); } catch (e) { /* لا شيء */ }
   $("#proBack").onclick = () => { buzz(); if (backFn) backFn(); else { sub = ""; VIEWS.more(); } };
   const v = $("#proVisit"); if (v) v.onclick = () => { buzz(); farmOpen(uid); };
 };

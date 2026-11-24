@@ -13,7 +13,7 @@ function build(T, now) {
     const rar = {}; T.pets.forEach(p => { const r = E.spOf(p).r; rar[r] = (rar[r] || 0) + 1; });
     const best = Object.keys(rar).map(Number).sort((a, b) => b - a)[0];
     return {
-        name: T.name, tg: Cos.tag(T), days, streak: T.streak || 0, power: E.totalPower(T), pets: T.pets.length, slots: T.slots,
+        name: T.name, tg: Cos.tag(T), av: { mode: T.avMode || "pet", data: T.avMode === "photo" ? T.avPhoto || null : null, url: T.avMode === "tg" ? T.tgPhoto || null : null }, days, streak: T.streak || 0, power: E.totalPower(T), pets: T.pets.length, slots: T.slots,
         top: top ? { sp: top.sp, name: top.nick || E.spOf(top).n, emoji: E.spOf(top).e, lv: top.lv, st: top.st || 0, rar: E.spOf(top).r, rarEmoji: D.RARITIES[E.spOf(top).r].e, power: E.power(top), el: top.el, elEmoji: D.ELEMENTS[top.el].e, elb: top.elb ? D.ELEMENTS[top.elb].e : "" } : null,
         bestRar: best === undefined ? null : { n: D.RARITIES[best].n, e: D.RARITIES[best].e, count: rar[best] },
         hatched: s.hatched || 0, bred: s.bred || 0, hunts: s.hunts || 0, wins: s.wins || 0, duels: s.duels || 0, duelWins: s.duelWins || 0,
@@ -21,7 +21,7 @@ function build(T, now) {
     };
 }
 function of(P, a, now) {
-    const uid = a && a.uid != null ? String(a.uid).slice(0, 20) : String(P.id);
+    const uid = a && a.uid ? String(a.uid).slice(0, 20) : String(P.id);
     const T = uid === String(P.id) ? P : store.get(uid);
     if (!T || !Array.isArray(T.pets)) return { ok: false, msg: "لا يوجد ملف لهذا اللاعب." };
     return { ok: true, self: T === P, uid, p: build(T, now) };
