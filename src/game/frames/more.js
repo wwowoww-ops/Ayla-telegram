@@ -31,7 +31,10 @@ const PAL = {
     ice:    { a: "#e0f2fe", b: "#7dd3fc", c: "#0c4a6e", glow: "#bae6fd", gem: "#ffffff" },
     cyber:  { a: "#a5f3fc", b: "#06b6d4", c: "#08131a", glow: "#e879f9", gem: "#ffffff" },
     galaxy: { a: "#c7d2fe", b: "#6366f1", c: "#0b0b2a", glow: "#a78bfa", gem: "#ffffff" },
-    bone:   { a: "#f5f5f4", b: "#a8a29e", c: "#1c1917", glow: "#ef4444", gem: "#fecaca" }
+    bone:   { a: "#f5f5f4", b: "#a8a29e", c: "#1c1917", glow: "#ef4444", gem: "#fecaca" },
+    wind:   { a: "#ccfbf1", b: "#2dd4bf", c: "#063b36", glow: "#99f6e4", gem: "#f0fdfa" },
+    poison: { a: "#ecfccb", b: "#84cc16", c: "#2a0a3a", glow: "#a3e635", gem: "#f7fee7" },
+    metal:  { a: "#e2e8f0", b: "#64748b", c: "#0f172a", glow: "#38bdf8", gem: "#f8fafc" }
 };
 // ألوان المعدن: [فاتح, متوسط, داكن]
 const METAL = {
@@ -172,12 +175,12 @@ const SPECIAL = [
 ].map(([id, name, e, price, spec]) => ({ id, name: "إطار " + name, e, cat: "special", price, ach: null, text: "", draw: compose(spec) }));
 
 // إطارات الزعماء: ذهبي لصاحب أكبر ضرر، وفضي لمن شارك بـ 3% من حياته
-const BOSSN = { fire: "التنين القرمزي", water: "ليفياثان العميق", plant: "عملاق الغابة", earth: "جبل الحجر الحي", thunder: "سيّد العواصف", light: "حارس الفجر", dark: "ملك الظلام" };
+const BOSSN = { fire: "التنين القرمزي", water: "ليفياثان العميق", plant: "عملاق الغابة", earth: "جبل الحجر الحي", thunder: "سيّد العواصف", light: "حارس الفجر", dark: "ملك الظلام", ice: "ملكة الصقيع", wind: "عنقاء الأعاصير", poison: "الأفعى الوبائية", metal: "العملاق الفولاذي" };
 const BOSS = [];
 const ELSPEC = {};
-[["fire", "flames", "tendril", "embers", "obsidian"], ["water", "waves", "drops", "bubbles", "steel"], ["plant", "leaves", "vines", "leaves", "wood"], ["earth", "crystals", "runes", "pebbles", "bone"], ["thunder", "spikes", "bolts", "bolts", "steel"], ["light", "halo", "tendril", "rays", "gold"], ["dark", "horns", "runes", "mist", "obsidian"]]
+[["fire", "flames", "tendril", "embers", "obsidian"], ["water", "waves", "drops", "bubbles", "steel"], ["plant", "leaves", "vines", "leaves", "wood"], ["earth", "crystals", "runes", "pebbles", "bone"], ["thunder", "spikes", "bolts", "bolts", "steel"], ["light", "halo", "tendril", "rays", "gold"], ["dark", "horns", "runes", "mist", "obsidian"], ["ice", "crystals", "tendril", "snow", "ice"], ["wind", "wings", "tendril", "sparkle", "silver"], ["poison", "skull", "vines", "mist", "obsidian"], ["metal", "spikes", "chains", "glitch", "steel"]]
     .forEach(([id, top, side, fx, metal]) => { ELSPEC[id] = { top, side, fx, metal }; });
-const BOSSE = { fire: "🐲", water: "🌊", plant: "🌳", earth: "⛰️", thunder: "⛈️", light: "🌟", dark: "👁️" };
+const BOSSE = { fire: "🐲", water: "🌊", plant: "🌳", earth: "⛰️", thunder: "⛈️", light: "🌟", dark: "👁️", ice: "🧊", wind: "🌪️", poison: "🐍", metal: "🤖" };
 Object.keys(BOSSN).forEach(id => {
     const s = ELSPEC[id];
     BOSS.push({ id: "b_" + id + "_top", name: "تاج " + BOSSN[id], e: BOSSE[id], cat: "boss", only: true, price: null, ach: null, text: "تصدّر الضرر على " + BOSSN[id] + " وأنهِه", draw: compose({ pal: id, metal: "gold", top: "crown", side: s.side, fx: s.fx }) });

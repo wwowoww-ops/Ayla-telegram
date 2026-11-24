@@ -47,9 +47,14 @@ function speciesImg(sp) {
   return imgs[sp].ok ? imgs[sp].img : null;
 }
 function petFace(p, px) {
-  return speciesImg(p.sp)
+  const base = speciesImg(p.sp)
     ? `<img src="/img/${p.sp}" style="width:${px}px;height:${px}px;border-radius:50%;object-fit:cover">`
     : `<span style="font-size:${px * 0.85}px;line-height:1">${p.emoji}</span>`;
+  const cs = p.cs, cat = S && S.costumes && S.costumes.cat;
+  if (!cs || !cat || !Object.keys(cs).length) return base;
+  const POS = { head: [`top:${-px * 0.28}px;left:50%;transform:translateX(-50%)`, 0.5], face: [`top:${px * 0.28}px;left:50%;transform:translateX(-50%)`, 0.34], neck: [`bottom:${-px * 0.12}px;left:50%;transform:translateX(-50%)`, 0.34], back: [`top:${px * 0.05}px;right:${-px * 0.28}px`, 0.46] };
+  const ov = Object.keys(cs).map(k => { const c = cat.find(x => x.id === cs[k]); return c && POS[k] ? `<span style="position:absolute;${POS[k][0]};font-size:${px * POS[k][1]}px;line-height:1;pointer-events:none">${c.e}</span>` : ""; }).join("");
+  return `<span style="position:relative;display:inline-block;width:${px}px;height:${px}px;vertical-align:middle">${base}${ov}</span>`;
 }
 
 // اسم اللاعب مع لقبه وإطاره (tg من الخادم: t لقب، fe رمز الإطار، fid معرّفه)

@@ -88,6 +88,12 @@ const RAW = [
 ];
 const SPECIES = {};
 RAW.forEach(([id, n, e, r, v, els]) => { SPECIES[id] = { id, n, e, r, v, els }; });
+// أنواع الزعماء المروَّضة: لا تفقس من البيض ولا تدخل كتاب المجموعة؛ يُروَّض واحد فقط لكل لاعب بعد هزيمة زعيمه
+const BOSS_SP = { fire: 101, water: 102, plant: 103, earth: 104, thunder: 105, light: 106, dark: 107, ice: 108, wind: 109, poison: 110, metal: 111 };
+[[101, "التنين القرمزي", "🐲", "fire"], [102, "ليفياثان العميق", "🌊", "water"], [103, "عملاق الغابة", "🌳", "plant"], [104, "جبل الحجر الحي", "⛰️", "earth"],
+ [105, "سيّد العواصف", "⛈️", "thunder"], [106, "حارس الفجر", "🌟", "light"], [107, "ملك الظلام", "👁️", "dark"], [108, "ملكة الصقيع", "🧊", "ice"],
+ [109, "عنقاء الأعاصير", "🌪️", "wind"], [110, "الأفعى الوبائية", "🐍", "poison"], [111, "العملاق الفولاذي", "🤖", "metal"]]
+    .forEach(([id, n, e, el]) => { SPECIES[id] = { id, n: n + " (مروَّض)", e, r: 7, v: 1.25, els: [el], boss: true }; });
 const SPECIES_BY_RARITY = RARITIES.map((_, r) => RAW.filter(x => x[3] === r).map(x => x[0]));
 
 // البيض: الاسم، السعر، مدة الفقس (دقائق)، أوزان الندرات السبع
@@ -174,4 +180,4 @@ const C = {
     COLLECT_CAP_H: 12, DAILY_MS: 20 * 3600 * 1000, STREAK_MS: 48 * 3600 * 1000
 };
 
-module.exports = { RES, RES_KEYS, ELEMENTS, EL_KEYS, BEATS, BEATS_ALL, beatenBy, elementMult, RARITIES, SPECIES, SPECIES_BY_RARITY, EGGS, FOODS, GENERAL_FOODS, FRUIT_FOODS, ZONES, C };
+module.exports = { RES, RES_KEYS, ELEMENTS, EL_KEYS, BEATS, BEATS_ALL, beatenBy, elementMult, RARITIES, SPECIES, BOSS_SP, SPECIES_BY_RARITY, EGGS, FOODS, GENERAL_FOODS, FRUIT_FOODS, ZONES, C };

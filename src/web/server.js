@@ -223,6 +223,16 @@ const ACTIONS = {
     raid: (P, a, now) => Raid.raid(P, a, now),
     allyDonate: (P, a) => Map_.allyDonate(P, a),
     profileOf: (P, a, now) => require("./profile").of(P, a, now),
+    gardenCare(P, a, now) {
+        const Fy = require("../game/fairies"), f = Fy.get(P, Number(a.id)); if (!f) return { ok: false, msg: "جنية غير موجودة." };
+        P.gcare = P.gcare || {}; const last = P.gcare[f.id] || 0, GAP = 3 * 3600e3;
+        if (now - last < GAP) return { ok: false, msg: "🧚 ما زالت مسرورة من آخر مداعبة. عد بعد " + E.dur(GAP - (now - last)) + "." };
+        const n = 1 + Math.floor(Fy.sp(f).r / 2); P.gcare[f.id] = now;
+        require("../game/resources").add(P, "dust", n);
+        return { ok: true, msg: "💗 داعبت " + (f.nick || Fy.sp(f).n) + " فنثرت لك ✨ " + n + " غبار!" };
+    },
+    cosBuy: (P, a) => require("./costumes").buy(P, String(a.id)),
+    cosWear: (P, a) => require("./costumes").wear(P, a.pet, String(a.id)),
     fishCast: (P, a, now) => require("./fishing").cast(P, now, rng),
     fishBook: (P, a, now) => ({ ok: true, book: require("./fishing").book(P, now) }),
     fishClaim: (P, a, now) => require("./fishing").claim(P, a, now),

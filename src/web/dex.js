@@ -3,7 +3,7 @@
 const D = require("../game/data");
 const E = require("../game/engine");
 const Res = require("../game/resources");
-const all = () => Object.values(D.SPECIES);
+const all = () => Object.values(D.SPECIES).filter(x => !x.boss);
 function sync(P) {
     P.dex = P.dex && typeof P.dex === "object" ? P.dex : {};
     (P.pets || []).forEach(p => { P.dex[p.sp] = 1; });

@@ -204,6 +204,7 @@ function finalize(chatId, parts, rep, now) {
                 E.addEggToBag(P, 5);
                 got.push(D.EGGS[5].e + " " + D.EGGS[5].n);
             }
+            if (i < 3) { try { const c = require("../../web/costumes").give(P, Math.random, true); if (c) got.push("👗 زي جديد: " + c.e + " " + c.n); } catch (e) { /* لا شيء */ } }
             if (i === 0) {
                 P.stats.bossTop = (P.stats.bossTop || 0) + 1;
                 if (!P.fown["b_" + kind.id + "_top"]) { P.fown["b_" + kind.id + "_top"] = true; got.push("🖼️ إطار " + kind.n + " الذهبي"); }
@@ -211,6 +212,10 @@ function finalize(chatId, parts, rep, now) {
             if (r.score >= rep.bossMax * PART_MIN && !P.fown["b_" + kind.id + "_part"]) {
                 P.fown["b_" + kind.id + "_part"] = true; got.push("🖼️ إطار صيّاد " + kind.n);
             }
+        }
+        if (killed && !P.tamed && (i === 0 || (r.score >= rep.bossMax * PART_MIN && Math.random() < 0.2))) {
+            const sid = D.BOSS_SP[kind.id];
+            if (sid) { E.makePet(P, sid, kind.el, 1.2, now, 0); P.tamed = kind.id; got.push("🐾 روّضت " + kind.n + "! صار حيوانًا عندك (زعيم واحد فقط لكل لاعب)"); }
         }
         store.touch(P.id);
         r.coins = coins; r.got = got; r.rank = i + 1;

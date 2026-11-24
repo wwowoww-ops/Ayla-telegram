@@ -14,7 +14,7 @@ const World = require("./world");
 function petView(P, pet, now) {
     const sp = D.SPECIES[pet.sp], r = D.RARITIES[sp.r], el = D.ELEMENTS[pet.el];
     return {
-        id: pet.id, sp: sp.id, name: pet.nick || sp.n, species: sp.n, emoji: sp.e,
+        id: pet.id, cs: pet.cs || null, sp: sp.id, name: pet.nick || sp.n, species: sp.n, emoji: sp.e,
         rar: sp.r, rarName: r.n, rarEmoji: r.e,
         el: pet.el, elName: el.n, elEmoji: el.e,
         lv: pet.lv, xp: Math.floor(pet.xp), xpNeed: E.xpNeed(pet.lv), st: pet.st,
@@ -126,6 +126,7 @@ function buildState(P, now, quests) {
         avMode: P.avMode || "pet", looks: World.LOOKS, cos: require("./cosmetics").tag(P),
         exp: require("./expedition").view(P, now), expZones: require("./expedition").ZONES, expBusy: [...require("./expedition").busyIds(P)],
         tower: require("./tower").view(P, now),
+        costumes: require("./costumes").view(P),
         fish: require("./fishing").view(P, now),
         event: require("./events").current(now),
         tradeDisc: (() => { try { return Fy.buffs(P).trade || 0; } catch (e) { return 0; } })(),

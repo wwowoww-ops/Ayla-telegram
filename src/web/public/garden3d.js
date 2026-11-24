@@ -132,7 +132,8 @@ function gardenInit(c) {
     gdSel = id; const o = sel(), box = $("#gdInfo"); if (!o || !box) return; buzz();
     const f = o.f; o.wait = 4; want.set(o.g.position.x, 2, o.g.position.z);
     box.innerHTML = `<div class="row"><div style="font-size:38px">${f.emoji}</div><div class="grow"><b>${esc(f.name)}</b> <span class="tag">${f.rankEmoji} ${esc(f.rarName)}</span><div class="dim">مستوى ${f.lv} · ${esc(f.species)}${f.hab ? " · 🌿 في البيئة" : ""}${f.equipped ? " · ✅ مجهّزة" : ""}</div><div style="margin-top:4px">✨ ${esc(f.buff || "بلا بَف")}</div></div></div>
-      <button class="btn sm" id="gdMng" style="margin-top:8px">⚙️ إدارة الجنية</button>`;
+      <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" id="gdCare">💗 داعب (غبار)</button><button class="btn sm sec" id="gdMng">⚙️ إدارة</button></div>`;
+    $("#gdCare").onclick = () => { buzz("medium"); run("gardenCare", { id: f.id }, j => { if (j && j.ok) { o.wait = 3; for (let k = 0; k < 6; k++) flies.push({ o: mk("s", bas(0xff7ab8), [0.1, 0.1, 0.1], [0, 0, 0]), x: o.g.position.x + (rnd() - 0.5), z: o.g.position.z + (rnd() - 0.5), y: 2 + rnd(), p: rnd() * 6, sp: 0.5 }); } }); };
     $("#gdMng").onclick = () => { buzz(); SUBS.fairies(); };
   }
   const bz = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = () => { buzz(); fn(); }; };

@@ -354,11 +354,23 @@
     65: () => quad({ c: "#5a2a1a", c2: "#ff7a2a", ear: "round", horn: "bull", tail: "thin", hump: "#5a2a1a", back: "#ff7a1a", leg: 0.85, l: 1.2, w: 1.35, h: 1.35, hs: 1.05, sn: 0.8 }),
     66: () => fish({ c: "#6a9ad0", c2: WH, k: 1.5, fat: 0.9, flukes: 1, fin: 0.8 }),
     67: () => squid({ c: "#ff9ad8", c2: "#ffc8ec", n: 12, tc: "#ff7ac8", eyeC: "#ffffff", stars: 1 }),
-    68: () => dragon({ c: "#3a9a4a", c2: "#8ad05a", wc: "#2a7a3a", back: "#b05ae0", belly: 1 })
+    68: () => dragon({ c: "#3a9a4a", c2: "#8ad05a", wc: "#2a7a3a", back: "#b05ae0", belly: 1 }),
+    // الزعماء المروَّضون
+    101: () => dragon({ c: "#b5201a", c2: "#ff7a2a", wc: "#7a1010", back: "#ffd24d", belly: 1, w: 1.2, h: 1.2 }),
+    102: () => fish({ c: "#1a5a9a", c2: "#7ad0ff", k: 1.8, fat: 1.1, flukes: 1, fin: 1 }),
+    103: () => quad({ c: "#2f7a3a", c2: "#8ad05a", ear: "round", horn: "big", tail: "thin", back: "#5ab04a", leg: 1.1, l: 1.2, w: 1.5, h: 1.5, hs: 1.0, sn: 0.8 }),
+    104: () => quad({ c: "#7a6a5a", c2: "#a89a86", ear: "round", tail: "thin", leg: 1.2, l: 1.1, w: 1.6, h: 1.5, hs: 1.0, sn: 0.7, lc: "#6a5a4a" }),
+    105: () => dragon({ c: "#4a4a7a", c2: "#ffe14a", wc: "#3a3a6a", back: "#ffe14a", belly: 0, h: 1.1 }),
+    106: () => bird({ c: "#fff2b0", c2: "#ffffff", wc: "#ffd24d", tc: "#ffd24d", tail: "long", beak: "#ffb020", ww: 1.6, bs: 1.2 }),
+    107: () => dragon({ c: "#1a1030", c2: "#7a2ac0", wc: "#2a1050", back: "#c05aff", belly: 0, h: 1.2 }),
+    108: () => quad({ c: "#e8f6ff", c2: "#ffffff", belly: 1, ear: "point", horn: "big", tail: "fluff", leg: 1.1, l: 1.15, w: 1.2, h: 1.25, hs: 1.05, sn: 0.9, lc: "#9fd0f0" }),
+    109: () => bird({ c: "#4adcc0", c2: "#ccfbf1", wc: "#1a9a88", tc: "#1a9a88", tail: "long", beak: "#ffe27a", ww: 1.8, bs: 1.15, crest: "#ffffff" }),
+    110: () => dragon({ c: "#7aa020", c2: "#c8e84a", wc: "#4a6a10", back: "#a02ad0", belly: 1, l: 1.4, hs: 0.9 }),
+    111: () => quad({ c: "#7a8aa0", c2: "#c8d4e4", ear: "round", tail: "thin", leg: 1.1, l: 1.1, w: 1.5, h: 1.4, hs: 1.0, sn: 0.8, lc: "#5a6a80", eyeC: "#38bdf8" })
   };
   const HOP = { 3: 1, 4: 1, 5: 1, 41: 1, 62: 1, 38: 0 };   // أنواع تقفز بدل المشي
   const cache = {};
-  const FLY = { 6: 1.3, 11: 1.5, 15: 1.9, 22: 3.2, 33: 3.4, 39: 2.5, 43: 1.1, 44: 2.1, 57: 3.5, 56: 0.5, 37: 0.4, 53: 1.0, 67: 0.8 };   // ارتفاع التحليق عن الأرض
+  const FLY = { 6: 1.3, 11: 1.5, 15: 1.9, 22: 3.2, 33: 3.4, 39: 2.5, 43: 1.1, 44: 2.1, 57: 3.5, 56: 0.5, 106: 2.4, 109: 3.0, 37: 0.4, 53: 1.0, 67: 0.8 };   // ارتفاع التحليق عن الأرض
   window.AN3D = {
     has: id => !!T[id],
     fly: id => FLY[id] || 0,
