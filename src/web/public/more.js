@@ -74,14 +74,14 @@ function proAvatar(p, px) {
   const img = src => `<img alt="" src="${esc(src)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
   if (p.av && p.av.mode === "photo" && p.av.data) return img(p.av.data);
   if (p.av && p.av.mode === "tg" && p.av.url) return img(p.av.url);
-  return p.top ? petFace({ sp: p.top.sp, emoji: p.top.emoji }, px) : "🐾";
+  return p.top ? (speciesImg(p.top.sp) ? `<img alt="" src="/img/${p.top.sp}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:${px * 0.7}px;line-height:1">${p.top.emoji}</span>`) : "🐾";
 }
 SUBS.pro = async (uid, backFn) => {
   view.innerHTML = back + `<div class="dim">جارٍ التحميل…</div>`; bindBack();
   const j = await act("profileOf", { uid });
   if (!j || !j.ok) { if (j && j.msg) toast(j.msg, true); return; }
   const p = j.p, t = p.top;
-  view.innerHTML = `<button class="btn sec sm" id="proBack" style="margin-bottom:8px">↩️ رجوع</button><div style="display:flex;justify-content:center;margin:6px 0" id="proAv">${framedHTML(proAvatar(p, 96), p.tg && p.tg.fid, 130)}</div><h2>${nameTag(p.name, p.tg)}</h2>
+  view.innerHTML = `<button class="btn sec sm" id="proBack" style="margin-bottom:8px">↩️ رجوع</button><div style="display:flex;justify-content:center;margin:6px 0" id="proAv">${p.tg && p.tg.fid ? framedHTML(proAvatar(p, 96), p.tg.fid, 150) : `<div style="width:130px;height:130px;border-radius:22px;border:4px solid #ffd166;box-shadow:0 0 14px #ffd16688,inset 0 0 0 2px rgba(0,0,0,.35);overflow:hidden;background:linear-gradient(135deg,#3b2f6b,#1b1740);display:flex;align-items:center;justify-content:center">${proAvatar(p, 120)}</div>`}</div><h2>${nameTag(p.name, p.tg)}</h2>
     <div class="card">📅 اليوم <b>${p.days}</b> في اللعبة · 🔥 مواظبة <b>${p.streak}</b> يوم<br>⚔️ القوة الكلية <b>${fmt(p.power)}</b><br>🐾 الحظيرة <b>${p.pets}/${p.slots}</b>${p.bestRar ? `<br>${p.bestRar.e} أندر ما يملك: <b>${esc(p.bestRar.n)}</b> ×${p.bestRar.count}` : ""}<br>📖 الكتاب <b>${p.dex.have}/${p.dex.total}</b></div>
     ${t ? `<div class="card row"><div style="font-size:44px">${t.emoji}</div><div class="grow">👑 أقوى حيوان<br><b>${esc(t.name)}</b> ${t.rarEmoji} Lv.${t.lv}${t.st ? " " + "⭐".repeat(Math.min(5, t.st)) : ""}<div class="dim">${t.elEmoji}${t.elb ? " " + t.elb : ""} · ⚔️ ${fmt(t.power)}</div></div></div>` : ""}
     <div class="card">🥚 البيض المفقوس <b>${fmt(p.hatched)}</b><br>🧬 التزاوج <b>${fmt(p.bred)}</b><br>🏹 الصيد <b>${fmt(p.hunts)}</b> (فوز ${fmt(p.wins)})<br>⚔️ المبارزات <b>${fmt(p.duels)}</b> (فوز ${fmt(p.duelWins)})<br>🧭 رحلات الاستكشاف <b>${fmt(p.exp)}</b> · 🛡️ غارات ناجحة <b>${fmt(p.raid)}</b><br>🗼 أعلى طابق في البرج <b>${p.tower}</b></div>
