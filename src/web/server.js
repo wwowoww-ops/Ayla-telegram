@@ -223,6 +223,7 @@ const ACTIONS = {
     raid: (P, a, now) => Raid.raid(P, a, now),
     allyDonate: (P, a) => Map_.allyDonate(P, a),
     profileOf: (P, a, now) => require("./profile").of(P, a, now),
+    fishCast: (P, a, now) => require("./fishing").cast(P, now, rng),
     towerClimb: (P, a, now) => require("./tower").climb(P, now, rng),
     towerWeek: (P, a, now) => require("./tower").claimWeek(P, now),
     towerTop() {

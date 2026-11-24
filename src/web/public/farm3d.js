@@ -690,6 +690,11 @@ function farmTap(F, e, g, loc) {
   const pk = F.r.pick(lx, ly, lw, lh);
   const L = F.L;
   const bld = pk && pk.kind === "bld" ? L.bmap[pk.key] : (g ? L.buildings.find(b => Math.abs(g[0] - b.x) <= b.w / 2 + 0.6 && Math.abs(g[1] - b.z) <= b.d / 2 + 0.6) : null);
+  if (!pk && !bld && F.own && g && Math.abs(g[0] - (L.seaX + 1.5)) < 5.5 && Math.abs(g[1] - 6) < 3) {   // الرصيف: صيد السمك
+    box.innerHTML = `<div class="row"><div class="grow"><b>🎣 رصيف الصيد</b><div class="dim">ارمِ الصنارة واحصل على غنائم من البحر.</div></div><button class="btn sm" id="fFish">🎣 اصطد</button></div>`;
+    $("#fFish").onclick = () => { buzz(); go("more", "fish"); window.__fromWorld = true; };
+    return;
+  }
   if (pk && pk.kind === "pet") {
     if (F.own) { openPet(pk.id); return; }
     const p = pk;
@@ -870,6 +875,10 @@ function farm3dInit(F) {
     const sea = new T.Mesh(new T.PlaneGeometry(60, 280), mat(0x2f78b5)); sea.rotation.x = -Math.PI / 2; sea.position.set(L.seaX + 30, 0.01, 0); envG.add(sea);
     const shore = new T.Mesh(new T.PlaneGeometry(5, 280), mat(0xc9b78a)); shore.rotation.x = -Math.PI / 2; shore.position.set(L.seaX - 2.5, 0.015, 0); envG.add(shore);
     boxIn(envG, 7, 0.25, 1.8, 0x7a5a3a, L.seaX + 1.5, 0.2, 6);
+    [-1, 0, 1].forEach(k => sm("y", [0.12, 0.9, 0.12], [L.seaX - 1.8 + k * 3.2 + 3, 0.15, 6.9], 0x5a3a22, null, envG));               // أعمدة الرصيف
+    sm("b", [1.6, 0.35, 0.8], [L.seaX + 8, 0.3, 7.2], 0xb5651d, null, envG); sm("b", [1.2, 0.5, 0.12], [L.seaX + 8, 0.6, 6.75], 0xe8d8b0, null, envG);   // قارب صغير
+    sm("y", [0.04, 1.5, 0.04], [L.seaX + 4.6, 1.0, 6.0], 0x6b4a2a, [0, 0, -0.9], envG);                                                                // صنارة
+    { const fs = mkSprite(emojiTex("🎣"), 1.7, 1.7); fs.position.set(L.seaX + 1.5, 2.2, 6); envG.add(fs); }
     L.trees.forEach(t => {
       boxIn(envG, 0.4 * t.s, 1.4 * t.s, 0.4 * t.s, 0x6b4a2a, t.x, 0.7 * t.s, t.z);
       const cone = new T.Mesh(new T.ConeGeometry(1.5 * t.s, 3.6 * t.s, 7), mat(0x2f6b3a)); cone.position.set(t.x, 3 * t.s, t.z); envG.add(cone);
