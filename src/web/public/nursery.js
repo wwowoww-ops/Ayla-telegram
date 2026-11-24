@@ -98,7 +98,7 @@ async function reveal(p) {
   const col = RAR_COLOR[p.rar];
   o.innerHTML = `<div class="flash"><div class="big pop glow" style="--c:${col}">${petFace(p, 130)}</div></div>
     <h2 class="pop" style="margin-top:16px">${esc(p.species)}</h2>
-    <div><span class="tag" style="color:${col}">${p.rarEmoji} ${p.rarName}</span> <span class="tag">${p.elEmoji} ${p.elName}</span> <span class="tag">جودة ${p.grade}</span></div>
+    <div><span class="tag" style="color:${col}">${p.rarEmoji} ${p.rarName}</span> <span class="tag">${p.elEmoji} ${p.elName}</span>${p.elb ? ` <span class="tag" style="border-color:#c084fc">🧬 ${p.elbEmoji} ${p.elbName}</span>` : ""} <span class="tag">جودة ${p.grade}</span></div>
     <div class="dim" style="margin:8px 0 18px">⚔️ ${fmt(p.power)} · 💰 ${fmt(p.income)}/س</div>
     <button class="btn" id="okRev">رائع! 🎉</button>`;
   buzz("heavy");

@@ -21,7 +21,7 @@ function openPet(id) {
       <div class="grow">
         <div style="font-size:19px;font-weight:800">${esc(p.name)} ${p.main ? "👑" : ""}</div>
         <div class="dim">${esc(p.species)} · النوع #${p.sp}</div>
-        <div style="margin-top:4px"><span class="tag" style="color:${RAR_COLOR[p.rar]}">${p.rarEmoji} ${p.rarName}</span> <span class="tag">${p.elEmoji} ${p.elName}</span> <span class="tag">${p.grade}</span>${p.st ? ` <span class="tag">${"⭐".repeat(p.st)}</span>` : ""}</div>
+        <div style="margin-top:4px"><span class="tag" style="color:${RAR_COLOR[p.rar]}">${p.rarEmoji} ${p.rarName}</span> <span class="tag">${p.elEmoji} ${p.elName}</span>${p.elb ? ` <span class="tag" style="border-color:#c084fc">🧬 ${p.elbEmoji} ${p.elbName}</span>` : ""} <span class="tag">${p.grade}</span>${p.st ? ` <span class="tag">${"⭐".repeat(p.st)}</span>` : ""}</div>
       </div>
     </div>
     <div style="margin:12px 0 4px" class="dim">المستوى ${p.lv}/${S.meta.lvCap}${p.lv < S.meta.lvCap ? ` · الخبرة ${p.xp}/${p.xpNeed}` : ""}</div>

@@ -439,7 +439,11 @@ function breed(P, aId, bId, now, rng, useStone) {
     }
     try { boost += require("./posts").extra(P).mut || 0; } catch (e) { /* لا وظائف */ }   // مختبر التزاوج
     P.coins -= cost;
+    const canEl = new Set([a.el, a.elb, b.el, b.elb].filter(Boolean)).size > 1;   // عنصران مختلفان على الأقل
+    P.stats.elMiss = P.stats.elMiss || 0;
+    boost += Math.min(0.6, P.stats.elMiss * 0.05);                                // حظ تراكمي: كل محاولة بلا طفرة عنصرية تزيد الفرصة 5%
     const d = bredEggData(a, b, rng, boost), mutated = d.mutated;
+    if (d.elMut) P.stats.elMiss = 0; else if (canEl) P.stats.elMiss++;
     d.pre.par = [parSnap(P, a), parSnap(P, b)];
     addEggToBag(P, d.tier, { pre: d.pre, bred: true });
     a.cdBreed = b.cdBreed = now + C.BREED_CD;
