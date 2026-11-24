@@ -39,8 +39,15 @@ module.exports = function (bot) {
         return send(ctx, M.screenAchievements(P, res));
     }, { menu: "الإنجازات", category: "animals" });
 
-    cmd(bot, ["ملفي", "بروفايل", "بطاقتي"], ctx => {
+    cmd(bot, ["ملفي", "بروفايل", "بطاقتي", "ملفه", "ملفها"], ctx => {
         const { P, now } = prepare(ctx);
+        // بالرد على رسالة لاعب آخر يظهر ملفه
+        const r = ctx.message && ctx.message.reply_to_message, u = r && r.from;
+        if (u && !u.is_bot && String(u.id) !== String(P.id)) {
+            const T = store.get(String(u.id));
+            if (!T || !Array.isArray(T.pets)) return ctx.reply("لا يوجد ملف لهذا اللاعب (لم يبدأ اللعبة بعد).");
+            return send(ctx, M.screenProfile(T, now));
+        }
         return send(ctx, M.screenProfile(P, now));
     }, { menu: "ملفي", category: "animals" });
 

@@ -63,10 +63,26 @@ async function loadTop() {
   const j = await act("top");
   if (!j.ok) return;
   const med = ["🥇", "🥈", "🥉"];
-  const list = (title, rows, f) => `<h2>${title}</h2>` + rows.map((r, i) => `<div class="card row"><div>${med[i] || i + 1}</div><div class="grow">${nameTag(r.name, r.tg)}</div><b>${f(r.v)}</b></div>`).join("");
+  const list = (title, rows, f) => `<h2>${title}</h2>` + rows.map((r, i) => `<div class="card row" data-pro="${esc(r.uid || "")}" style="cursor:pointer"><div>${med[i] || i + 1}</div><div class="grow">${nameTag(r.name, r.tg)}</div><b>${f(r.v)}</b><span class="dim">👤</span></div>`).join("");
   view.innerHTML = back + list("🏆 الأقوى", j.top.power, v => "⚔️ " + fmt(v)) + list("💎 الأغنى", j.top.rich, v => "🪙 " + fmt(v));
   bindBack();
+  view.querySelectorAll("[data-pro]").forEach(b => b.onclick = () => { if (b.dataset.pro) { buzz(); SUBS.pro(b.dataset.pro, () => loadTop()); } });
 }
+
+// ---- بروفايل لاعب ----
+SUBS.pro = async (uid, backFn) => {
+  view.innerHTML = back + `<div class="dim">جارٍ التحميل…</div>`; bindBack();
+  const j = await act("profileOf", { uid });
+  if (!j || !j.ok) { if (j && j.msg) toast(j.msg, true); return; }
+  const p = j.p, t = p.top;
+  view.innerHTML = `<button class="btn sec sm" id="proBack" style="margin-bottom:8px">↩️ رجوع</button><h2>👤 ${nameTag(p.name, p.tg)}</h2>
+    <div class="card">📅 اليوم <b>${p.days}</b> في اللعبة · 🔥 مواظبة <b>${p.streak}</b> يوم<br>⚔️ القوة الكلية <b>${fmt(p.power)}</b><br>🐾 الحظيرة <b>${p.pets}/${p.slots}</b>${p.bestRar ? `<br>${p.bestRar.e} أندر ما يملك: <b>${esc(p.bestRar.n)}</b> ×${p.bestRar.count}` : ""}<br>📖 الكتاب <b>${p.dex.have}/${p.dex.total}</b></div>
+    ${t ? `<div class="card row"><div style="font-size:44px">${t.emoji}</div><div class="grow">👑 أقوى حيوان<br><b>${esc(t.name)}</b> ${t.rarEmoji} Lv.${t.lv}${t.st ? " " + "⭐".repeat(Math.min(5, t.st)) : ""}<div class="dim">${t.elEmoji}${t.elb ? " " + t.elb : ""} · ⚔️ ${fmt(t.power)}</div></div></div>` : ""}
+    <div class="card">🥚 البيض المفقوس <b>${fmt(p.hatched)}</b><br>🧬 التزاوج <b>${fmt(p.bred)}</b><br>🏹 الصيد <b>${fmt(p.hunts)}</b> (فوز ${fmt(p.wins)})<br>⚔️ المبارزات <b>${fmt(p.duels)}</b> (فوز ${fmt(p.duelWins)})<br>🧭 رحلات الاستكشاف <b>${fmt(p.exp)}</b> · 🛡️ غارات ناجحة <b>${fmt(p.raid)}</b><br>🗼 أعلى طابق في البرج <b>${p.tower}</b></div>
+    ${j.self ? "" : `<button class="btn" id="proVisit" style="width:100%">🏡 زيارة حظيرته</button>`}`;
+  $("#proBack").onclick = () => { buzz(); if (backFn) backFn(); else { sub = ""; VIEWS.more(); } };
+  const v = $("#proVisit"); if (v) v.onclick = () => { buzz(); farmOpen(uid); };
+};
 
 // ---- الملف والمخزن ----
 SUBS.profile = () => {

@@ -219,11 +219,12 @@ const ACTIONS = {
     worldSave: (P, a) => World.save(P, a && a.world),
     raid: (P, a, now) => Raid.raid(P, a, now),
     allyDonate: (P, a) => Map_.allyDonate(P, a),
+    profileOf: (P, a, now) => require("./profile").of(P, a, now),
     towerClimb: (P, a, now) => require("./tower").climb(P, now, rng),
     towerWeek: (P, a, now) => require("./tower").claimWeek(P, now),
     towerTop() {
         const all = store.all();
-        const rows = all.filter(p => p.tower && p.tower.f > 1).map(p => ({ name: p.name, tg: Cos.tag(p), v: p.tower.f - 1 })).sort((a, b) => b.v - a.v).slice(0, 10);
+        const rows = all.filter(p => p.tower && p.tower.f > 1).map(p => ({ uid: String(p.id), name: p.name, tg: Cos.tag(p), v: p.tower.f - 1 })).sort((a, b) => b.v - a.v).slice(0, 10);
         return { ok: true, rows };
     },
     expStart: (P, a, now) => Exp.start(P, a, now),
@@ -262,8 +263,8 @@ const ACTIONS = {
     frameBuy: (P, a) => require("./cosmetics").frameBuy(P, a),
     top() {
         const all = store.all();
-        const power = all.filter(p => p.pets.length).map(p => ({ name: p.name, tg: Cos.tag(p), v: E.totalPower(p) })).sort((a, b) => b.v - a.v).slice(0, 10);
-        const rich = all.map(p => ({ name: p.name, tg: Cos.tag(p), v: p.coins })).sort((a, b) => b.v - a.v).slice(0, 10);
+        const power = all.filter(p => p.pets.length).map(p => ({ uid: String(p.id), name: p.name, tg: Cos.tag(p), v: E.totalPower(p) })).sort((a, b) => b.v - a.v).slice(0, 10);
+        const rich = all.map(p => ({ uid: String(p.id), name: p.name, tg: Cos.tag(p), v: p.coins })).sort((a, b) => b.v - a.v).slice(0, 10);
         return { ok: true, top: { power, rich } };
     }
 };

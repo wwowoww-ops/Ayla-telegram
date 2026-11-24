@@ -25,5 +25,6 @@ SUBS.tower = async () => {
   const go = $("#twGo"); if (go) go.onclick = () => { buzz(); run("towerClimb", {}, j => { towerRes = j.ok ? j : null; if (j.win) { sfx("big"); sparkle(innerWidth / 2, 200); } SUBS.tower(); }); };
   const wk = $("#twWk"); if (wk) wk.onclick = () => run("towerWeek", {}, () => SUBS.tower());
   const j = await act("towerTop", {});
-  const el = $("#twTop"); if (el && j && j.ok) el.innerHTML = j.rows.length ? j.rows.map((r, i) => `<div class="row" style="padding:4px 0"><b style="width:26px">${["🥇", "🥈", "🥉"][i] || i + 1}</b><span class="grow">${nameTag(r.name, r.tg)}</span><b>${r.v}</b></div>`).join("") : "لا أحد صعد بعد. كن الأول!";
+  const el = $("#twTop"); if (el && j && j.ok) el.innerHTML = j.rows.length ? j.rows.map((r, i) => `<div class="row" data-pro="${esc(r.uid || "")}" style="padding:4px 0;cursor:pointer"><b style="width:26px">${["🥇", "🥈", "🥉"][i] || i + 1}</b><span class="grow">${nameTag(r.name, r.tg)}</span><b>${r.v}</b></div>`).join("") : "لا أحد صعد بعد. كن الأول!";
+  document.querySelectorAll("#twTop [data-pro]").forEach(b => b.onclick = () => { if (b.dataset.pro) { buzz(); SUBS.pro(b.dataset.pro, () => SUBS.tower()); } });
 };

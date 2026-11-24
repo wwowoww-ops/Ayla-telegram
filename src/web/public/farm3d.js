@@ -580,8 +580,9 @@ async function farmVisitList(q) {
   const load = async () => {
     const j = await act("visitList", { q: $("#fQ").value });
     if (!j || !j.ok) return;
-    $("#fList").innerHTML = j.list.length ? j.list.map(r => `<div class="card row"><div style="font-size:30px">${r.emoji}</div><div class="grow"><b>${nameTag(r.name, r.tg)}</b><div class="dim">${r.power === null ? "🔒" : "⚔️ " + fmt(r.power)} · 🐾 ${r.pets}</div></div><button class="btn sm" data-u="${esc(r.uid)}">زيارة</button></div>`).join("") : `<div class="dim">لا يوجد لاعبون مطابقون.</div>`;
+    $("#fList").innerHTML = j.list.length ? j.list.map(r => `<div class="card row"><div style="font-size:30px">${r.emoji}</div><div class="grow"><b>${nameTag(r.name, r.tg)}</b><div class="dim">${r.power === null ? "🔒" : "⚔️ " + fmt(r.power)} · 🐾 ${r.pets}</div></div><button class="btn sm sec" data-pr="${esc(r.uid)}">👤</button><button class="btn sm" data-u="${esc(r.uid)}">زيارة</button></div>`).join("") : `<div class="dim">لا يوجد لاعبون مطابقون.</div>`;
     $("#fList").querySelectorAll("[data-u]").forEach(b => b.onclick = () => { buzz(); farmOpen(b.dataset.u); });
+    $("#fList").querySelectorAll("[data-pr]").forEach(b => b.onclick = () => { buzz(); SUBS.pro(b.dataset.pr, () => SUBS.visit && SUBS.visit()); });
   };
   $("#fGo").onclick = load;
   $("#fQ").onkeydown = e => { if (e.key === "Enter") load(); };
