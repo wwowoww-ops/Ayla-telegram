@@ -8,8 +8,9 @@ const GD_HAIR = [0x6b4a2a, 0x3a2a1a, 0xe0a84a, 0xff6ab0, 0x9a6aff];
 let gdSel = null;
 
 SUBS.garden = async () => {
-  view.innerHTML = back + `<h2>🌸 حديقة الجنيات</h2><div class="dim" style="margin-bottom:6px">جنياتك تتجوّل في حديقتها. اسحب لتدور، واضغط على جنية لتعرف بَفها.</div>
+  view.innerHTML = back + `<h2>🌸 حديقة الجنيات</h2><div class="dim" style="margin-bottom:6px">جنياتك تتجوّل في حديقتها. اسحب بإصبع للدوران، وبإصبعين للتحريك والتكبير/التصغير، واضغط على جنية لتعرف بَفها.</div>
     <canvas id="gdC" style="width:100%;height:56vh;min-height:280px;border-radius:16px;display:block;touch-action:none;background:#bfe8ff"></canvas>
+    <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm sec" id="gdIn">➕ تكبير</button><button class="btn sm sec" id="gdOut">➖ تصغير</button><button class="btn sm sec" id="gdRst">🎯 إعادة</button></div>
     <div id="gdInfo" class="card" style="margin-top:8px"><span class="dim">${(S.fairies || []).length ? "اضغط على جنية…" : "لا جنيات بعد. اصطدها بعد الفوز في الصيد أو اشترِها من متجر الجنيات."}</span></div>
     <div class="scroll-x" id="gdChips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px">${(S.fairies || []).map(f => `<button class="pick" data-fid="${f.id}">${f.emoji} ${esc(f.name)}</button>`).join("")}</div>`;
   bindBack();
@@ -105,17 +106,27 @@ function gardenInit(c) {
   const place = () => { camera.position.set(tgt.x + Math.sin(az) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z + Math.cos(az) * Math.cos(el) * dist); camera.lookAt(tgt); };
   const resize = () => { const w = c.clientWidth || 360, h = c.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
   resize(); window.addEventListener("resize", resize);
-  let down = null, moved = 0;
-  c.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; moved = 0; try { c.setPointerCapture(e.pointerId); } catch (x) { /* لا شيء */ } });
-  c.addEventListener("pointermove", e => { if (!down) return; const dx = e.clientX - down[0], dy = e.clientY - down[1]; moved += Math.abs(dx) + Math.abs(dy); az -= dx * 0.008; el = Math.max(0.25, Math.min(1.2, el + dy * 0.005)); down = [e.clientX, e.clientY]; });
+  let down = null, moved = 0; const ptr = new Map(); let pinch = null;
+  const pan = { x: 0, z: 0 }, clampPan = () => { pan.x = Math.max(-30, Math.min(30, pan.x)); pan.z = Math.max(-30, Math.min(30, pan.z)); };
+  const panBy = (dx, dy) => { const k = dist * 0.0018; pan.x += -Math.cos(az) * dx * k - Math.sin(az) * dy * k; pan.z += Math.sin(az) * dx * k - Math.cos(az) * dy * k; clampPan(); gdSel = null; };
+  const zoom = f => { dist = Math.max(8, Math.min(55, dist * f)); };
+  const two = () => { const p = [...ptr.values()]; return { d: Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) || 1, x: (p[0][0] + p[1][0]) / 2, y: (p[0][1] + p[1][1]) / 2 }; };
+  c.addEventListener("pointerdown", e => { ptr.set(e.pointerId, [e.clientX, e.clientY]); down = [e.clientX, e.clientY]; moved = 0; if (ptr.size === 2) pinch = two(); try { c.setPointerCapture(e.pointerId); } catch (x) { /* لا شيء */ } });
+  c.addEventListener("pointermove", e => {
+    if (!ptr.has(e.pointerId)) return; ptr.set(e.pointerId, [e.clientX, e.clientY]);
+    if (ptr.size >= 2) { const n = two(); if (pinch) { zoom(pinch.d / n.d); panBy(n.x - pinch.x, n.y - pinch.y); } pinch = n; moved = 99; return; }
+    if (!down) return; const dx = e.clientX - down[0], dy = e.clientY - down[1]; moved += Math.abs(dx) + Math.abs(dy); az -= dx * 0.008; el = Math.max(0.25, Math.min(1.35, el + dy * 0.005)); down = [e.clientX, e.clientY];
+  });
+  const endP = e => { ptr.delete(e.pointerId); if (ptr.size < 2) pinch = null; };
+  c.addEventListener("pointercancel", endP);
   const ray = new T.Raycaster(), ndc = new T.Vector2();
   c.addEventListener("pointerup", e => {
-    const was = down; down = null; if (!was || moved > 8) return;
+    const was = down; down = null; endP(e); if (!was || moved > 8) return;
     const r = c.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
     const hits = ray.intersectObjects(fairies.map(o => o.g), true);
     for (const h of hits) { let o = h.object; while (o && !(o.userData && o.userData.fid)) o = o.parent; if (o) { select(o.userData.fid); return; } }
   });
-  c.addEventListener("wheel", e => { e.preventDefault(); dist = Math.max(14, Math.min(48, dist + e.deltaY * 0.02)); }, { passive: false });
+  c.addEventListener("wheel", e => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.1 : 0.9); }, { passive: false });
   const sel = () => fairies.find(o => o.f.id === gdSel);
   function select(id) {
     gdSel = id; const o = sel(), box = $("#gdInfo"); if (!o || !box) return; buzz();
@@ -124,6 +135,8 @@ function gardenInit(c) {
       <button class="btn sm" id="gdMng" style="margin-top:8px">⚙️ إدارة الجنية</button>`;
     $("#gdMng").onclick = () => { buzz(); SUBS.fairies(); };
   }
+  const bz = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = () => { buzz(); fn(); }; };
+  bz("gdIn", () => zoom(0.8)); bz("gdOut", () => zoom(1.25)); bz("gdRst", () => { pan.x = pan.z = 0; gdSel = null; dist = 34; el = 0.62; });
   document.querySelectorAll("#gdChips [data-fid]").forEach(b => b.onclick = () => select(Number(b.dataset.fid)));
 
   // ---- الحلقة ----
@@ -145,8 +158,8 @@ function gardenInit(c) {
     flies.forEach(q => { q.o.position.set(q.x + Math.sin(t * q.sp + q.p) * 2, q.y + Math.sin(t * 1.3 + q.p) * 0.5, q.z + Math.cos(t * q.sp * 0.8 + q.p) * 2); q.o.scale.setScalar(0.07 + 0.04 * (1 + Math.sin(t * 3 + q.p)) * (night ? 1.4 : 0.8)); });
     orbs.forEach(q => { q.o.position.y += Math.sin(t * 1.5 + q.p) * 0.004; });
     clouds.forEach(q => { q.position.x += dt * 0.6; if (q.position.x > 40) q.position.x = -40; });
-    const f0 = sel(); if (f0) { want.set(f0.g.position.x, 2, f0.g.position.z); } else want.set(0, 2, 0);
-    tgt.lerp(want, Math.min(1, dt * 2)); if (!down && !f0) az += dt * 0.04;
+    const f0 = sel(); if (f0) { want.set(f0.g.position.x, 2, f0.g.position.z); pan.x = f0.g.position.x; pan.z = f0.g.position.z; } else want.set(pan.x, 2, pan.z);
+    tgt.lerp(want, Math.min(1, dt * 2)); 
     place(); renderer.render(scene, camera);
   };
   gdSel = null; place(); requestAnimationFrame(loop);
