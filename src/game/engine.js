@@ -53,7 +53,11 @@ const starMult = st => 1 + 5 * st;
 const lvMult = lv => 1 + 0.09 * (lv - 1);
 // رتب الزعماء المروَّضين (ندرات خاصة بهم): كل رتبة ترفع القوة والدخل 35% فوق الأساس
 const BOSS_RANKS = [["مروَّض", "🐾"], ["مهيب", "🔥"], ["جبّار", "⚡"], ["ملكي", "👑"], ["خالد", "♾️"]];
-const BOSS_RANK_COST = [200, 600, 1500, 4000];                       // بلورات للانتقال إلى الرتبة التالية
+// ترقية رتبة الزعيم صعبة: بلورات + مستوى + انتصارات على الزعماء منذ الرتبة السابقة + جوهر عنصره + مهلة انتظار
+const BOSS_RANK_REQ = [
+    { cry: 400, lv: 15, kills: 3, ess: 10, wait: 12 }, { cry: 1200, lv: 30, kills: 6, ess: 30, wait: 24 },
+    { cry: 3000, lv: 50, kills: 10, ess: 80, wait: 48 }, { cry: 8000, lv: 80, kills: 15, ess: 200, wait: 72 }];
+const BOSS_RANK_COST = BOSS_RANK_REQ.map(r => r.cry);
 const bossM = pet => 1 + 0.35 * (pet.brk || 0);
 const isBoss = pet => !!(D.SPECIES[pet.sp] && D.SPECIES[pet.sp].boss);
 const usedSlots = P => P.pets.filter(p => !isBoss(p)).length;
@@ -263,7 +267,7 @@ function feedCrystal(P, petId, n, now) {
     return { ok: true, msg: "🔷 أشبعت حيوانك بـ " + n + " بلورة (+" + (10 * n) + " شبع)" };
 }
 
-function starCost(pet) { return Math.floor(D.EGGS[Math.min(6, spOf(pet).r)].price * 1.8 * Math.pow(pet.st + 1, 2)); }
+function starCost(pet) { return (isBoss(pet) ? 5 : 1) * Math.floor(D.EGGS[Math.min(6, spOf(pet).r)].price * 1.8 * Math.pow(pet.st + 1, 2)); }
 function upgrade(P, petId) {
     const pet = getPet(P, petId);
     if (!pet) return fail("الحيوان غير موجود.");
@@ -506,7 +510,7 @@ function release(P, petId) {
     return { ok: true, back, msg: "تخليت عنه وحصلت على " + fmt(back) + " 🪙" + (crys ? " + 🔷 " + crys : "") + (isBoss(p) ? "\n🐾 صار بإمكانك ترويض زعيم آخر." : "") };
 }
 
-module.exports = { BOSS_RANKS, BOSS_RANK_COST, BOSS_PEN, isBoss, usedSlots,
+module.exports = { BOSS_RANK_REQ, BOSS_RANKS, BOSS_RANK_COST, BOSS_PEN, isBoss, usedSlots,
     fmt, dur, newPlayer, getPet, spOf, hungerNow, xpNeed, power, incomePerHour, setIncomeHook, incomeMult, grade, totalPower, incomeAll,
     hungerFactor, addXp, makePet, buyEgg, hatch, buyFood, slotPrice, hatchPrice, expandSlots, expandHatch,
     train, play, feed, starCost, upgrade, collect, daily, hunt, breedCost, breedCheck, breed,

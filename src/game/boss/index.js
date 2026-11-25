@@ -205,7 +205,7 @@ function finalize(chatId, parts, rep, now) {
                 got.push(D.EGGS[5].e + " " + D.EGGS[5].n);
             }
             const bpet = P.pets.find(x => E.isBoss(x));
-            if (killed && bpet) { E.addXp(bpet, E.xpNeed(bpet.lv)); got.push("🐲 " + (bpet.nick || E.spOf(bpet).n) + " كبر مع النصر (مستوى " + bpet.lv + ")"); }
+            if (killed && bpet) { bpet.bk = (bpet.bk || 0) + 1; E.addXp(bpet, E.xpNeed(bpet.lv)); got.push("🐲 " + (bpet.nick || E.spOf(bpet).n) + " كبر مع النصر (مستوى " + bpet.lv + ")"); }
             if (i < 3) { try { const c = require("../../web/costumes").give(P, Math.random, true); if (c) got.push("👗 زي جديد: " + c.e + " " + c.n); } catch (e) { /* لا شيء */ } }
             if (i === 0) {
                 P.stats.bossTop = (P.stats.bossTop || 0) + 1;

@@ -50,7 +50,7 @@ SUBS.den = () => {
   }
   bs.forEach(p => {
     h += `<div class="card"><div class="row"><div>${petFace(p, 64)}</div><div class="grow"><b>${esc(p.name)}</b> <span class="tag">${p.boss.e} ${esc(p.boss.name)}</span><div class="dim">مستوى ${p.lv} · ⚔️ ${fmt(p.power)} · 💰 ${fmt(p.income)}/س</div></div></div>` +
-      (p.boss.max ? `<div class="dim" style="margin-top:8px">♾️ بلغ أعلى رتبة</div>` : `<button class="btn" data-r="${p.id}" style="margin-top:8px">⬆️ ترقية الرتبة 🔷 ${p.boss.cost} (+35% قوة ودخل)</button>`) + `</div>`;
+      (p.boss.max ? `<div class="dim" style="margin-top:8px">♾️ بلغ أعلى رتبة</div>` : (() => { const q = p.boss.req, row = (ok, t) => `<div style="${ok ? "" : "opacity:.8"}">${ok ? "✅" : "❌"} ${t}</div>`; return `<div style="margin-top:8px"><b>شروط الرتبة التالية:</b>` + row(q.lv[1] >= q.lv[0], `مستوى ${q.lv[0]} (لديك ${q.lv[1]})`) + row(q.kills[1] >= q.kills[0], `هزيمة ${q.kills[0]} زعماء بعد آخر ترقية (${q.kills[1]})`) + row(q.ess[1] >= q.ess[0], `${q.ess[2]} ×${q.ess[0]} (${q.ess[1]})`) + row(q.cry[1] >= q.cry[0], `🔷 ${q.cry[0]} (${q.cry[1]})`) + row(!q.wait, q.wait ? "انتظار " + Math.ceil(q.wait / 3600e3) + " ساعة" : "المهلة انتهت") + `</div><button class="btn" data-r="${p.id}" style="margin-top:8px">⬆️ ترقية الرتبة (+35% قوة ودخل)</button>`; })()) + `</div>`;
   });
   h += `<div class="dim" style="margin-top:8px">الرتب: 🐾 مروَّض ← 🔥 مهيب ← ⚡ جبّار ← 👑 ملكي ← ♾️ خالد. تجده في الحظيرة الخاصة 👑 داخل عالم المزرعة.</div>`;
   view.innerHTML = h; bindBack();

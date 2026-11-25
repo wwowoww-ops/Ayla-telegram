@@ -234,12 +234,19 @@ const ACTIONS = {
         require("../game/resources").add(P, "dust", n);
         return { ok: true, msg: "💗 داعبت " + (f.nick || Fy.sp(f).n) + " فنثرت لك ✨ " + n + " غبار!" };
     },
-    bossRank(P, a) {
-        const pet = E.getPet(P, int(a.id)); if (!pet || !E.isBoss(pet)) return { ok: false, msg: "ليس زعيمًا مروَّضًا." };
-        const k = pet.brk || 0, cost = E.BOSS_RANK_COST[k];
-        if (cost == null) return { ok: false, msg: "بلغ أعلى رتبة ♾️." };
-        if (!require("../game/resources").take(P, "crystal", cost)) return { ok: false, msg: "تحتاج 🔷 " + cost + " بلورة." };
-        pet.brk = k + 1; P.bestBrk = Math.max(P.bestBrk || 0, pet.brk);
+    bossRank(P, a, now) {
+        const R = require("../game/resources"), pet = E.getPet(P, int(a.id)); if (!pet || !E.isBoss(pet)) return { ok: false, msg: "ليس زعيمًا مروَّضًا." };
+        const k = pet.brk || 0, q = E.BOSS_RANK_REQ[k];
+        if (!q) return { ok: false, msg: "بلغ أعلى رتبة ♾️." };
+        const eid = "ess_" + (pet.el || E.spOf(pet).els[0]), left = (pet.brkAt || 0) + q.wait * 3600e3 - now, miss = [];
+        if (pet.lv < q.lv) miss.push("مستوى " + q.lv);
+        if ((pet.bk || 0) < q.kills) miss.push("هزيمة " + q.kills + " زعماء (لديك " + (pet.bk || 0) + ")");
+        if (R.have(P, eid) < q.ess) miss.push(R.label(eid) + " ×" + q.ess);
+        if (R.have(P, "crystal") < q.cry) miss.push("🔷 " + q.cry);
+        if (left > 0) miss.push("انتظار " + E.dur(left));
+        if (miss.length) return { ok: false, msg: "ينقصك: " + miss.join(" · ") };
+        R.take(P, "crystal", q.cry); R.take(P, eid, q.ess);
+        pet.brk = k + 1; pet.bk = 0; pet.brkAt = now; P.bestBrk = Math.max(P.bestBrk || 0, pet.brk);
         return { ok: true, msg: "ارتقى " + (pet.nick || E.spOf(pet).n) + " إلى رتبة " + E.BOSS_RANKS[pet.brk][1] + " " + E.BOSS_RANKS[pet.brk][0] + "! (+35% قوة ودخل)" };
     },
     tameStep: (P, a, now) => require("./taming").step(P, a, now),

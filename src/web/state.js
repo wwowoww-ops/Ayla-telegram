@@ -14,7 +14,7 @@ const World = require("./world");
 function petView(P, pet, now) {
     const sp = D.SPECIES[pet.sp], r = D.RARITIES[sp.r], el = D.ELEMENTS[pet.el];
     return {
-        id: pet.id, cs: pet.cs || null, boss: E.isBoss(pet) ? { brk: pet.brk || 0, name: E.BOSS_RANKS[pet.brk || 0][0], e: E.BOSS_RANKS[pet.brk || 0][1], cost: E.BOSS_RANK_COST[pet.brk || 0] || 0, max: (pet.brk || 0) >= E.BOSS_RANKS.length - 1 } : null, sp: sp.id, name: pet.nick || sp.n, species: sp.n, emoji: sp.e,
+        id: pet.id, cs: pet.cs || null, boss: E.isBoss(pet) ? (() => { const k = pet.brk || 0, q = E.BOSS_RANK_REQ[k], eid = "ess_" + (pet.el || sp.els[0]), Rs = require("../game/resources"); return { brk: k, name: E.BOSS_RANKS[k][0], e: E.BOSS_RANKS[k][1], max: !q, req: q ? { cry: [q.cry, Rs.have(P, "crystal")], lv: [q.lv, pet.lv], kills: [q.kills, pet.bk || 0], ess: [q.ess, Rs.have(P, eid), D.RES[eid].e + " " + D.RES[eid].n], wait: Math.max(0, (pet.brkAt || 0) + q.wait * 3600e3 - now) } : null }; })() : null, sp: sp.id, name: pet.nick || sp.n, species: sp.n, emoji: sp.e,
         rar: sp.r, rarName: E.isBoss(pet) ? "زعيم · " + E.BOSS_RANKS[pet.brk || 0][0] : r.n, rarEmoji: E.isBoss(pet) ? E.BOSS_RANKS[pet.brk || 0][1] : r.e,
         el: pet.el, elName: el.n, elEmoji: el.e,
         lv: pet.lv, xp: Math.floor(pet.xp), xpNeed: E.xpNeed(pet.lv), st: pet.st,
