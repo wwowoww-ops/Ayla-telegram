@@ -215,7 +215,10 @@ function finalize(chatId, parts, rep, now) {
         }
         if (killed && !P.tamed && (i === 0 || (r.score >= rep.bossMax * PART_MIN && Math.random() < 0.2))) {
             const sid = D.BOSS_SP[kind.id];
-            if (sid) { E.makePet(P, sid, kind.el, 1.2, now, 0); P.tamed = kind.id; got.push("🐾 روّضت " + kind.n + "! صار حيوانًا عندك (زعيم واحد فقط لكل لاعب)"); }
+            if (sid) { const bp = E.makePet(P, sid, kind.el, 1.2, now, 0); P.tamed = kind.id;
+                P.pens = P.pens || [];
+                if (!P.pens.some(x => x.id === E.BOSS_PEN)) P.pens.push({ id: E.BOSS_PEN, name: "👑 حظيرة الزعماء" });
+                if (bp) bp.pen = E.BOSS_PEN; got.push("🐾 روّضت " + kind.n + "! صار حيوانًا عندك (زعيم واحد فقط لكل لاعب)"); }
         }
         store.touch(P.id);
         r.coins = coins; r.got = got; r.rank = i + 1;

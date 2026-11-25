@@ -51,9 +51,16 @@ function setHunger(pet, v, now) { pet.hg = Math.max(0, Math.min(100, v)); pet.hg
 const xpNeed = lv => floor(50 * Math.pow(lv, 1.55));
 const starMult = st => 1 + 5 * st;
 const lvMult = lv => 1 + 0.09 * (lv - 1);
+// رتب الزعماء المروَّضين (ندرات خاصة بهم): كل رتبة ترفع القوة والدخل 35% فوق الأساس
+const BOSS_RANKS = [["مروَّض", "🐾"], ["مهيب", "🔥"], ["جبّار", "⚡"], ["ملكي", "👑"], ["خالد", "♾️"]];
+const BOSS_RANK_COST = [200, 600, 1500, 4000];                       // بلورات للانتقال إلى الرتبة التالية
+const bossM = pet => 1 + 0.35 * (pet.brk || 0);
+const isBoss = pet => !!(D.SPECIES[pet.sp] && D.SPECIES[pet.sp].boss);
+const usedSlots = P => P.pets.filter(p => !isBoss(p)).length;
+const BOSS_PEN = 900;
 function power(pet) {
     const s = spOf(pet);
-    return floor(D.RARITIES[s.r].pow * s.v * pet.q * lvMult(pet.lv) * starMult(pet.st) * (pet.el2 ? 1.08 : 1) * (pet.elb ? 1.12 : 1));
+    return floor(D.RARITIES[s.r].pow * s.v * pet.q * lvMult(pet.lv) * starMult(pet.st) * (pet.el2 ? 1.08 : 1) * (pet.elb ? 1.12 : 1) * bossM(pet));
 }
 // أفضل مضاعف عنصر: الأساسي كاملًا، والثانوي بنصف أثره
 function elMult(pet, foeEl) {
@@ -63,7 +70,7 @@ function elMult(pet, foeEl) {
 }
 function incomePerHour(pet) {
     const s = spOf(pet);
-    return D.RARITIES[s.r].inc * s.v * pet.q * (1 + 0.12 * (pet.lv - 1)) * starMult(pet.st);
+    return D.RARITIES[s.r].inc * s.v * pet.q * (1 + 0.12 * (pet.lv - 1)) * starMult(pet.st) * bossM(pet);
 }
 function grade(q) { return q < 0.95 ? "C" : q < 1.05 ? "B" : q < 1.15 ? "A" : q < 1.3 ? "S" : q < 1.45 ? "SS" : "SSS"; }
 const hungerFactor = h => (h >= 50 ? 1 : h >= 20 ? 0.75 : h > 0 ? 0.5 : 0.25);
@@ -147,7 +154,7 @@ function hatchAll(P, now, rng) {
     let full = false;
     for (const egg of [...P.eggs]) {
         if (egg.readyAt > now) continue;
-        if (P.pets.length >= P.slots) { full = true; break; }
+        if (usedSlots(P) >= P.slots) { full = true; break; }
         const r = module.exports.hatch(P, egg.id, now, rng);   // عبر module.exports لتعمل بفات الجنيات المغلِّفة
         if (r.ok) out.push(r.pet);
     }
@@ -160,7 +167,7 @@ function hatch(P, eggId, now, rng) {
     if (i < 0) return fail("البيضة غير موجودة.");
     const egg = P.eggs[i];
     if (egg.readyAt > now) return fail("لم تفقس بعد. تبقى " + dur(egg.readyAt - now) + ".");
-    if (P.pets.length >= P.slots) return fail("الحظيرة ممتلئة (" + P.slots + "). وسّعها أو بع حيوانًا.");
+    if (usedSlots(P) >= P.slots) return fail("الحظيرة ممتلئة (" + P.slots + "). وسّعها أو بع حيوانًا.");
     let spId, el, q, gen = 0, elb = null;
     if (egg.pre) { ({ sp: spId, el, q, gen } = egg.pre); elb = egg.pre.elb || null; }
     else {
@@ -494,7 +501,7 @@ function release(P, petId) {
     return { ok: true, back, msg: "تخليت عنه وحصلت على " + fmt(back) + " 🪙" };
 }
 
-module.exports = {
+module.exports = { BOSS_RANKS, BOSS_RANK_COST, BOSS_PEN, isBoss, usedSlots,
     fmt, dur, newPlayer, getPet, spOf, hungerNow, xpNeed, power, incomePerHour, setIncomeHook, incomeMult, grade, totalPower, incomeAll,
     hungerFactor, addXp, makePet, buyEgg, hatch, buyFood, slotPrice, hatchPrice, expandSlots, expandHatch,
     train, play, feed, starCost, upgrade, collect, daily, hunt, breedCost, breedCheck, breed,

@@ -181,6 +181,7 @@ const ACTIONS = {
     },
     delPen(P, a) {
         const id = int(a.id);
+        if (id === E.BOSS_PEN) return { ok: false, msg: "حظيرة الزعماء لا تُحذف." };
         if (!(P.pens || []).some(x => x.id === id)) return { ok: false, msg: "حظيرة غير موجودة." };
         P.pens = P.pens.filter(x => x.id !== id);
         P.pets.forEach(p => { if (p.pen === id) { p.pen = 0; delete p.fx; delete p.fy; } });
@@ -189,6 +190,7 @@ const ACTIONS = {
     movePet(P, a) {
         const pet = E.getPet(P, int(a.id)), to = int(a.pen);
         if (!pet || !validPen(P, to)) return { ok: false, msg: "نقل غير صالح." };
+        if (E.isBoss(pet) !== (to === E.BOSS_PEN)) return { ok: false, msg: "حظيرة الزعماء للزعماء المروَّضين فقط، وهم لا يغادرونها." };
         pet.pen = to; delete pet.fx; delete pet.fy;
         return { ok: true, msg: "تم النقل." };
     },
@@ -196,7 +198,8 @@ const ACTIONS = {
         const from = int(a.from), to = int(a.to);
         if (!validPen(P, to) || !(from === -1 || validPen(P, from))) return { ok: false, msg: "نقل غير صالح." };
         let n = 0;
-        P.pets.forEach(p => { if ((from === -1 || (p.pen || 0) === from) && (p.pen || 0) !== to) { p.pen = to; delete p.fx; delete p.fy; n++; } });
+        if (to === E.BOSS_PEN) return { ok: false, msg: "حظيرة الزعماء للزعماء المروَّضين فقط." };
+        P.pets.forEach(p => { if (!E.isBoss(p) && (from === -1 || (p.pen || 0) === from) && (p.pen || 0) !== to) { p.pen = to; delete p.fx; delete p.fy; n++; } });
         return n ? { ok: true, msg: "تم نقل " + n + " حيوان." } : { ok: false, msg: "لا حيوانات لنقلها." };
     },
     place(P, a) {
@@ -230,6 +233,14 @@ const ACTIONS = {
         const n = 1 + Math.floor(Fy.sp(f).r / 2); P.gcare[f.id] = now;
         require("../game/resources").add(P, "dust", n);
         return { ok: true, msg: "💗 داعبت " + (f.nick || Fy.sp(f).n) + " فنثرت لك ✨ " + n + " غبار!" };
+    },
+    bossRank(P, a) {
+        const pet = E.getPet(P, int(a.id)); if (!pet || !E.isBoss(pet)) return { ok: false, msg: "ليس زعيمًا مروَّضًا." };
+        const k = pet.brk || 0, cost = E.BOSS_RANK_COST[k];
+        if (cost == null) return { ok: false, msg: "بلغ أعلى رتبة ♾️." };
+        if (!require("../game/resources").take(P, "crystal", cost)) return { ok: false, msg: "تحتاج 🔷 " + cost + " بلورة." };
+        pet.brk = k + 1;
+        return { ok: true, msg: "ارتقى " + (pet.nick || E.spOf(pet).n) + " إلى رتبة " + E.BOSS_RANKS[pet.brk][1] + " " + E.BOSS_RANKS[pet.brk][0] + "! (+35% قوة ودخل)" };
     },
     cosBuy: (P, a) => require("./costumes").buy(P, String(a.id)),
     cosWear: (P, a) => require("./costumes").wear(P, a.pet, String(a.id)),

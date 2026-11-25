@@ -85,11 +85,12 @@ function recycleValue(P, pet) {
     return { crystal: Math.max(1, Math.round(RC[r] * mult)), ess };
 }
 const posted = (P, pet) => { try { return require("./posts").isPosted(P, pet.id); } catch (e) { return false; } };
-const protectedPet = (P, pet) => pet.id === P.main || pet.st > 0 || E.isElite(pet) || posted(P, pet);
+const protectedPet = (P, pet) => pet.id === P.main || E.isBoss(pet) || pet.st > 0 || E.isElite(pet) || posted(P, pet);
 function recycle(P, ids) {
     const list = [];
     for (const id of ids) { const p = E.getPet(P, Number(id)); if (p && !list.includes(p)) list.push(p); }
     if (!list.length) return fail("لا حيوانات للتدوير.");
+    if (list.some(p => E.isBoss(p))) return fail("الزعماء المروَّضون لا يُدوَّرون.");
     if (list.some(p => p.id === P.main)) return fail("لا يمكن تدوير حيوانك الأساسي.");
     if (P.pets.length - list.length < 1) return fail("يجب أن يبقى لك حيوان واحد على الأقل.");
     let crystal = 0; const ess = {};

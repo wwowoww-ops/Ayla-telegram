@@ -26,3 +26,19 @@ SUBS.costumes = () => {
   view.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { buzz(); run("cosWear", { pet: csPet, id: b.dataset.w }, () => SUBS.costumes()); });
   view.querySelectorAll("[data-b]").forEach(b => b.onclick = () => { buzz("medium"); run("cosBuy", { id: b.dataset.b }, () => SUBS.costumes()); });
 };
+
+// حظيرة الزعماء: زعيمك المروَّض ورتبته (ندرات خاصة: مروَّض ← مهيب ← جبّار ← ملكي ← خالد)
+SUBS.den = () => {
+  const bs = (S.pets || []).filter(p => p.boss);
+  let h = back + `<h2>👑 حظيرة الزعماء</h2>`;
+  if (!bs.length) {
+    h += `<div class="card"><b>لا زعيم مروَّض بعد</b><div class="dim" style="margin-top:6px">هزم زعيمًا مع مجموعتك: صاحب أكبر ضرر يروّضه دائمًا، وللمشاركين فرصة 20%. يُروَّض زعيم واحد فقط لكل لاعب، ويسكن حظيرة خاصة لا تأخذ من أماكن حظيرتك.</div></div>`;
+  }
+  bs.forEach(p => {
+    h += `<div class="card"><div class="row"><div>${petFace(p, 64)}</div><div class="grow"><b>${esc(p.name)}</b> <span class="tag">${p.boss.e} ${esc(p.boss.name)}</span><div class="dim">مستوى ${p.lv} · ⚔️ ${fmt(p.power)} · 💰 ${fmt(p.income)}/س</div></div></div>` +
+      (p.boss.max ? `<div class="dim" style="margin-top:8px">♾️ بلغ أعلى رتبة</div>` : `<button class="btn" data-r="${p.id}" style="margin-top:8px">⬆️ ترقية الرتبة 🔷 ${p.boss.cost} (+35% قوة ودخل)</button>`) + `</div>`;
+  });
+  h += `<div class="dim" style="margin-top:8px">الرتب: 🐾 مروَّض ← 🔥 مهيب ← ⚡ جبّار ← 👑 ملكي ← ♾️ خالد. تجده في الحظيرة الخاصة 👑 داخل عالم المزرعة.</div>`;
+  view.innerHTML = h; bindBack();
+  view.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { buzz("medium"); run("bossRank", { id: Number(b.dataset.r) }, () => SUBS.den()); });
+};

@@ -14,8 +14,8 @@ const World = require("./world");
 function petView(P, pet, now) {
     const sp = D.SPECIES[pet.sp], r = D.RARITIES[sp.r], el = D.ELEMENTS[pet.el];
     return {
-        id: pet.id, cs: pet.cs || null, sp: sp.id, name: pet.nick || sp.n, species: sp.n, emoji: sp.e,
-        rar: sp.r, rarName: r.n, rarEmoji: r.e,
+        id: pet.id, cs: pet.cs || null, boss: E.isBoss(pet) ? { brk: pet.brk || 0, name: E.BOSS_RANKS[pet.brk || 0][0], e: E.BOSS_RANKS[pet.brk || 0][1], cost: E.BOSS_RANK_COST[pet.brk || 0] || 0, max: (pet.brk || 0) >= E.BOSS_RANKS.length - 1 } : null, sp: sp.id, name: pet.nick || sp.n, species: sp.n, emoji: sp.e,
+        rar: sp.r, rarName: E.isBoss(pet) ? "زعيم · " + E.BOSS_RANKS[pet.brk || 0][0] : r.n, rarEmoji: E.isBoss(pet) ? E.BOSS_RANKS[pet.brk || 0][1] : r.e,
         el: pet.el, elName: el.n, elEmoji: el.e,
         lv: pet.lv, xp: Math.floor(pet.xp), xpNeed: E.xpNeed(pet.lv), st: pet.st,
         q: pet.q, grade: E.grade(pet.q), gen: pet.gen || 0,
