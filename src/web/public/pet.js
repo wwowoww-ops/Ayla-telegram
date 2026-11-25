@@ -47,7 +47,7 @@ function openPet(id) {
       <button class="btn bad" data-a="release">🗑️ تخلٍّ</button>
     </div>
     ${renaming ? `<div class="row" style="margin-top:10px"><input id="nm" maxlength="16" placeholder="الاسم الجديد" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:#0e0a18;color:#fff"><button class="btn sm" data-a="saveName">حفظ</button></div>` : ""}
-    ${releasing ? `<div class="card" style="margin-top:10px;border-color:var(--bad)">هل أنت متأكد؟ لا يمكن التراجع.<div class="row" style="margin-top:8px"><button class="btn bad sm" data-a="confirmRelease">نعم، تخلَّ</button><button class="btn sec sm" data-a="cancel">إلغاء</button></div></div>` : ""}
+    ${releasing ? `<div class="card" style="margin-top:10px;border-color:var(--bad)">${p.boss ? "⚠️ زعيم مروَّض! تتخلى عنه نهائيًا ويعود لك نصف بلورات رتبته، ويُفتح لك ترويض زعيم آخر.<br>" : ""}هل أنت متأكد؟ لا يمكن التراجع.<div class="row" style="margin-top:8px"><button class="btn bad sm" data-a="confirmRelease">نعم، تخلَّ</button><button class="btn sec sm" data-a="cancel">إلغاء</button></div></div>` : ""}
   </div>`;
   $("#sheet").classList.remove("hidden");
   const panel = $("#sheet .panel");

@@ -22,7 +22,7 @@ function start(P, kind, now) {
 }
 function create(P, t, now) {
     const sid = D.BOSS_SP[t.kind]; if (!sid) return null;
-    const bp = E.makePet(P, sid, t.el, 1.2, now, 0); P.tamed = t.kind;
+    const bp = E.makePet(P, sid, t.el, 1.2, now, 0); P.tamed = t.kind; P.tamedEver = true;
     P.pens = P.pens || [];
     if (!P.pens.some(x => x.id === E.BOSS_PEN)) P.pens.push({ id: E.BOSS_PEN, name: "👑 حظيرة الزعماء" });
     if (bp) bp.pen = E.BOSS_PEN;

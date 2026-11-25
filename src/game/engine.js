@@ -494,11 +494,16 @@ function release(P, petId) {
     const p = getPet(P, petId);
     if (!p) return fail("غير موجود.");
     if (P.pets.length <= 1) return fail("لا يمكنك التخلي عن آخر حيوان.");
-    const back = clampCoins(D.EGGS[Math.min(6, spOf(p).r)].price * 0.1 * (1 + p.st));
+    const back = isBoss(p) ? 0 : clampCoins(D.EGGS[Math.min(6, spOf(p).r)].price * 0.1 * (1 + p.st));
+    let crys = 0;
+    if (isBoss(p)) {                                                  // التخلي عن زعيم مروَّض: يُفتح ترويض غيره، ويعود نصف بلورات رتبته
+        for (let i = 0; i < (p.brk || 0); i++) crys += Math.floor(BOSS_RANK_COST[i] / 2);
+        delete P.tamed; if (crys) require("./resources").add(P, "crystal", crys);
+    }
     P.pets.splice(P.pets.indexOf(p), 1);
     P.coins = clampCoins(P.coins + back);
     if (P.main === p.id) P.main = P.pets[0].id;
-    return { ok: true, back, msg: "تخليت عنه وحصلت على " + fmt(back) + " 🪙" };
+    return { ok: true, back, msg: "تخليت عنه وحصلت على " + fmt(back) + " 🪙" + (crys ? " + 🔷 " + crys : "") + (isBoss(p) ? "\n🐾 صار بإمكانك ترويض زعيم آخر." : "") };
 }
 
 module.exports = { BOSS_RANKS, BOSS_RANK_COST, BOSS_PEN, isBoss, usedSlots,

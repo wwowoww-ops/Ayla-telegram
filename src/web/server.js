@@ -239,7 +239,7 @@ const ACTIONS = {
         const k = pet.brk || 0, cost = E.BOSS_RANK_COST[k];
         if (cost == null) return { ok: false, msg: "بلغ أعلى رتبة ♾️." };
         if (!require("../game/resources").take(P, "crystal", cost)) return { ok: false, msg: "تحتاج 🔷 " + cost + " بلورة." };
-        pet.brk = k + 1;
+        pet.brk = k + 1; P.bestBrk = Math.max(P.bestBrk || 0, pet.brk);
         return { ok: true, msg: "ارتقى " + (pet.nick || E.spOf(pet).n) + " إلى رتبة " + E.BOSS_RANKS[pet.brk][1] + " " + E.BOSS_RANKS[pet.brk][0] + "! (+35% قوة ودخل)" };
     },
     tameStep: (P, a, now) => require("./taming").step(P, a, now),
@@ -295,7 +295,8 @@ const ACTIONS = {
         const all = store.all();
         const power = all.filter(p => p.pets.length).map(p => ({ uid: String(p.id), name: p.name, tg: Cos.tag(p), v: E.totalPower(p) })).sort((a, b) => b.v - a.v).slice(0, 10);
         const rich = all.map(p => ({ uid: String(p.id), name: p.name, tg: Cos.tag(p), v: p.coins })).sort((a, b) => b.v - a.v).slice(0, 10);
-        return { ok: true, top: { power, rich } };
+        const boss = all.map(p => ({ p, b: p.pets.find(x => E.isBoss(x)) })).filter(x => x.b).map(x => ({ uid: String(x.p.id), name: x.p.name, tg: Cos.tag(x.p), v: E.power(x.b), e: E.spOf(x.b).e, rk: E.BOSS_RANKS[x.b.brk || 0][1], lv: x.b.lv })).sort((a, b) => b.v - a.v).slice(0, 10);
+        return { ok: true, top: { power, rich, boss } };
     }
 };
 

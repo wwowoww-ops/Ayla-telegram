@@ -16,6 +16,9 @@ const L = [
     ["dex2", "الموسوعة", "🌈", "اكتشف كل الأنواع", P => dex(P).full, { pal: "gold", metal: "silver", top: "gemrow", n: 5, side: "tendril", fx: "sparkle", hue: 1 }],
     ["angler", "الصيّاد", "🎣", "اصطد 100 مرة من البحر", P => cnt(P, "fish") >= 100, { pal: "blue", metal: "silver", top: "halo", side: "tendril", fx: "sparkle" }],
     ["seaking", "ملك البحار", "🔱", "اجمع كل أنواع الأسماك", P => { try { return require("../../web/fishing").haveCount(P) >= require("../../web/fishing").SPECIES_COUNT; } catch (e) { return false; } }, { pal: "gold", metal: "gold", top: "crown", side: "tendril", fx: "stars" }],
+    ["tamer", "مروّض الزعماء", "🐾", "روّض زعيمًا", P => !!(P.tamed || P.tamedEver), { pal: "rose", metal: "gold", top: "horns", side: "tendril", fx: "mist" }],
+    ["tamer2", "سيّد الزعماء", "👑", "ارفع زعيمك إلى رتبة ملكي", P => (P.bestBrk || 0) >= 3, { pal: "gold", metal: "gold", top: "wings", side: "tendril", fx: "sparkle" }],
+    ["tamer3", "الزعيم الخالد", "♾️", "ارفع زعيمك إلى رتبة خالد", P => (P.bestBrk || 0) >= 4, { pal: "gold", metal: "silver", top: "halo", n: 5, side: "tendril", fx: "sparkle", hue: 1 }],
     ["streak", "الوفيّ", "🔥", "14 يومًا متتاليًا", P => (P.streak || 0) >= 14, { pal: "rose", metal: "rose", top: "hearts", side: "tendril", fx: "petals" }]
 ];
 const REWARDS = L.map(([id, name, e, text, unlock, spec]) => ({ id: "rw_" + id, name: "إطار " + name, e, cat: "reward", price: null, ach: null, text, unlock, frames: 16, square: true, win: WIN, draw: compose(spec) }));

@@ -72,8 +72,8 @@ async function loadTop() {
   const j = await act("top");
   if (!j.ok) return;
   const med = ["🥇", "🥈", "🥉"];
-  const list = (title, rows, f) => `<h2>${title}</h2>` + rows.map((r, i) => `<div class="card row" data-pro="${esc(r.uid || "")}" style="cursor:pointer"><div>${med[i] || i + 1}</div><div class="grow">${nameTag(r.name, r.tg)}</div><b>${f(r.v)}</b><span class="dim">👤</span></div>`).join("");
-  view.innerHTML = back + list("🏆 الأقوى", j.top.power, v => "⚔️ " + fmt(v)) + list("💎 الأغنى", j.top.rich, v => "🪙 " + fmt(v));
+  const list = (title, rows, f) => `<h2>${title}</h2>` + rows.map((r, i) => `<div class="card row" data-pro="${esc(r.uid || "")}" style="cursor:pointer"><div>${med[i] || i + 1}</div><div class="grow">${nameTag(r.name, r.tg)}</div><b>${f(r.v, r)}</b><span class="dim">👤</span></div>`).join("");
+  view.innerHTML = back + list("🏆 الأقوى", j.top.power, v => "⚔️ " + fmt(v)) + list("💎 الأغنى", j.top.rich, v => "🪙 " + fmt(v)) + (j.top.boss && j.top.boss.length ? list("👑 أقوى الزعماء", j.top.boss, (v, r) => r.e + " " + r.rk + " Lv." + r.lv + " · ⚔️ " + fmt(v)) : "");
   bindBack();
   view.querySelectorAll("[data-pro]").forEach(b => b.onclick = () => { if (b.dataset.pro) { buzz(); SUBS.pro(b.dataset.pro, () => loadTop()); } });
 }
