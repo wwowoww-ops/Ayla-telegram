@@ -127,6 +127,7 @@ function buildState(P, now, quests) {
         exp: require("./expedition").view(P, now), expZones: require("./expedition").ZONES, expBusy: [...require("./expedition").busyIds(P)],
         tower: require("./tower").view(P, now),
         costumes: require("./costumes").view(P),
+        tame: require("./taming").view(P, now),
         fish: require("./fishing").view(P, now),
         event: require("./events").current(now),
         tradeDisc: (() => { try { return Fy.buffs(P).trade || 0; } catch (e) { return 0; } })(),

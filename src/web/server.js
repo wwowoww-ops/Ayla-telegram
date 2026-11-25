@@ -242,6 +242,9 @@ const ACTIONS = {
         pet.brk = k + 1;
         return { ok: true, msg: "ارتقى " + (pet.nick || E.spOf(pet).n) + " إلى رتبة " + E.BOSS_RANKS[pet.brk][1] + " " + E.BOSS_RANKS[pet.brk][0] + "! (+35% قوة ودخل)" };
     },
+    tameStep: (P, a, now) => require("./taming").step(P, a, now),
+    tameOffer: (P, a, now) => require("./taming").offer(P, a, now),
+    tameRetry: (P, a, now) => require("./taming").retry(P, a, now),
     cosBuy: (P, a) => require("./costumes").buy(P, String(a.id)),
     cosWear: (P, a) => require("./costumes").wear(P, a.pet, String(a.id)),
     fishCast: (P, a, now) => require("./fishing").cast(P, now, rng),

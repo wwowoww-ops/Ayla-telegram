@@ -31,8 +31,22 @@ SUBS.costumes = () => {
 SUBS.den = () => {
   const bs = (S.pets || []).filter(p => p.boss);
   let h = back + `<h2>👑 حظيرة الزعماء</h2>`;
-  if (!bs.length) {
-    h += `<div class="card"><b>لا زعيم مروَّض بعد</b><div class="dim" style="margin-top:6px">هزم زعيمًا مع مجموعتك: صاحب أكبر ضرر يروّضه دائمًا، وللمشاركين فرصة 20%. يُروَّض زعيم واحد فقط لكل لاعب، ويسكن حظيرة خاصة لا تأخذ من أماكن حظيرتك.</div></div>`;
+  const t = S.tame;
+  if (t) {
+    const mood = { love: "🥰", ok: "🙂", bad: "😠", "": "👀" }[t.mood], hrs = Math.ceil(t.left / 3600e3);
+    h += `<div class="card" style="text-align:center;border:2px solid #ffd166"><b>🐾 طقس الترويض</b>
+      <div class="dim" style="margin:4px 0">زعيم مُنهك يختبرك. جرّب أساليب مختلفة حتى تكسب ثقته (${hrs} ساعة متبقية)</div>
+      <div class="tmBoss" style="font-size:84px;line-height:1.1">${t.e}<span style="font-size:34px;margin-inline-start:-14px">${mood}</span></div>
+      <b>${esc(t.n)}</b>
+      <div class="bar" style="height:14px;border-radius:9px;background:#0003;margin:8px 0;overflow:hidden"><div style="height:100%;width:${t.trust}%;background:linear-gradient(90deg,#ff9a6a,#ffd166);transition:width .5s"></div></div>
+      <div>💞 الثقة ${t.trust}/${t.goal} · 🎯 محاولات ${t.tries}</div>
+      <div class="dim" style="margin:6px 0;font-style:italic">«${esc(t.hint)}»</div>
+      ${t.tries > 0 ? `<div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${t.apps.map(a => `<button class="btn" data-ap="${a.id}" style="flex:1 1 40%">${a.e} ${a.n}</button>`).join("")}</div>` : ""}
+      <div class="row" style="gap:6px;margin-top:8px;justify-content:center"><button class="btn sec sm" data-offer="1">💎 قربان ${t.offer}🔷 (+30 ثقة)</button>${t.canRetry ? `<button class="btn sm" data-retry="1">🔁 محاولات إضافية ${t.retryCost}🔷</button>` : ""}</div>
+      <div style="margin-top:8px;text-align:start">${t.log.slice().reverse().map(l => `<div class="dim">${esc(l)}</div>`).join("") || `<div class="dim">لم تجرّب شيئًا بعد.</div>`}</div></div>`;
+  }
+  if (!bs.length && !t) {
+    h += `<div class="card"><b>لا زعيم مروَّض بعد</b><div class="dim" style="margin-top:6px">هزم زعيمًا مع مجموعتك: صاحب أكبر ضرر يحصل على فرصة ترويض دائمًا، وللمشاركين فرصة 20%، ثم تخوض طقس الترويض هنا بتجربة الأساليب. يُروَّض زعيم واحد فقط لكل لاعب، ويسكن حظيرة خاصة لا تأخذ من أماكن حظيرتك.</div></div>`;
   }
   bs.forEach(p => {
     h += `<div class="card"><div class="row"><div>${petFace(p, 64)}</div><div class="grow"><b>${esc(p.name)}</b> <span class="tag">${p.boss.e} ${esc(p.boss.name)}</span><div class="dim">مستوى ${p.lv} · ⚔️ ${fmt(p.power)} · 💰 ${fmt(p.income)}/س</div></div></div>` +
@@ -40,5 +54,9 @@ SUBS.den = () => {
   });
   h += `<div class="dim" style="margin-top:8px">الرتب: 🐾 مروَّض ← 🔥 مهيب ← ⚡ جبّار ← 👑 ملكي ← ♾️ خالد. تجده في الحظيرة الخاصة 👑 داخل عالم المزرعة.</div>`;
   view.innerHTML = h; bindBack();
+  const done = j => { if (j && j.tamed) { buzz("heavy"); try { sfx("big"); } catch (e) { /* لا شيء */ } } SUBS.den(); };
+  view.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => { buzz(); run("tameStep", { ap: b.dataset.ap }, done); });
+  view.querySelectorAll("[data-offer]").forEach(b => b.onclick = () => { buzz("medium"); run("tameOffer", {}, done); });
+  view.querySelectorAll("[data-retry]").forEach(b => b.onclick = () => { buzz(); run("tameRetry", {}, done); });
   view.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { buzz("medium"); run("bossRank", { id: Number(b.dataset.r) }, () => SUBS.den()); });
 };
