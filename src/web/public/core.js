@@ -327,7 +327,8 @@ const IC_SVG = {
   "⚙️": `<path d="M12 2l2 2.6 3.2-.7.7 3.2 2.6 2-1.3 3 1.3 3-2.6 2-.7 3.2-3.2-.7L12 22l-2-2.6-3.2.7-.7-3.2-2.6-2 1.3-3-1.3-3 2.6-2 .7-3.2 3.2.7Z" fill="#aab4c4" ${IC_O}/><circle cx="12" cy="12" r="3.6" fill="#5a6678" ${IC_O}/><circle cx="12" cy="12" r="1.3" fill="#d8e0ec"/>`,
   "🔷": `<linearGradient id="gc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bff0ff"/><stop offset=".55" stop-color="#4aa8ff"/><stop offset="1" stop-color="#2a4ad0"/></linearGradient><path d="M12 2 20 9l-8 13L4 9Z" fill="url(#gc)" ${IC_O}/><path d="M4 9h16M12 2l-3 7 3 13 3-13-3-7" fill="none" stroke="#fff" stroke-width="1" opacity=".65"/><path d="M12 2 9 9h6Z" fill="#e8fbff" opacity=".9"/>`
 };
-const IC_RE = /(?<!\u200D)(?:🔥|💧|🌿|🪨|⚡|🔆|🌑|❄️?|🌪️?|☣️?|⚙️?|🔷)/g;
+if (typeof IC_EXTRA !== "undefined") Object.assign(IC_SVG, IC_EXTRA);
+const IC_RE = new RegExp("(?<!\\u200D)(?:" + Object.keys(IC_SVG).map(k => k.replace(/\uFE0F/g, "")).sort((x, y) => y.length - x.length).join("|") + ")\\uFE0F?(?!\\u200D)", "g");
 let _icN = 0;
 function icHTML(ch) {
   const k = ch.replace(/️/g, ""), key = Object.keys(IC_SVG).find(x => x.replace(/️/g, "") === k);
