@@ -127,6 +127,7 @@ function buildState(P, now, quests) {
         exp: require("./expedition").view(P, now), expZones: require("./expedition").ZONES, expBusy: [...require("./expedition").busyIds(P)],
         tower: require("./tower").view(P, now),
         costumes: require("./costumes").view(P),
+        ability: (() => { const a = require("../game/bossAbility").get(P); return a ? { n: a.n, d: a.d, v: require("../game/bossAbility").pct(a.v) } : null; })(),
         tame: require("./taming").view(P, now),
         fish: require("./fishing").view(P, now),
         event: require("./events").current(now),

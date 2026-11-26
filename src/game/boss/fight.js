@@ -24,6 +24,7 @@ function create(parts, boss, now, rng = Math.random) {
     const units = [];
     parts.forEach(p => p.pets.forEach(pet => {
         const fm = (p.P && Fair.bossMods(p.P)) || { atk: 0, heal: 0, hp: 0, dr: 0 };
+        if (p.P) { const BA = require("../bossAbility"); ["atk", "heal", "hp", "dr"].forEach(k => { fm[k] = (fm[k] || 0) + BA.val(p.P, k); }); }
         const pw0 = E.power(pet) * E.hungerFactor(E.hungerNow(pet, now));
         const pw = pw0 * (1 + fm.atk + (p.boost || 0));
         const maxHp = Math.max(1, floor(E.power(pet) * HP_MULT * (1 + fm.hp)));

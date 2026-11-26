@@ -32,7 +32,7 @@ function F(P, now) {
     } else f.enAt = now;
     return f;
 }
-const luckOf = P => Math.min(0.2, P.pets.filter(p => p.el === "water" || p.elb === "water" || p.el === "ice").length * 0.02);
+const luckOf = P => Math.min(0.2, P.pets.filter(p => p.el === "water" || p.elb === "water" || p.el === "ice").length * 0.02) + require("../game/bossAbility").val(P, "luck");
 const haveCount = P => Object.keys(F(P, Date.now()).col).filter(id => BY[id]).length;
 function book(P, now) {
     const f = F(P, now);

@@ -230,7 +230,7 @@ const ACTIONS = {
         const Fy = require("../game/fairies"), f = Fy.get(P, Number(a.id)); if (!f) return { ok: false, msg: "جنية غير موجودة." };
         P.gcare = P.gcare || {}; const last = P.gcare[f.id] || 0, GAP = 3 * 3600e3;
         if (now - last < GAP) return { ok: false, msg: "🧚 ما زالت مسرورة من آخر مداعبة. عد بعد " + E.dur(GAP - (now - last)) + "." };
-        const n = 1 + Math.floor(Fy.sp(f).r / 2); P.gcare[f.id] = now;
+        const n = Math.ceil((1 + Math.floor(Fy.sp(f).r / 2)) * (1 + require("../game/bossAbility").val(P, "dust"))); P.gcare[f.id] = now;
         require("../game/resources").add(P, "dust", n);
         return { ok: true, msg: "💗 داعبت " + (f.nick || Fy.sp(f).n) + " فنثرت لك ✨ " + n + " غبار!" };
     },

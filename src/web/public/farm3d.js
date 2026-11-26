@@ -174,10 +174,17 @@ function farmLayout(f, W) {
     const s = W.pens[id];
     regions[id] = { id, custom: true, c: s.c, gate: s.gate || 0, poly: s.pts.map(p => [s.c[0] + p[0], s.c[1] + p[1]]) };
   });
+  // حظيرة الزعماء المروَّضين: مكانها الخاص خلف المزرعة ما لم يحفظ اللاعب شكلًا آخر لها
+  if ((S.pens || []).some(q => q.id === 900) && !regions["900"]) {
+    const bc = [0, -(outer + 9)];
+    regions["900"] = { id: "900", custom: true, c: bc, gate: 18, poly: circlePts(5, 24).map(q => [bc[0] + q[0], bc[1] + q[1]]) };
+    for (let i = trees.length - 1; i >= 0; i--) if (Math.hypot(trees[i].x - bc[0], trees[i].z - bc[1]) < 9) trees.splice(i, 1);
+    for (let i = rocks.length - 1; i >= 0; i--) if (Math.hypot(rocks[i].x - bc[0], rocks[i].z - bc[1]) < 9) rocks.splice(i, 1);
+  }
   const def = { id: "def", def: true, c: [0, 0], gate: 6, poly: circlePts(Y + 0.9, 24) };
   if (!regions["0"]) regions["0"] = def;
   const fences = Object.values(regions);
-  fences.forEach(r => { r.biome = (W.biome && W.biome[r.def ? "0" : r.id]) || "dirt"; r.decor = decorFor(r, rnd); });
+  fences.forEach(r => { r.biome = (W.biome && W.biome[r.def ? "0" : r.id]) || (String(r.id) === "900" ? "lava" : "dirt"); r.decor = decorFor(r, rnd); });
   const regionOf = pen => regions[String(pen)] || regions["0"];
   const hatchB = bmap.hatch;
   const eggs = f.eggs.map((e, i) => ({ emoji: e.emoji, tier: e.tier, ready: e.ready, ox: 3 + (i % 4) * 0.9, oz: 2.6 + Math.floor(i / 4) * 0.9 }));
@@ -861,12 +868,23 @@ function farm3dInit(F) {
   }
   // ---- تأثيرات الحيوانات: جزيئات عنصرها + هالة الندرة + تاج الأساسي ----
   const FX_MODE = { fire: "rise", water: "rise", plant: "rise", earth: "rise", dark: "rise", poison: "rise", metal: "rise", ice: "fall", wind: "orbit", light: "orbit", thunder: "flash" };
+  // أزياء الحيوان: رموز تُرفق بالمجسّم حسب الخانة (رأس/وجه/عنق/ظهر)
+  function addCostume(p, g) {
+    const cat = S.costumes && S.costumes.cat; if (!p.cs || !cat) return;
+    const tall = window.AN3D && AN3D.tall ? AN3D.tall(p.sp) : 1.4;
+    const POS = { head: [0, tall + 0.05, 0, 0.8], face: [0, tall * 0.72, 0.45, 0.5], neck: [0, tall * 0.46, 0.35, 0.5], back: [0.5, tall * 0.62, -0.15, 0.8] };
+    Object.keys(p.cs).forEach(k => {
+      const c = cat.find(x => x.id === p.cs[k]), q = POS[k]; if (!c || !q) return;
+      const sp = new T.Sprite(new T.SpriteMaterial({ map: emojiTex(c.e), transparent: true, depthWrite: false })); sp.scale.set(q[3], q[3], 1); sp.position.set(q[0], q[1], q[2]); g.add(sp);
+      if (k === "head") p.headCs = true;
+    });
+  }
   function addFx(p, g) {                 // التاج للحيوان الأساسي فقط
     p.fx = [];
     if (p.main) { const cr = new T.Sprite(new T.SpriteMaterial({ map: emojiTex("👑"), transparent: true, depthWrite: false })); cr.scale.set(0.9, 0.9, 1); g.add(cr); p.crown = cr; }
   }
   function fxFrame(p, t) {
-    if (p.crown) { const tall = window.AN3D && AN3D.tall ? AN3D.tall(p.sp) : 1.4; p.crown.position.set(0, tall + 0.35 + Math.sin(t * 2.5) * 0.06, 0); }
+    if (p.crown) { const tall = window.AN3D && AN3D.tall ? AN3D.tall(p.sp) : 1.4; p.crown.position.set(0, tall + (p.headCs ? 0.85 : 0.35) + Math.sin(t * 2.5) * 0.06, 0); }
   }
 
   function buildEnv(L) {
@@ -1088,9 +1106,9 @@ function farm3dInit(F) {
       p.size = p.main ? 2.5 : 1.8; p.base = p.main ? 1.4 : 1.0;
       p.hd = p.hd || Math.random() * 6.28; p.anim = null; p.fx = null; p.glow = null; p.crown = null;
       const an = mkAnimal(p, p.main || L.pets.length <= (qLow() ? 10 : 28));
-      if (an) { if (p.main) addFx(p, an.g); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar) * (L.pets.length > 40 ? 0.88 : 1); petG.add(an.g); petPick.push(an.g); }
+      if (an) { p.headCs = false; addCostume(p, an.g); if (p.main) addFx(p, an.g); p.g = an.g; p.anim = an.anim; p.gs = (p.main ? 1.5 : 1.15) * (1 + 0.03 * p.rar) * (L.pets.length > 40 ? 0.88 : 1) * (p.boss ? 1.45 : 1); petG.add(an.g); petPick.push(an.g); }
       else { const art = artOn() && hasArt(p.sp); const sp = mkSprite(art ? artTex(p.sp, p.rar, p.emoji) : emojiTex(p.emoji), p.size, p.size); sp.userData = Object.assign({ kind: "pet" }, p); p.obj = sp; petG.add(sp); petPick.push(sp); }
-      const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(RAR_COLOR[p.rar] || "#ffffff"), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
+      const ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: new T.Color(p.boss ? "#ffd24d" : (RAR_COLOR[p.rar] || "#ffffff")), transparent: true, opacity: 0.9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; petG.add(ring); p.ring = ring;
       const sh = new T.Mesh(shadowGeo, new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })); sh.rotation.x = -Math.PI / 2; petG.add(sh); p.sh = sh;
     });
     L.actors.forEach(a => {

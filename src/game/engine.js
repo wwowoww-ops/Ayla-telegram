@@ -81,7 +81,7 @@ const hungerFactor = h => (h >= 50 ? 1 : h >= 20 ? 0.75 : h > 0 ? 0.5 : 0.25);
 const totalPower = P => P.pets.reduce((s, p) => s + power(p), 0);
 let incomeHook = null;                                  // مضاعِفات خارجية (تحالف، حدث أسبوعي)
 const setIncomeHook = f => { incomeHook = f; };
-const incomeMult = (P, p) => { if (!incomeHook) return 1; try { const m = incomeHook(P, p); return m > 0 ? m : 1; } catch (e) { return 1; } };
+const incomeMult = (P, p) => { const ab = 1 + require("./bossAbility").val(P, "income"); if (!incomeHook) return ab; try { const m = incomeHook(P, p); return (m > 0 ? m : 1) * ab; } catch (e) { return ab; } };
 const incomeAll = P => P.pets.reduce((s, p) => s + incomePerHour(p) * incomeMult(P, p), 0);
 
 function addXp(pet, amount) {
@@ -306,9 +306,11 @@ function daily(P, now) {
     // بيضة يومية: كلما طالت السلسلة ارتفعت الندرة (اليوم السابع وكل سابع بعده = بيضة ذهبية)
     const tier = P.streak % 7 === 0 ? 3 : P.streak >= 5 ? 2 : P.streak >= 3 ? 1 : 0;
     addEggToBag(P, tier);
+    let extra = "";
+    if (Math.random() < require("./bossAbility").val(P, "egg")) { addEggToBag(P, tier); extra = "\n🌑 ظلّ الحظ منحك بيضة إضافية!"; }
     let suit = "";
     if (P.streak % 7 === 0) { try { const c = require("../web/costumes").give(P, Math.random, true); if (c) suit = "\n👗 زي جديد: " + c.e + " " + c.n; } catch (e) { /* لا شيء */ } }
-    return { ok: true, reward, streak: P.streak, msg: "مكافأتك اليومية: " + fmt(reward) + " 🪙 + 🍖 لحمة + 🔷 " + gem + " بلورات + " + D.EGGS[tier].e + " " + D.EGGS[tier].n + " 🎒\n🔥 أيام متتالية: " + P.streak + (tier < 3 ? "\n🎁 بيضة ذهبية في اليوم " + (Math.floor(P.streak / 7) + 1) * 7 : "") + suit };
+    return { ok: true, reward, streak: P.streak, msg: "مكافأتك اليومية: " + fmt(reward) + " 🪙 + 🍖 لحمة + 🔷 " + gem + " بلورات + " + D.EGGS[tier].e + " " + D.EGGS[tier].n + " 🎒\n🔥 أيام متتالية: " + P.streak + (tier < 3 ? "\n🎁 بيضة ذهبية في اليوم " + (Math.floor(P.streak / 7) + 1) * 7 : "") + suit + extra };
 }
 
 // ---------------- الصيد ----------------

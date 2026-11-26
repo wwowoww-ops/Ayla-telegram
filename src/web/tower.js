@@ -14,8 +14,8 @@ function T(P, now) {
     const t = (P.tower = P.tower || { f: 1, en: EN_MAX, enAt: now, wk: weekKey(now), wkStart: 1, pend: 0 });
     // تجدد المحاولات
     if (t.en < EN_MAX) {
-        const n = Math.floor((now - t.enAt) / EN_EVERY);
-        if (n > 0) { t.en = Math.min(EN_MAX, t.en + n); t.enAt = t.en >= EN_MAX ? now : t.enAt + n * EN_EVERY; }
+        const ev = EN_EVERY / (1 + require("../game/bossAbility").val(P, "energy")), n = Math.floor((now - t.enAt) / ev);
+        if (n > 0) { t.en = Math.min(EN_MAX, t.en + n); t.enAt = t.en >= EN_MAX ? now : t.enAt + n * ev; }
     } else t.enAt = now;
     // أسبوع جديد: جائزة الأسبوع الماضي تنتظر الاستلام
     const wk = weekKey(now);
