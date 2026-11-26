@@ -60,6 +60,7 @@ function ensurePlayer(user, now) {
     if (!P) { P = E.newPlayer(user.id, nameOf(user), now); store.set(user.id, P); }
     else if (P.name !== nameOf(user)) { P.name = nameOf(user); store.touch(P.id); }
     try { if (Res.migrate(P)) store.touch(P.id); } catch (e) { /* لا شيء */ }
+    if (now - (P.seen || 0) > 10 * 60e3) { P.seen = now; P.cbStage = 0; store.touch(P.id); }
     // صورة تيليجرام تُحفظ ليراها غيرك في بروفايلك (رابط عام فقط)
     const ph = typeof user.photo_url === "string" && user.photo_url.length < 300 && /^https:\/\/[a-z0-9.-]+\/[\w\-./%]+$/i.test(user.photo_url) ? user.photo_url : null;
     if (ph && P.tgPhoto !== ph) { P.tgPhoto = ph; store.touch(P.id); }
